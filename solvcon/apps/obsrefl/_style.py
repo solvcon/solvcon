@@ -3,14 +3,14 @@
 
 """Style rules for the oblique-shock reflection controls."""
 
-from ..._style import RuleCatalog
+from ... import pilot
 
 __all__ = [
     'Rules',
 ]
 
 
-class Rules(RuleCatalog):
+class Rules(pilot.RuleCatalog):
     """Style roles used by the reflection controls."""
 
     @staticmethod

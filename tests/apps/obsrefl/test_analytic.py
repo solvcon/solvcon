@@ -23,8 +23,8 @@ import numpy as np
 from numpy.testing import assert_almost_equal
 
 from solvcon.multidim.euler import EulerField
-from solvcon.pilot.apps.obsrefl import ObliqueShock, Reflection
-from solvcon.pilot.apps.obsrefl import _analytic
+from solvcon.apps.obsrefl import ObliqueShock, Reflection
+from solvcon.apps.obsrefl import _analytic
 
 
 def seed_analytic(analysis):

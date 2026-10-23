@@ -18,7 +18,7 @@ try:
     # The app derives from base.PilotFeature, which is None without the
     # pilot, so the import would fail with a TypeError, not an ImportError.
     if solvcon.HAS_PILOT:
-        from solvcon.pilot.apps.obsrefl import ReflectionSession, _app
+        from solvcon.apps.obsrefl import ReflectionSession, _app
 except ImportError:
     pilot = None
 

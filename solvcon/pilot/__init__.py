@@ -33,8 +33,10 @@ if enable:
         launch,
     )
     from . import canvas  # noqa: F401
+    from ._style import RuleCatalog  # noqa: F401
 
-# The "apps" sub-package is deliberately absent from the imports above.
+# The applications live in the top-level "solvcon.apps" package, outside the
+# pilot; the pilot only launches them.
 
 # NOTE: intentionally omit __all__ for now
 

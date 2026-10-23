@@ -33,6 +33,7 @@ from .. import _pilot_core as _pcore
 
 __all__ = [  # noqa: F822
     'LinePlotWidget',
+    'plot_array',
 ]
 
 
@@ -165,7 +166,7 @@ class LinePlotWidget(QWidget):
             return None
         mapped = self._log_model
         mapped.margin = self.model.margin
-        self._log_series.set_data(_array(xs), _array(ys))
+        self._log_series.set_data(plot_array(xs), plot_array(ys))
         if mapped.auto_view:
             mapped.autoscale()
         return mapped.view_limits()
@@ -378,7 +379,8 @@ class LinePlotWidget(QWidget):
             top += metrics.height()
 
 
-def _array(values):
+def plot_array(values):
+    """Copy values into the float64 array a plot series takes."""
     return core.SimpleArrayFloat64(array=np.asarray(values, dtype='float64'))
 
 

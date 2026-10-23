@@ -13,8 +13,8 @@ shock, and the flow leaves through the non-reflective outflow on the right.
 import math
 import unittest
 
-from solvcon.pilot.apps.obsrefl import ObliqueShock, ObliqueShockRelation
-from solvcon.pilot.apps.obsrefl._driver import check_reflection_solvable
+from solvcon.apps.obsrefl import ObliqueShock, ObliqueShockRelation
+from solvcon.apps.obsrefl._driver import check_reflection_solvable
 
 
 class ObliqueShockRelationTC(unittest.TestCase):

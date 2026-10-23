@@ -16,7 +16,7 @@ and forwards the inspector nudge to the outer GUI.
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget
 
-from ... import base, visual
+from ...pilot import base, visual
 
 from ._control import RunController
 from ._panel import SolutionPanel

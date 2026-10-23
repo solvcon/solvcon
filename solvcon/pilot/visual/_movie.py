@@ -16,7 +16,7 @@ are written out, so a long run does not pile up on the heap.
 
 Two encoders sit behind the formats: Qt Multimedia's FFmpeg backend for
 MP4, Pillow for GIF and WebP.  Either can be missing from a build, so
-:func:`_default_suffix` names one the build can write.
+:func:`default_movie_suffix` names one the build can write.
 """
 
 import os
@@ -54,6 +54,7 @@ os.environ.setdefault('QT_FFMPEG_ENCODING_HW_DEVICE_TYPES', ',')
 
 __all__ = [
     'MovieRecorder',
+    'default_movie_suffix',
 ]
 
 
@@ -71,7 +72,7 @@ def _can_write_mp4():
     return QMediaFormat.FileFormat.MPEG4 in formats
 
 
-def _default_suffix():
+def default_movie_suffix():
     """The suffix a new movie is named with.
 
     MP4 leads where there is an encoder for it, playing where neither

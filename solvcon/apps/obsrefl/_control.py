@@ -6,7 +6,7 @@
 
 from PySide6.QtCore import QTimer
 
-from ... import visual
+from ...pilot import visual
 
 from ._driver import check_reflection_solvable
 from ._session import ReflectionSession

@@ -14,7 +14,7 @@ is drawn, and the plot follows it.
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 
-from ...visual import _plot
+from ...pilot import visual
 
 __all__ = [  # noqa: F822
     'AnalysisLinePlots',
@@ -26,7 +26,7 @@ class AnalysisLinePlots(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._profile = _plot.LinePlotWidget(
+        self._profile = visual.LinePlotWidget(
             title="line profile", xlabel="x", ylabel="density")
         self._computed = self._profile.add_series("computed")
         self._analytic = self._profile.add_series("analytic")
@@ -56,10 +56,9 @@ class AnalysisLinePlots(QWidget):
             self._analytic.clear_data()
         else:
             cut = session.profile(height, name)
-            self._computed.set_data(_plot._array(cut.x),
-                                    _plot._array(cut.computed))
-            self._analytic.set_data(_plot._array(cut.x),
-                                    _plot._array(cut.analytic))
+            x = visual.plot_array(cut.x)
+            self._computed.set_data(x, visual.plot_array(cut.computed))
+            self._analytic.set_data(x, visual.plot_array(cut.analytic))
             self._profile.set_ylabel(name)
         self._profile.refresh()
 

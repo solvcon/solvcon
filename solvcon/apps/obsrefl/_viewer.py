@@ -4,7 +4,7 @@
 
 """The sub-window holding the analysis plots."""
 
-from ... import base
+from ...pilot import base
 
 from ._plots import AnalysisLinePlots
 

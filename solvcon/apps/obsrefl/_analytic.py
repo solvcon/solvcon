@@ -35,8 +35,8 @@ import math
 
 import numpy as np
 
-from .... import core
-from ....multidim.euler import EulerField
+from ... import core
+from ...multidim.euler import EulerField
 
 __all__ = [
     'AngleFit',

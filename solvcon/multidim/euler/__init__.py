@@ -6,7 +6,7 @@
 Support for the multi-dimensional Euler-equation solver.
 
 The package stays free of any particular problem; a problem lives in its own
-application package under :mod:`solvcon.pilot.apps`.
+application package under :mod:`solvcon.apps`.
 """
 
 from ._field import EulerField

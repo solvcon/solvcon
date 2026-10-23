@@ -13,8 +13,8 @@ there is nothing to be said for a step that changed the field little.
 
 import unittest
 
-from solvcon.pilot.apps.obsrefl import ReflectionSession
-from solvcon.pilot.apps.obsrefl._session import RunHistory
+from solvcon.apps.obsrefl import ReflectionSession
+from solvcon.apps.obsrefl._session import RunHistory
 
 
 class RunHistoryTC(unittest.TestCase):
