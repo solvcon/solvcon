@@ -29,12 +29,10 @@ class _ResizeRelay(QObject):
 
 
 class DomainViewer(object):
-    """Own the domain sub-window and draw a run into it.
+    """Manage the sub-window to draw in a spatial domain.
 
-    The color-bar legend rides here too, as a widget laid over the
-    sub-window against the edge its owner picks.  An overlay rather than a
-    row of the layout, because the 3D widget is the layout's one child and
-    is not a Qt widget this side of the binding to be moved around.
+    The spatial domain is defined by a mesh
+    (:class:`~solvcon.core.StaticMesh`). The viewer colors it with field data.
     """
 
     #: Lift the path overlay off the z = 0 field plane so it is not
@@ -44,7 +42,7 @@ class DomainViewer(object):
     def __init__(self, mgr):
         self._mgr = mgr
         # Owner-supplied callbacks: `closed` fires when the sub-window
-        # closes from any source, `mesh_updated` after a run sets the mesh.
+        # closes from any source, `mesh_updated` after the mesh is set.
         self.closed = None
         self.mesh_updated = None
         self._viewer = None
@@ -95,13 +93,24 @@ class DomainViewer(object):
         return None if self._subwin is None else self._subwin.widget()
 
     def show_bar(self, placement):
-        """Stand the legend against ``placement``, or take it away."""
+        """Stand the legend against ``placement``, or take it away.
+
+        :param placement: ``'left'`` or ``'right'`` stands the legend
+            upright against that edge of the sub-window; ``'upper'`` or
+            ``'lower'`` lays it across the top or bottom edge; ``'off'``
+            takes it away.
+        """
         self._placement = placement
         self._place_bar()
 
     def show_scale(self, lo, hi):
         """Give the legend the range it is to draw, whether or not it is
-        standing; a bar built later opens on the last scale seen."""
+        standing; a bar built later opens on the last scale seen.
+
+        :param lo: The field value at the low end of the color ramp.
+        :param hi: The field value at the high end.  The legend stays blank
+            when either end is None or ``hi`` is not above ``lo``.
+        """
         self._scale = (lo, hi)
         if self._bar is not None:
             self._bar.show_scale(lo, hi)
@@ -151,7 +160,7 @@ class DomainViewer(object):
 
     def _on_subwin_closed(self):
         # Reached from the sub-window's close event; drop the widgets before
-        # Qt frees them, then tell the owner so it can stop the march.
+        # Qt frees them, then tell the owner so it can stop drawing.
         self._drop_bar()
         self._viewer = None
         self._subwin = None
@@ -161,7 +170,7 @@ class DomainViewer(object):
             self.closed()
 
     def update_mesh(self, mesh):
-        """Set the viewer mesh so the inspector can report the run.
+        """Set the viewer mesh so the inspector can report it.
 
         Reusing an open viewer raises no sub-window activation, so the
         :attr:`mesh_updated` callback is what nudges the inspector.
@@ -194,7 +203,7 @@ class DomainViewer(object):
         return self._viewer.measureDistance(*path)
 
     def draw_field(self, verts, colors, indices):
-        """Recolor the field triangles of the current frame."""
+        """Recolor the field triangles over the mesh."""
         if self._viewer is None:
             return
         self._viewer.updateColorField(verts, colors, indices)
