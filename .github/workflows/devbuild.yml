@@ -260,6 +260,8 @@ jobs:
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtGui.abi3.so
           install_name_tool -add_rpath $(qtpaths --install-prefix)/lib ${PYSIDE6_PATH}/QtCore.abi3.so
         fi
+        # Without the pilot every pilot test skips, so fail here instead.
+        python3 -c "from solvcon import pilot; pilot.require('the Qt test step')"
         # A pull request skips tests/gui here, because run_pilot_pytest below
         # runs it seconds later in the pilot binary. A push and the nightly
         # run the whole suite in both Qt hosts. SOLVCON_TEST_SHOW_WINDOWS is left at the

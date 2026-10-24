@@ -10,20 +10,8 @@ are built from.
 
 from .. import _pilot_core as _pcore
 
-if _pcore.enable:
-    from . import _gui
-
-    Painter = _gui.Painter
-    PainterPanel = _gui.PainterPanel
-else:
-    # Bind only the public names: a None module attribute would shadow the
-    # real submodule import in no-GUI builds.
-    Painter = None
-    PainterPanel = None
-
-__all__ = [
-    'Painter',
-    'PainterPanel',
-]
+__all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
+    '_gui': ['Painter', 'PainterPanel'],
+})
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -115,6 +115,7 @@ def apply_shortcut(action, mgr=None):
     if not oid:
         return
     if mgr is None:
+        _pcore.require('a pilot shortcut')
         mgr = _pcore.RManager.instance
     resolved = mgr.resolve_shortcut(oid)
     if not resolved["known"]:
@@ -186,6 +187,7 @@ class PilotFeature(QtCore.QObject):
         :type mgr: solvcon.pilot.RManager
         """
         self._mgr = kw.pop('mgr')
+        _pcore.require(type(self).__name__)
         if not isinstance(self._mgr, _pcore.RManager):
             raise TypeError(
                 "'mgr' must be an instance of 'solvcon.pilot.RManager'")

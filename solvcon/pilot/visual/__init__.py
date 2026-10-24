@@ -6,60 +6,13 @@
 
 from .. import _pilot_core as _pcore
 
-if _pcore.enable:
-    from . import _colorizer
-    from . import _mesh
-    from . import _movie
-    from . import _plot
-    from . import _viewer
-
-    ColorBar = _colorizer.ColorBar
-    FieldColorizer = _colorizer.FieldColorizer
-    colormap = _colorizer.colormap
-    MeshDrawer = _mesh.MeshDrawer
-    SampleMesh = _mesh.SampleMesh
-    SampleMeshDialog = _mesh.SampleMeshDialog
-    SampleMeshFeature = _mesh.SampleMeshFeature
-    MeshStyleStatus = _mesh.MeshStyleStatus
-    GmshFileDialog = _mesh.GmshFileDialog
-    MovieRecorder = _movie.MovieRecorder
-    default_movie_suffix = _movie.default_movie_suffix
-    LinePlotWidget = _plot.LinePlotWidget
-    plot_array = _plot.plot_array
-    DomainViewer = _viewer.DomainViewer
-else:
-    # Bind only the public names: a None module attribute would shadow the
-    # real submodule import in no-GUI builds.
-    ColorBar = None
-    FieldColorizer = None
-    colormap = None
-    MeshDrawer = None
-    SampleMesh = None
-    SampleMeshDialog = None
-    SampleMeshFeature = None
-    MeshStyleStatus = None
-    GmshFileDialog = None
-    MovieRecorder = None
-    default_movie_suffix = None
-    LinePlotWidget = None
-    plot_array = None
-    DomainViewer = None
-
-__all__ = [
-    'ColorBar',
-    'DomainViewer',
-    'FieldColorizer',
-    'GmshFileDialog',
-    'LinePlotWidget',
-    'MeshDrawer',
-    'MeshStyleStatus',
-    'MovieRecorder',
-    'SampleMesh',
-    'SampleMeshDialog',
-    'SampleMeshFeature',
-    'colormap',
-    'default_movie_suffix',
-    'plot_array',
-]
+__all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
+    '_colorizer': ['ColorBar', 'FieldColorizer', 'colormap'],
+    '_mesh': ['GmshFileDialog', 'MeshDrawer', 'MeshStyleStatus',
+              'SampleMesh', 'SampleMeshDialog', 'SampleMeshFeature'],
+    '_movie': ['MovieRecorder', 'default_movie_suffix'],
+    '_plot': ['LinePlotWidget', 'plot_array'],
+    '_viewer': ['DomainViewer'],
+})
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

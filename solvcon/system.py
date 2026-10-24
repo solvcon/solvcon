@@ -72,6 +72,7 @@ def _run_pilot(argv=None):
     # unavailable in some execution modes and the module solvcon.pilot and
     # PySide6 should not be imported at module level.
     from . import pilot
+    pilot.require('the pilot application')
     # Importing the apps registers them with the pilot, which never imports
     # an app itself.
     from . import apps  # noqa: F401
@@ -89,6 +90,10 @@ def _run_pytest(extra_args=None):
     :returns: Pytest exit code.
     :rtype: int
     """
+    # Only the pilot binary reaches this mode; fail here rather than let a
+    # broken PySide6 turn every pilot test into a skip.
+    from . import pilot
+    pilot.require('the pilot test mode')
     # Import pytest locally to avoid making it a dependency to the whole
     # solvcon.
     import pytest
@@ -117,6 +122,10 @@ def setup_process(argv):
             builtins.pilot = pilot
         except ImportError as e:
             warnings.warn("failed to import pilot: {}".format(e))
+        else:
+            if not pilot.enable:
+                warnings.warn(
+                    "pilot is not available: {}".format(pilot.import_error))
 
 
 def enter_main(argv):
