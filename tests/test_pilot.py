@@ -7,13 +7,14 @@ import unittest
 from unittest import mock
 
 import solvcon
+from solvcon import testing
 try:
     from solvcon import pilot
 except ImportError:
     pilot = None
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PilotTC(unittest.TestCase):
 
     def test_import(self):
@@ -209,7 +210,7 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIn('show_mesh(m)', banner)
         self.assertIn('load_mesh(name)', banner)
 
-    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    @testing.requires_pilot
     def test_show_mesh_opens_a_viewer(self):
         from solvcon import apputil
         apputil.install_pilot_namespace(self.mgr, self.env)
@@ -236,7 +237,7 @@ class PilotNamespaceTC(unittest.TestCase):
         self.env.run_code('pass')
         self.assertIs(self.env.globals['mesh'], sentinel)
 
-    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    @testing.requires_pilot
     def test_sample_meshes_lists_the_known_names(self):
         from solvcon import apputil
         apputil.install_pilot_namespace(self.mgr, self.env)
@@ -244,7 +245,7 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIn('tetrahedron', names)
         self.assertIn('3dmix', names)
 
-    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    @testing.requires_pilot
     def test_load_mesh_shows_a_named_sample(self):
         from solvcon import apputil
         apputil.install_pilot_namespace(self.mgr, self.env)
@@ -254,7 +255,7 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertTrue(viewer.axis)
         self.assertEqual(self.env.globals['viewers'](), [viewer])
 
-    @unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+    @testing.requires_pilot
     def test_load_mesh_rejects_an_unknown_name(self):
         from solvcon import apputil
         apputil.install_pilot_namespace(self.mgr, self.env)
@@ -380,7 +381,7 @@ class WorkerTC(unittest.TestCase):
             future.result(timeout=5)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class SetupProcessTC(unittest.TestCase):
 
     def test_namespace_includes_pilot(self):

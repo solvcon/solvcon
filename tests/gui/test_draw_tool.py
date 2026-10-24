@@ -2,10 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -14,11 +13,6 @@ try:
     from PySide6 import QtGui, QtWidgets
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 def _drawn_pixels(image):
@@ -29,8 +23,7 @@ def _drawn_pixels(image):
             if image.pixelColor(x, y).alpha() > 0]
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class DrawToolTC(unittest.TestCase):
     def setUp(self):
         self.mgr = _gui.controller.build()

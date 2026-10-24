@@ -16,6 +16,7 @@ import unittest
 import numpy as np
 
 import solvcon
+from solvcon import testing
 
 try:
     from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
@@ -57,7 +58,7 @@ def _drag(widget, start, end):
            Qt.NoButton)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class LinePlotWidgetTC(unittest.TestCase):
     """What the widget maps and what it draws."""
 
@@ -149,7 +150,7 @@ class LinePlotWidgetTC(unittest.TestCase):
         self.assertGreater(inked, 10)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class LinePlotNavigationTC(unittest.TestCase):
     """How the wheel, a drag, and a double-click move the drawn view."""
 

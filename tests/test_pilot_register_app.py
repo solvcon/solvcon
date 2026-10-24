@@ -7,7 +7,7 @@ Tests for the pilot registry the apps add themselves to.
 
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -25,7 +25,7 @@ class _RecordingApp(object):
         self.populated = True
 
 
-@unittest.skipIf(not solvcon.HAS_PILOT, "pilot is not built")
+@testing.requires_pilot
 class RegisterAppTC(unittest.TestCase):
     @staticmethod
     def _fresh_controller():

@@ -11,7 +11,7 @@ draw a cut and navigate it.
 
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -21,7 +21,7 @@ except ImportError:
     pilot = None
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class AnalysisLinePlotsTC(unittest.TestCase):
     """When a navigated view of the profile holds and when it is dropped."""
 

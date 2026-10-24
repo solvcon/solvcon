@@ -2,11 +2,10 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
 import itertools
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -14,19 +13,13 @@ try:
 except ImportError:
     pilot = None
 
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
-
 # A fresh tag per test keeps each test's menus and ids from colliding on the
 # shared RManager singleton, whose menu model now owns the real bar; clearing
 # the model would delete the built-in menus other tests rely on.
 _TAG = itertools.count()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class MenuModelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -95,8 +88,7 @@ class MenuModelTC(unittest.TestCase):
                          [self.tag + "B", self.tag + "A"])
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class MenuPlacementTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()

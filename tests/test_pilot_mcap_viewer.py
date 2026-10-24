@@ -8,7 +8,7 @@ import struct
 import tempfile
 import unittest
 
-import solvcon
+from solvcon import testing
 from solvcon.track import mcap
 
 try:
@@ -80,7 +80,7 @@ def write_fixture(path):
         writer.finish()
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 @unittest.skipIf(foxglove_mcap_writer is None,
                  "the Foxglove mcap package is not installed")
 class _RecordingTC(unittest.TestCase):

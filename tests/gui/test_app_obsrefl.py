@@ -9,24 +9,18 @@ from unittest import mock
 
 import numpy as np
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
     from PySide6.QtWidgets import QApplication, QLabel, QSizeGrip
     from PIL import Image
-    # The app derives from base.PilotFeature, which is None without the
-    # pilot, so the import would fail with a TypeError, not an ImportError.
-    if solvcon.HAS_PILOT:
+    # The app needs the pilot, so import it only with the pilot.
+    if pilot.enable:
         from solvcon.apps.obsrefl import ReflectionSession, _app
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 class _AppFixture(object):
@@ -45,8 +39,7 @@ class _AppFixture(object):
         feature._panel._numerics._ny.setValue(ny)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ObsreflAppTC(_AppFixture, unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -448,8 +441,7 @@ class ObsreflAppTC(_AppFixture, unittest.TestCase):
         QApplication.processEvents()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class SolutionGaugeTC(_AppFixture, unittest.TestCase):
     """The gauge that marks the profile cut on the domain."""
 
@@ -571,8 +563,7 @@ class SolutionGaugeTC(_AppFixture, unittest.TestCase):
         QApplication.processEvents()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class SolutionLinePlotsTC(_AppFixture, unittest.TestCase):
     """The analysis plot sub-window and the lines it draws."""
 
@@ -740,8 +731,7 @@ class SolutionLinePlotsTC(_AppFixture, unittest.TestCase):
         QApplication.processEvents()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class SolutionMovieTC(_AppFixture, unittest.TestCase):
     """Recording a run into an animated movie."""
 
@@ -817,8 +807,7 @@ class SolutionMovieTC(_AppFixture, unittest.TestCase):
                 QApplication.processEvents()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class SolutionInspectorTC(unittest.TestCase):
     """The wired controller refreshes the inspector when a run sets the
     mesh."""

@@ -23,7 +23,7 @@ import platform
 import tempfile
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -80,8 +80,8 @@ class _StubViewer(object):
         return _StubPixmap(self.size if self.ok else None, color)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT and HAS_IMAGE,
-                     "Qt pilot is not built or PIL is missing")
+@testing.requires_pilot
+@unittest.skipUnless(HAS_IMAGE, "PIL is missing")
 class MovieRecorderTC(unittest.TestCase):
     """Frame bookkeeping and movie assembly, over a stub viewer."""
 
@@ -242,8 +242,8 @@ class MovieRecorderTC(unittest.TestCase):
                 pass
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT and HAS_IMAGE,
-                     "Qt pilot is not built or PIL is missing")
+@testing.requires_pilot
+@unittest.skipUnless(HAS_IMAGE, "PIL is missing")
 class Mp4MovieTC(unittest.TestCase):
     """The MP4 itself, on a build whose Qt Multimedia can encode one."""
 
@@ -350,8 +350,8 @@ class Mp4MovieTC(unittest.TestCase):
         self.assertEqual(QSize(64, 32), recorder._movie_size())
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT and HAS_IMAGE,
-                     "Qt pilot is not built or PIL is missing")
+@testing.requires_pilot
+@unittest.skipUnless(HAS_IMAGE, "PIL is missing")
 @unittest.skipIf("Windows" == platform.system(),
                  "offscreen grabbing is unreliable on Windows CI")
 class WidgetMovieTC(unittest.TestCase):

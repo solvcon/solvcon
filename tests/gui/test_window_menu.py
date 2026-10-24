@@ -10,10 +10,9 @@ under the "Window" menu: what it lists, which entry is checked, and what
 activating an entry does.
 """
 
-import os
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -24,14 +23,8 @@ try:
 except ImportError:
     pilot = None
 
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
-
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class WindowMenuTC(unittest.TestCase):
     """Drive the WindowManager list through the live "Window" menu."""
 
@@ -133,8 +126,7 @@ class WindowMenuTC(unittest.TestCase):
         self.assertTrue(items[-1].text().endswith("Euler solver"))
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class WindowLayoutTC(unittest.TestCase):
     """Drive the layout actions in the "Window" menu."""
 
@@ -309,8 +301,7 @@ class WindowLayoutTC(unittest.TestCase):
         self.assertFalse(one.intersects(two))
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class TabbedViewTC(unittest.TestCase):
     """Drive the "Tabbed View" toggle in the "Window" menu."""
 

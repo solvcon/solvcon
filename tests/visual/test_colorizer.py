@@ -9,8 +9,8 @@ import unittest
 import numpy as np
 from numpy.testing import assert_allclose
 
-import solvcon
 from solvcon import mesh as meshmod
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -32,7 +32,7 @@ def _cells(mh, name):
     return arr.ndarray[arr.nghost:]
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class ColormapTC(unittest.TestCase):
 
     def test_the_ramp_runs_blue_to_red(self):
@@ -51,7 +51,7 @@ class ColormapTC(unittest.TestCase):
         self.assertLessEqual(rgb.max(), 1.0)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class CellTriangulationTC(unittest.TestCase):
 
     def _fan(self, cell_type):
@@ -86,7 +86,7 @@ class CellTriangulationTC(unittest.TestCase):
         self.assertEqual(0.0, np.abs(tris[:, :, 2]).max())
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class FieldColorsTC(unittest.TestCase):
 
     def test_each_cell_repeats_its_color_over_its_vertices(self):
@@ -114,7 +114,7 @@ class FieldColorsTC(unittest.TestCase):
         assert_allclose(colors, np.tile(_colorizer.colormap(0.0), (12, 1)))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class ThickSegmentsTC(unittest.TestCase):
 
     def test_a_segment_becomes_a_quad_run_past_its_ends(self):
@@ -136,7 +136,7 @@ class ThickSegmentsTC(unittest.TestCase):
         self.assertEqual((0, 2), empty.shape)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class CellRingsTC(unittest.TestCase):
 
     def test_each_marked_cell_gives_its_whole_rim(self):
@@ -169,7 +169,7 @@ class CellRingsTC(unittest.TestCase):
         self.assertEqual(0, len(ends))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class FieldColorizerTC(unittest.TestCase):
 
     def setUp(self):
@@ -266,7 +266,7 @@ class _Recorder(object):
         self.texts.append(text)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class ColorBarTC(unittest.TestCase):
     """What the legend spans, what it labels, and what it paints."""
 

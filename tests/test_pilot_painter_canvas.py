@@ -8,6 +8,7 @@ Tests for the Canvas page of the Painter inspector.
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -74,7 +75,7 @@ class _StubCanvas:
         self.repaints += 1
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PainterCanvasPageTC(unittest.TestCase):
     """What the View section reads and what its buttons do to the view."""
 

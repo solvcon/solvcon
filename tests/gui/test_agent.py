@@ -2,10 +2,10 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -15,11 +15,6 @@ try:
     from PySide6.QtCore import Qt, QCoreApplication
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 class _CircleBackend:
@@ -57,7 +52,7 @@ class _TranslateBackend:
                  "dx": 1.0, "dy": 0.0}])
 
 
-@unittest.skipIf(not solvcon.HAS_PILOT, "pilot is not built")
+@testing.requires_pilot
 class AgentTurnFormatTC(unittest.TestCase):
     def test_log_messages_are_the_user_facing_reply(self):
         turn = agent.TranscriptTurn(
@@ -123,8 +118,7 @@ class AgentTurnFormatTC(unittest.TestCase):
         self.assertEqual(_agent_gui.AgentPanel._format_turn(turn), "echo: hi")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class AgentPanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()

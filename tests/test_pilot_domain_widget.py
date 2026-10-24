@@ -17,6 +17,7 @@ import tempfile
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -210,7 +211,7 @@ def _update_field(widget, vertices, colors, indices):
         core.SimpleArrayUint32(array=indices.astype('uint32')))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetFoundationTC(unittest.TestCase):
     """The render foundation and the Python control spine (step 1)."""
 
@@ -242,7 +243,7 @@ class RDomainWidgetFoundationTC(unittest.TestCase):
         self.assertEqual(_count_foreground(image), 0)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetMeshTC(unittest.TestCase):
     """Domain wireframe rendering for 2D and 3D meshes (step 2)."""
 
@@ -326,7 +327,7 @@ class RDomainWidgetMeshTC(unittest.TestCase):
         self.assertGreater(restored, hidden)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetStyleTC(unittest.TestCase):
     """Independently toggling the surface, wireframe, and points styles."""
 
@@ -464,7 +465,7 @@ class RDomainWidgetStyleTC(unittest.TestCase):
                         shown * 0.5)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetFieldTC(unittest.TestCase):
     """Field coloring and boundary highlight (step 3)."""
 
@@ -614,7 +615,7 @@ def _count_dominant(image, channel):
     return int(mask.sum())
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetScalarFieldTC(unittest.TestCase):
     """GPU LUT scalar coloring and the scalar bar."""
 
@@ -786,7 +787,7 @@ class RDomainWidgetScalarFieldTC(unittest.TestCase):
         self.assertLess(hidden, shown * 0.1)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetOpacityTC(unittest.TestCase):
     """Adjustable per-drawable opacity for the wireframe and the surface."""
 
@@ -835,7 +836,7 @@ class RDomainWidgetOpacityTC(unittest.TestCase):
         widget.setFieldOpacity(0.5)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetOverlayTC(unittest.TestCase):
     """The feature-edge and face-normal overlays."""
 
@@ -947,7 +948,7 @@ def _distinct_field_colors(image):
     return len(np.unique(quant, axis=0))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetCellColoringTC(unittest.TestCase):
     """Categorical coloring of the mesh by a cell attribute."""
 
@@ -1032,7 +1033,7 @@ def _make_quality_mesh():
     return mh
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetQualityTC(unittest.TestCase):
     """Per-cell quality metrics and their coloring."""
 
@@ -1085,7 +1086,7 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         self.assertEqual(widget.qualityRange("volume"), (0.0, 0.0))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetViewPresetTC(unittest.TestCase):
     """Axis-aligned view presets and the projection toggle."""
 
@@ -1157,7 +1158,7 @@ class RDomainWidgetViewPresetTC(unittest.TestCase):
         self.assertTrue((para_frame != persp_frame).any())
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetTrackballTC(unittest.TestCase):
     """Trackball orbit style and orbit pivot control."""
 
@@ -1241,7 +1242,7 @@ def _make_single_quad_2d():
     return mh
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetPickTC(unittest.TestCase):
     """Picking a cell, node, or face and reporting its geometry.
 
@@ -1330,7 +1331,7 @@ class RDomainWidgetPickTC(unittest.TestCase):
         self.assertFalse(widget.hasSelection)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetNavMapTC(unittest.TestCase):
     """Blender-style navigation mapping, discrete steps, and sensitivity.
 
@@ -1395,7 +1396,7 @@ class RDomainWidgetNavMapTC(unittest.TestCase):
         self.assertGreater(swept(2.0), swept(1.0))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetCaptureTC(unittest.TestCase):
     """High-resolution and transparent offscreen capture."""
 
@@ -1445,7 +1446,7 @@ class RDomainWidgetCaptureTC(unittest.TestCase):
             self.assertFalse(os.path.exists(path))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetSceneObjectsTC(unittest.TestCase):
     """A scene of several named mesh objects with transforms."""
 
@@ -1506,7 +1507,7 @@ class RDomainWidgetSceneObjectsTC(unittest.TestCase):
         self.assertLess(one, both)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetFilterTC(unittest.TestCase):
     """Geometric slice and clip of the mesh."""
 
@@ -1550,7 +1551,7 @@ class RDomainWidgetFilterTC(unittest.TestCase):
         widget.clearFilters()
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetCubeAxesTC(unittest.TestCase):
     """Cube-axes grid, tick values, and the figure title."""
 
@@ -1602,7 +1603,7 @@ class RDomainWidgetCubeAxesTC(unittest.TestCase):
         self.assertGreater(_count_foreground(_grab_or_skip(axes_widget)), base)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetZoomTC(unittest.TestCase):
     """Zoom to the selection and reset the camera."""
 
@@ -1652,7 +1653,7 @@ class RDomainWidgetZoomTC(unittest.TestCase):
         self.assertAlmostEqual(target[1], 0.5, places=3)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetMeasureTC(unittest.TestCase):
     """Distance and angle measurement between world points."""
 
@@ -1700,7 +1701,7 @@ class RDomainWidgetMeasureTC(unittest.TestCase):
         widget.clearMeasurements()
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetSceneTC(unittest.TestCase):
     """Scene framing and the fit-to-scene camera (step 4)."""
 
@@ -1742,7 +1743,7 @@ class RDomainWidgetSceneTC(unittest.TestCase):
         self.assertEqual(_count_foreground(_grab_or_skip(widget)), 0)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetCameraTC(unittest.TestCase):
     """Camera modes, programmatic pose, and interaction (step 5)."""
 
@@ -1946,7 +1947,7 @@ class RDomainWidgetCameraTC(unittest.TestCase):
         self.assertEqual(radius(), start)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetManagerTC(unittest.TestCase):
     """The manager 3D-widget factory and screenshot path (step 7)."""
 
@@ -2060,7 +2061,7 @@ class RDomainWidgetManagerTC(unittest.TestCase):
         self.assertEqual(int(mw.winId()), before)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RManagerSubWindowGripTC(unittest.TestCase):
     """The grip the manager hands to any sub-window, 3D viewer or not."""
 
@@ -2113,7 +2114,7 @@ class RManagerSubWindowGripTC(unittest.TestCase):
         self.assertEqual(0, layout.indexOf(self.host))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class RDomainWidgetAxisTC(unittest.TestCase):
     """The orientation-guide overlay (step 6)."""
 

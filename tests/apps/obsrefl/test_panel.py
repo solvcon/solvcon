@@ -12,15 +12,13 @@ takes to fill the readout boxes and read the cells back.
 import os
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
     from solvcon.apps.obsrefl import ReflectionSession
-    # The panel's style rules subclass pilot.RuleCatalog, which is absent
-    # without the pilot, so the import would fail with an AttributeError,
-    # not an ImportError.
-    if solvcon.HAS_PILOT:
+    # The panel needs the pilot, so import it only with the pilot.
+    if pilot.enable:
         from solvcon.apps.obsrefl import _panel
         from solvcon.apps.obsrefl._panel import SolutionPanel
         from solvcon.pilot.visual import _movie
@@ -28,7 +26,7 @@ except ImportError:
     pilot = None
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class StatusReadoutTC(unittest.TestCase):
     """What `set_status` puts in which readout cell."""
 

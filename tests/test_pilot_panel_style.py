@@ -8,7 +8,7 @@ Tests that the pilot's dock panels take their colors from the palette.
 import re
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -41,7 +41,7 @@ def _colors(sheet):
     return set(re.findall(r"#[0-9a-fA-F]{6}", sheet.lower()))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class ProfilingResultTreeTC(unittest.TestCase):
     """That a profiling result is colored by the palette it is read under.
 
@@ -80,7 +80,7 @@ class ProfilingResultTreeTC(unittest.TestCase):
         self.assertIn(accent.name().lower(), _colors(tree.styleSheet()))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class CollapsibleSectionTC(unittest.TestCase):
     """That the section header is colored by the palette it sits on."""
 

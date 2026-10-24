@@ -16,6 +16,7 @@ import unittest
 import numpy as np
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -40,7 +41,7 @@ def _limits(xmin, xmax, ymin, ymax):
     return pilot.PlotLimits2d(xmin, xmax, ymin, ymax)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PilotPlotTC(unittest.TestCase):
     """The native plot limits, color cycle, and xy series."""
 
@@ -235,7 +236,7 @@ class PilotPlotTC(unittest.TestCase):
         self.assertEqual(1.5, ser.line_width)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PilotPlotTickerTC(unittest.TestCase):
     """The native locator used to position axis ticks and labels."""
 
@@ -347,7 +348,7 @@ class PilotPlotTickerTC(unittest.TestCase):
             pilot.RPlotTicker(0)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PilotPlotModelTC(unittest.TestCase):
     """The series list of one plot and the view derived from it."""
 

@@ -5,8 +5,11 @@
 Test lane checker for solvcon.
 
 A test that needs a real top-level window surface belongs under tests/gui,
-and everything else belongs outside it. See tests/gui/README.md for the rule
-and the reasoning.
+and everything else belongs outside it. A file needs one when it decorates a
+test with `requires_live_window` or reads `NO_LIVE_WINDOW`, both from
+solvcon.testing, by bare name or as an attribute. Calling the decorator
+directly, or naming either in a string, is testing the helper and does not
+count. See tests/gui/README.md for the rule and the reasoning.
 
 Both directions are checked. The second one, a tests/gui file that has
 stopped being a window test, is the one that rots without help, because a
@@ -17,21 +20,35 @@ import ast
 import pathlib
 import sys
 
-GUARD = 'NO_LIVE_WINDOW'
+DECORATOR = 'requires_live_window'
+FLAG = 'NO_LIVE_WINDOW'
 TESTS_DIR = pathlib.Path('tests')
 GUI_DIR = TESTS_DIR / 'gui'
 
 
 def needs_live_window(path):
     text = path.read_text(encoding='utf-8')
-    # The token appears in prose too, so confirm it is really referenced
-    # before believing it. Parsing every file instead would cost more than
-    # the rest of this script put together.
-    if GUARD not in text:
+    # The token appears in prose and strings too, so confirm it is really
+    # referenced before believing it. Parsing every file instead would cost
+    # more than the rest of this script put together.
+    if DECORATOR not in text and FLAG not in text:
         return False
     tree = ast.parse(text, filename=str(path))
-    return any(isinstance(node, ast.Name) and GUARD == node.id
-               for node in ast.walk(tree))
+    for node in ast.walk(tree):
+        if FLAG == _name_of(node):
+            return True
+        for deco in getattr(node, 'decorator_list', ()):
+            if DECORATOR == _name_of(deco):
+                return True
+    return False
+
+
+def _name_of(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
 
 
 def main():
@@ -46,9 +63,9 @@ def main():
 
     print(f'Checking {len(gui) + len(plain)} test files for lane placement')
 
-    failed = [f'{p}: window test outside {GUI_DIR}'
+    failed = [f'{p}: {DECORATOR} test outside {GUI_DIR}'
               for p in plain if needs_live_window(p)]
-    failed += [f'{p}: no window test left'
+    failed += [f'{p}: no {DECORATOR} test left'
                for p in gui if not needs_live_window(p)]
 
     if failed:

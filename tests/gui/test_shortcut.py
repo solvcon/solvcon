@@ -2,10 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -24,11 +23,6 @@ try:
     from PySide6.QtTest import QTest
 except ImportError:
     QTest = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 _PANEL_CHORDS = (
     ("panel.agent_console", ["Ctrl+Shift+A"]),
@@ -65,8 +59,7 @@ def _live_sequences(action):
             for s in action.shortcuts()]
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ShortcutTC(unittest.TestCase):
     """Live QAction bindings for the commands routed through the roof."""
 
@@ -161,8 +154,8 @@ class ShortcutTC(unittest.TestCase):
         self.assertFalse(self.mgr.mainWindow.isVisible())
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT or QTest is None,
-                 "live key delivery needs a real window surface and QtTest")
+@testing.requires_live_window
+@unittest.skipIf(QTest is None, "live key delivery needs QtTest")
 class CloseShortcutTC(unittest.TestCase):
     """Primary+W closes one Pilot window at a time."""
 
@@ -194,8 +187,7 @@ class CloseShortcutTC(unittest.TestCase):
         self.assertFalse(self.mgr.mainWindow.isVisible())
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ApplyShortcutHelperTC(unittest.TestCase):
     """apply_shortcut installs a binding by objectName without hand wiring."""
 
@@ -224,8 +216,8 @@ class ApplyShortcutHelperTC(unittest.TestCase):
         self.assertEqual(act.menuRole(), QtGui.QAction.AboutRole)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT or QTest is None,
-                 "live key delivery needs a real window surface and QtTest")
+@testing.requires_live_window
+@unittest.skipIf(QTest is None, "live key delivery needs QtTest")
 class DrawToolShortcutTC(unittest.TestCase):
     """The draw-tool letters reach a focused canvas and nothing else."""
 

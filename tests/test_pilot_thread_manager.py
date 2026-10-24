@@ -9,9 +9,10 @@ import threading
 import time
 import unittest
 
-import solvcon
+from solvcon import pilot
+from solvcon import testing
 
-if solvcon.HAS_PILOT:
+if pilot.enable:
     import shiboken6
     from PySide6.QtCore import (
         QCoreApplication, QEvent, QObject, QTimer)
@@ -160,9 +161,9 @@ class TaskWorkflow(Workflow):
             context.finish(Succeeded(list(self.results)))
 
 
+@testing.requires_pilot
 @unittest.skipUnless(
-    solvcon.HAS_PILOT
-    and os.environ.get('SOLVCON_THREAD_SHUTDOWN_HELPER') == '1',
+    os.environ.get('SOLVCON_THREAD_SHUTDOWN_HELPER') == '1',
     'shutdown subprocess helper')
 def test_thread_manager_shutdown_helper():
     app = QApplication.instance() or QApplication([])
@@ -172,7 +173,7 @@ def test_thread_manager_shutdown_helper():
     app.processEvents()
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, 'Qt pilot is not built')
+@testing.requires_pilot
 class ThreadManagerTC(unittest.TestCase):
 
     def setUp(self):

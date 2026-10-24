@@ -5,6 +5,7 @@
 import unittest
 
 import solvcon as sc
+from solvcon import testing
 from solvcon.pilot.canvas import _naca_airfoil
 
 
@@ -38,7 +39,7 @@ class Naca4SamplerTC(unittest.TestCase):
         _naca_airfoil.Naca4Sampler(w, naca4)
 
 
-@unittest.skipUnless(sc.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class CanvasSampleTC(unittest.TestCase):
     """The airfoil sample of the Canvas/Samples menu."""
 
