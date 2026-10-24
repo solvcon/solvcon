@@ -23,13 +23,13 @@ from ._panel import SolutionPanel
 from ._viewer import LinePlotViewer
 
 __all__ = [  # noqa: F822
-    'ObliqueShockApp',
+    'ObsreflApp',
     'build_app',
 ]
 
 
-class ObliqueShockApp(base.PilotFeature):
-    """Euler solver panel, toggled from the View "Panels" submenu.
+class ObsreflApp(base.PilotFeature):
+    """Oblique shock reflection panel, toggled from the View "Panels" submenu.
 
     The panel owns two sub-windows and one solver run: the domain viewer
     the field is colored into, and the analysis plots that judge it.  The
@@ -50,8 +50,9 @@ class ObliqueShockApp(base.PilotFeature):
 
     def populate_menu(self):
         self._action = self.add_action(
-            "View/Panels", "Euler solver", "Toggle the Euler solver panel",
-            None, id="panel.euler_solver", weight=15, checkable=True)
+            "View/Panels", "Oblique shock reflection",
+            "Toggle the oblique shock reflection panel",
+            None, id="panel.obsrefl", weight=15, checkable=True)
         self._action.toggled.connect(self._on_toggled)
 
     def _on_toggled(self, checked):
@@ -68,7 +69,7 @@ class ObliqueShockApp(base.PilotFeature):
         self._control = RunController(self._panel, self._viewer,
                                       self._lineplots)
         self._control.reported = self._report
-        self._dock = QDockWidget("euler solver")
+        self._dock = QDockWidget("oblique shock reflection")
         self._dock.setWidget(self._panel)
         self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea, self._dock)
         self._dock.visibilityChanged.connect(self._action.setChecked)
@@ -84,12 +85,12 @@ class ObliqueShockApp(base.PilotFeature):
         The console belongs to the outer GUI, so the controller says it and
         the feature, which holds the GUI, writes it.
         """
-        self._pycon.writeToHistory(f"euler solver {message}\n")
+        self._pycon.writeToHistory(f"obsrefl {message}\n")
 
 
 def build_app(controller):
     """Build the app on the pilot and wire it to the inspector."""
-    app = ObliqueShockApp(mgr=controller.mgr)
+    app = ObsreflApp(mgr=controller.mgr)
     app.viewer_updated = controller.tree_panel.resync
     return app
 

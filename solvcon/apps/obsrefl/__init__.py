@@ -22,19 +22,19 @@ from ._session import ReflectionSession
 
 if core.HAS_PILOT:
     from ... import pilot
-    from ._app import ObliqueShockApp, build_app
+    from ._app import ObsreflApp, build_app
     from ._panel import SolutionPanel
     pilot.register_app("obsrefl", build_app)
 else:
     # Bind only the public names: a None module attribute would shadow the
     # real submodule import in no-GUI builds.
-    ObliqueShockApp = None
+    ObsreflApp = None
     SolutionPanel = None
 
 __all__ = [
     'ObliqueShock',
-    'ObliqueShockApp',
     'ObliqueShockRelation',
+    'ObsreflApp',
     'Reflection',
     'ReflectionSession',
     'SolutionPanel',

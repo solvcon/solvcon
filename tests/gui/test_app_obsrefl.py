@@ -5,6 +5,7 @@
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -32,7 +33,7 @@ class _AppFixture(object):
     """Stand the app feature up, for the window classes that drive it."""
 
     def _feature(self):
-        feature = _app.ObliqueShockApp(mgr=self.mgr)
+        feature = _app.ObsreflApp(mgr=self.mgr)
         feature.populate_menu()
         feature._action.setChecked(True)  # builds the dock and panel
         return feature
@@ -46,7 +47,7 @@ class _AppFixture(object):
 
 @unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
                  "pilot windows need a real window surface")
-class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
+class ObsreflAppTC(_AppFixture, unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
 
@@ -55,6 +56,21 @@ class ObliqueShockAppTC(_AppFixture, unittest.TestCase):
         """The run readout of the panel, as ``{label: text}``."""
         run = feature._panel._run
         return {"step": run._progress.text(), "state": run._state.text()}
+
+    def test_the_app_goes_by_its_own_name(self):
+        # "Euler solver" is the one-dimensional shock-tube app, so the
+        # reflection app names itself wherever the user meets it.
+        feature = self._feature()
+        action = self.mgr.menu_model.action("panel.obsrefl")
+        self.assertIs(feature._action, action)
+        self.assertEqual("Oblique shock reflection", action.text())
+        self.assertEqual("oblique shock reflection",
+                         feature._dock.windowTitle())
+        with mock.patch.object(type(feature), '_pycon',
+                               new_callable=mock.PropertyMock) as pycon:
+            feature._report("recording a movie")
+        pycon.return_value.writeToHistory.assert_called_once_with(
+            "obsrefl recording a movie\n")
 
     def test_panel_opens_with_a_paused_preview(self):
         feature = self._feature()
