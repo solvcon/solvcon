@@ -60,6 +60,9 @@ $(SETUPROOT)/wrap_SimpleArrayPlex.o: $(SETUPROOT)/solvcon/buffer/pymod/wrap_Simp
 $(SETUPROOT)/buffer_pymod.o: $(SETUPROOT)/solvcon/buffer/pymod/buffer_pymod.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
+$(SETUPROOT)/BufferAccess.o: $(SETUPROOT)/solvcon/buffer/BufferAccess.cpp Makefile
+	c++ $(CFLAGS) -c $< -o $@
+
 $(SETUPROOT)/BufferExpander.o: $(SETUPROOT)/solvcon/buffer/BufferExpander.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
@@ -88,6 +91,7 @@ $(SETUPROOT)/radix_tree.o: $(SETUPROOT)/solvcon/profiling/RadixTree.cpp Makefile
 	c++ $(CFLAGS) -c $< -o $@
 
 OBJS = \
+	$(SETUPROOT)/BufferAccess.o \
 	$(SETUPROOT)/BufferExpander.o \
 	$(SETUPROOT)/ConcreteBuffer.o \
 	$(SETUPROOT)/SimpleArray.o \
