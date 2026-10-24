@@ -18,6 +18,7 @@ if _pcore.enable:
     colormap = _colorizer.colormap
     MeshDrawer = _mesh.MeshDrawer
     SampleMesh = _mesh.SampleMesh
+    SampleMeshDialog = _mesh.SampleMeshDialog
     SampleMeshFeature = _mesh.SampleMeshFeature
     MeshStyleStatus = _mesh.MeshStyleStatus
     GmshFileDialog = _mesh.GmshFileDialog
@@ -34,6 +35,7 @@ else:
     colormap = None
     MeshDrawer = None
     SampleMesh = None
+    SampleMeshDialog = None
     SampleMeshFeature = None
     MeshStyleStatus = None
     GmshFileDialog = None
@@ -53,6 +55,7 @@ __all__ = [
     'MeshStyleStatus',
     'MovieRecorder',
     'SampleMesh',
+    'SampleMeshDialog',
     'SampleMeshFeature',
     'colormap',
     'default_movie_suffix',
