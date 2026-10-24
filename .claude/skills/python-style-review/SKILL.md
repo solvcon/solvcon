@@ -35,6 +35,10 @@ limit, flake8) are handled by `.claude/hooks/check-source.sh`
   e.g. `np.empty(10, dtype='float64')`. Flag array-creating calls (`np.empty`,
   `np.zeros`, `np.ones`, `np.full`, `np.array`, `np.arange`, etc.) that omit
   `dtype` or pass a type object (`dtype=np.float64`) instead of a string.
+- Private modules: library code outside a package (and its subpackages)
+  must not import that package's `_x` modules; it imports the package and
+  uses the names its `__init__.py` exports. See "Private modules" in
+  STYLE.md. Tests are exempt.
 
 **Line economy**
 - Prefer fewer lines per STYLE.md. Flag unnecessary blank lines inside

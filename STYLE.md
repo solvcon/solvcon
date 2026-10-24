@@ -355,14 +355,14 @@ line = _base_app.QuantityLine(...)
 Use relative import for peer modules in the same package:
 
 ```python
-# For a module file in solvcon/pilot/
+# For a module file in solvcon/pilot/canvas/
 # BAD: use absolute import for peer modules.
-from solvcon.pilot import _gui
 from solvcon.pilot.canvas import _naca_airfoil
+from solvcon.pilot.canvas import _svg_gui
 
 # GOOD: use relative import for peer modules.
-from .. import _gui
 from . import _naca_airfoil
+from . import _svg_gui
 ```
 
 Relative import may not be required for modules outside the current package:
@@ -375,6 +375,30 @@ from solvcon.plot import svg
 # OK but may be clumsy: use relative import.
 from ..plot import svg
 ```
+
+Do not import the private module of another package. A module whose name
+starts with an underscore (`_mesh.py`) is private to the package that holds
+it; the modules of that package and of its subpackages may import it. Other
+code imports the package and uses the names its `__init__.py` exports:
+
+```python
+# For a module file in solvcon/pilot/panel/
+# BAD: reaches into the private module of another package.
+from ..visual import _mesh
+
+# GOOD: import the package and use the name it exports.
+from .. import visual
+
+styles = visual.MeshStyleStatus.STYLES
+
+# GOOD: a peer module, or a private module of an enclosing package.
+from . import _style
+from .. import _pilot_core
+```
+
+When a package does not yet export a name another package needs, add it to
+the package's `__init__.py` and `__all__`. Tests are exempt: a test may
+import a private module to exercise what the package does not export.
 
 Do not use dotted import path with `import` for project modules:
 
