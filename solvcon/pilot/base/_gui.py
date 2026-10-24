@@ -86,6 +86,7 @@ class _Controller(metaclass=_Singleton):
         self.painter = None
         self.canvas = None
         self.save_2d_canvas = None
+        self.save_line_plot = None
         self.openprofiledata = None
         self.runprofiling = None
         self.benchmark = None
@@ -163,6 +164,7 @@ class _Controller(metaclass=_Singleton):
         self.painter = _painter.Painter(mgr=self._rmgr)
         self.canvas = canvas.Canvas(mgr=self._rmgr, painter=self.painter)
         self.save_2d_canvas = canvas.Save2DCanvasDialog(mgr=self._rmgr)
+        self.save_line_plot = visual.SaveLinePlotDialog(mgr=self._rmgr)
         self.openprofiledata = panel.Profiling(mgr=self._rmgr)
         self.runprofiling = panel.RunProfiling(mgr=self._rmgr)
         self.mcap_panel = track.McapPanel(mgr=self._rmgr)
@@ -210,6 +212,7 @@ class _Controller(metaclass=_Singleton):
         self.gmsh_dialog.populate_menu()
         self.svg_dialog.populate_menu()
         self.save_2d_canvas.populate_menu()
+        self.save_line_plot.populate_menu()
         self.tree_panel.populate_menu()
         self.painter.populate_menu()
         self.mesh_sample_dialog.populate_menu()

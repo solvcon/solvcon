@@ -23,7 +23,7 @@ from solvcon import testing
 try:
     from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
     from PySide6.QtGui import QImage, QMouseEvent, QWheelEvent
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QWidget
     from solvcon import pilot
     from solvcon.pilot.visual import _plot
 except ImportError:
@@ -285,6 +285,41 @@ class LinePlotNavigationTC(unittest.TestCase):
         self.assertEqual(after, widget.limits())
         widget.reset_view()
         self.assertEqual(before, widget.limits())
+
+
+@testing.requires_pilot
+class SaveLinePlotDialogTC(unittest.TestCase):
+    """File -> Save line plot finds the plot in the current window."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.mgr.mdiArea.closeAllSubWindows()
+        self.feature = _plot.SaveLinePlotDialog(mgr=self.mgr)
+
+    def tearDown(self):
+        # The manager is a singleton; a window left open would be the
+        # current one for every later test.
+        self.mgr.mdiArea.closeAllSubWindows()
+
+    def test_the_file_menu_holds_the_action(self):
+        from solvcon.pilot.base import _gui
+        mgr = _gui.controller.build()
+        act = mgr.menu_model.action("file.save_line_plot")
+        self.assertIsNotNone(act)
+        self.assertIn(
+            "Save line plot",
+            [a.text() for a in mgr.menu_model.menu("File").actions()])
+
+    def test_a_window_without_a_plot_saves_nothing(self):
+        self.assertIsNone(self.feature.current_plot())
+        self.assertFalse(self.feature.run())
+
+    def test_the_plot_in_the_current_window_is_found(self):
+        host = QWidget()
+        plot = _plot.LinePlotWidget(parent=host)
+        subwin = self.mgr.addSubWindow(host)
+        self.mgr.mdiArea.setActiveSubWindow(subwin)
+        self.assertIs(self.feature.current_plot(), plot)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
