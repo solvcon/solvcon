@@ -344,8 +344,9 @@ checktws:
 checktests:
 	$(WHICH_PYTHON) contrib/lint/check_test_layout.py
 
-# Keep an app self-contained: nothing outside solvcon/apps/<name> may import
-# it. Code shared among apps belongs outside the apps.
+# An application owns everything specific to solving one problem set, and
+# nothing outside solvcon/apps/<name> may import it. See
+# doc/source/application/index.md for the definition.
 .PHONY: checkapps
 checkapps:
 	$(WHICH_PYTHON) contrib/lint/check_app_imports.py

@@ -154,8 +154,9 @@ when asked to set an IDE up.
 - `make checkascii` -- reject non-ASCII bytes in source.
 - `make checktws` -- reject trailing whitespace.
 - `make checktests` -- reject a test filed in the wrong lane (see below).
-- `make checkapps` -- reject code outside an app that imports the app. An app
-  is not a library, so shared code is factored out of the apps.
+- `make checkapps` -- reject code outside an application that imports it.
+  An application owns everything specific to solving one problem set. See
+  `doc/source/application/index.md` for the definition.
 
 **Format**
 
