@@ -28,7 +28,7 @@ from ._pilot_core import (  # noqa: F401
     plot_cycle_color,
 )
 if enable:
-    from .base._gui import (  # noqa: F401
+    from .base import (  # noqa: F401
         controller,
         launch,
         register_app,

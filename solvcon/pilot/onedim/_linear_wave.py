@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from ..base import _base_app
+from .. import base
 from ...onedim import linear_scalar
 
 
@@ -28,7 +28,7 @@ class LinearWave:
         self.wave_field = self.svr.get_so0(0).ndarray
 
 
-class LinearWave1DApp(_base_app.OneDimBaseApp):
+class LinearWave1DApp(base.OneDimBaseApp):
 
     TITLE = "Linear Wave"
 
@@ -55,7 +55,7 @@ class LinearWave1DApp(_base_app.OneDimBaseApp):
             ["max_steps", 0, "Maximum step"],
             ["profiling", False, "Turn on / off solver profiling"],
         ]
-        self.solver_config = _base_app.SolverConfig(solver_config_data)
+        self.solver_config = base.SolverConfig(solver_config_data)
 
     def set_plot_data(self):
         """
@@ -64,7 +64,7 @@ class LinearWave1DApp(_base_app.OneDimBaseApp):
         self.plot_ana = True
         self.plot_data = []
 
-        wave = _base_app.QuantityLine(
+        wave = base.QuantityLine(
             name="wave",
             color='b',
             y_upper_lim=1.2,

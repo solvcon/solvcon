@@ -13,7 +13,7 @@ from ._canvas import CanvasPage
 from ._design import DesignPage
 from ._layers import LayersPage
 from ._style import Parts, Rules
-from ..base import _gui_common
+from .. import base
 from .._pilot_core import draw_tool_names, default_draw_tool_name
 
 __all__ = [
@@ -367,7 +367,7 @@ class PainterPanel(QtWidgets.QWidget):
         self.tabs[name].setChecked(True)
 
 
-class Painter(_gui_common.PilotFeature):
+class Painter(base.PilotFeature):
     """
     Painter toolbox for drawing shapes on a 2D canvas, toggled from the View
     "Panels" submenu. The selected tool is held by the manager and applied

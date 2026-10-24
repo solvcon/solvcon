@@ -14,23 +14,16 @@ from .. import _pilot_core as _pcore
 
 if _pcore.enable:
     from . import _gui_common
-    from ..benchmark import _inspector
-    from ..visual import _mesh
-    from ..panel import _tree_panel
-    from ..onedim import _euler1d
-    from ..onedim import _burgers1d
-    from ..canvas import _svg_gui
-    from ..onedim import _linear_wave
-    from ..canvas import _canvas_gui
-    # Through the package rather than its module: a "from ..painter import
-    # _gui" would shadow this module's own name at every use site.
+    from .. import benchmark
+    from .. import visual
+    from .. import panel
+    from .. import onedim
+    from .. import canvas
     from .. import painter as _painter
-    from ..panel import _profiling
-    from ..track import _mcap_viewer
-    from ..agent import _agent_gui
+    from .. import track
+    from .. import agent
     from . import _theme
     from . import _ui_state
-    from ..panel import _window_manager
 
 __all__ = [  # noqa: F822
     'controller',
@@ -156,26 +149,26 @@ class _Controller(metaclass=_Singleton):
         # their toggles under the "View/Panels" path.
         self._rmgr.menu_model.menu("View/Panels", weight=0)
 
-        self.gmsh_dialog = _mesh.GmshFileDialog(mgr=self._rmgr)
-        self.svg_dialog = _svg_gui.SVGFileDialog(mgr=self._rmgr)
-        self.sample_mesh = _mesh.SampleMeshFeature(mgr=self._rmgr)
-        self.mesh_style_status = _mesh.MeshStyleStatus(mgr=self._rmgr)
-        self.tree_panel = _tree_panel.TreePanel(
+        self.gmsh_dialog = visual.GmshFileDialog(mgr=self._rmgr)
+        self.svg_dialog = canvas.SVGFileDialog(mgr=self._rmgr)
+        self.sample_mesh = visual.SampleMeshFeature(mgr=self._rmgr)
+        self.mesh_style_status = visual.MeshStyleStatus(mgr=self._rmgr)
+        self.tree_panel = panel.TreePanel(
             mgr=self._rmgr, style_status=self.mesh_style_status)
-        self.mesh_sample_dialog = _mesh.SampleMeshDialog(
+        self.mesh_sample_dialog = visual.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
-        self.eulerone = _euler1d.Euler1DApp(mgr=self._rmgr)
-        self.burgers = _burgers1d.Burgers1DApp(mgr=self._rmgr)
-        self.linear_wave = _linear_wave.LinearWave1DApp(mgr=self._rmgr)
+        self.eulerone = onedim.Euler1DApp(mgr=self._rmgr)
+        self.burgers = onedim.Burgers1DApp(mgr=self._rmgr)
+        self.linear_wave = onedim.LinearWave1DApp(mgr=self._rmgr)
         self.painter = _painter.Painter(mgr=self._rmgr)
-        self.canvas = _canvas_gui.Canvas(mgr=self._rmgr, painter=self.painter)
-        self.save_2d_canvas = _canvas_gui.Save2DCanvasDialog(mgr=self._rmgr)
-        self.openprofiledata = _profiling.Profiling(mgr=self._rmgr)
-        self.runprofiling = _profiling.RunProfiling(mgr=self._rmgr)
-        self.mcap_panel = _mcap_viewer.McapPanel(mgr=self._rmgr)
-        self.agent = _agent_gui.AgentPanel(mgr=self._rmgr)
+        self.canvas = canvas.Canvas(mgr=self._rmgr, painter=self.painter)
+        self.save_2d_canvas = canvas.Save2DCanvasDialog(mgr=self._rmgr)
+        self.openprofiledata = panel.Profiling(mgr=self._rmgr)
+        self.runprofiling = panel.RunProfiling(mgr=self._rmgr)
+        self.mcap_panel = track.McapPanel(mgr=self._rmgr)
+        self.agent = agent.AgentPanel(mgr=self._rmgr)
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
-        self.window_manager = _window_manager.WindowManager(mgr=self._rmgr)
+        self.window_manager = panel.WindowManager(mgr=self._rmgr)
         self.ui_state = _ui_state.UiState(mgr=self._rmgr)
         self.populate_menu()
         self._start_apps()
@@ -196,7 +189,7 @@ class _Controller(metaclass=_Singleton):
 
     def _open_benchmark(self):
         if self.benchmark is None:
-            self.benchmark = _inspector.BenchmarkInspector()
+            self.benchmark = benchmark.BenchmarkInspector()
             self._rmgr.mdiArea.addSubWindow(self.benchmark)
         self.benchmark.widget().show()
         self.benchmark.show()
