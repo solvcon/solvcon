@@ -7,23 +7,8 @@ a main window that tables one of its topics."""
 
 from .. import _pilot_core as _pcore
 
-if _pcore.enable:
-    from . import _mcap_viewer
-
-    McapDock = _mcap_viewer.McapDock
-    McapPanel = _mcap_viewer.McapPanel
-    McapMainWindow = _mcap_viewer.McapMainWindow
-else:
-    # Bind only the public names: a None module attribute would shadow the
-    # real submodule import in no-GUI builds.
-    McapDock = None
-    McapPanel = None
-    McapMainWindow = None
-
-__all__ = [
-    'McapDock',
-    'McapPanel',
-    'McapMainWindow',
-]
+__all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
+    '_mcap_viewer': ['McapDock', 'McapMainWindow', 'McapPanel'],
+})
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

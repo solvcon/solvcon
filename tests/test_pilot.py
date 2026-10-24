@@ -2,7 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
+import contextlib
 import unittest
+from unittest import mock
 
 import solvcon
 try:
@@ -16,6 +18,33 @@ class PilotTC(unittest.TestCase):
 
     def test_import(self):
         self.assertTrue(hasattr(solvcon.pilot, "mgr"))
+
+
+class PilotRequireTC(unittest.TestCase):
+
+    def test_enable_implies_built_extension(self):
+        # enable needs a Qt build, so it can only be on where HAS_PILOT is.
+        if pilot.enable:
+            self.assertTrue(solvcon.HAS_PILOT)
+            self.assertIsNone(pilot.import_error)
+        else:
+            self.assertIsInstance(pilot.import_error, ImportError)
+
+    def test_require_passes_when_enabled(self):
+        from solvcon.pilot import _pilot_core
+        with mock.patch.object(_pilot_core, 'enable', True):
+            self.assertIsNone(pilot.require('the canvas'))
+
+    def test_require_raises_with_cause(self):
+        from solvcon.pilot import _pilot_core
+        cause = ImportError('No module named PySide6')
+        with mock.patch.object(_pilot_core, 'enable', False), \
+                mock.patch.object(_pilot_core, 'import_error', cause):
+            with self.assertRaises(ImportError) as cm:
+                pilot.require('the canvas')
+        self.assertEqual('the canvas needs solvcon built with Qt '
+                         '(BUILD_QT=ON) and PySide6', str(cm.exception))
+        self.assertIs(cm.exception.__cause__, cause)
 
 
 class PythonConsoleBackendTC(unittest.TestCase):
@@ -308,7 +337,6 @@ class CallTipTC(unittest.TestCase):
 
 class PythonCommandTC(unittest.TestCase):
     def test_uses_the_active_interpreter_and_preserves_arguments(self):
-        from unittest import mock
         from solvcon import system
 
         clinfo = mock.Mock(populated=False)
@@ -365,7 +393,6 @@ class SetupProcessTC(unittest.TestCase):
 
     def test_broken_pilot_import_warns(self):
         import sys
-        from unittest import mock
         from solvcon import system
         # Force "from . import pilot" to raise ImportError: drop the cached
         # attribute so the import re-runs, and poison sys.modules so it
@@ -378,5 +405,39 @@ class SetupProcessTC(unittest.TestCase):
                     system.setup_process([])
         finally:
             solvcon.pilot = saved
+
+
+class MissingPilotTC(unittest.TestCase):
+    """
+    What the process entry points say when the pilot cannot run.
+
+    The pilot is patched off, so these run with or without a Qt build.
+    """
+
+    def _pilot_off(self, cause=None):
+        from solvcon.pilot import _pilot_core
+        stack = contextlib.ExitStack()
+        for mod in (_pilot_core, solvcon.pilot):
+            stack.enter_context(mock.patch.multiple(
+                mod, enable=False, import_error=cause))
+        return stack
+
+    def test_disabled_pilot_warns_with_reason(self):
+        from solvcon import system
+        cause = ImportError('No module named PySide6')
+        # setup_process only imports the pilot where the extension has it.
+        with mock.patch.object(solvcon, 'HAS_PILOT', True), \
+                self._pilot_off(cause):
+            with self.assertWarnsRegex(UserWarning, 'No module named'):
+                system.setup_process([])
+
+    def test_run_pilot_names_the_missing_pilot(self):
+        from solvcon import system
+        with self._pilot_off():
+            with self.assertRaisesRegex(
+                    ImportError,
+                    r'^the pilot application needs solvcon built with Qt '
+                    r'\(BUILD_QT=ON\) and PySide6$'):
+                system._run_pilot([])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

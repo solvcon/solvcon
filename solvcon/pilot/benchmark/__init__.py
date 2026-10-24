@@ -5,17 +5,8 @@
 
 from .. import _pilot_core as _pcore
 
-if _pcore.enable:
-    from . import _inspector
-
-    BenchmarkInspector = _inspector.BenchmarkInspector
-else:
-    # Bind only the public names: a None module attribute would shadow the
-    # real submodule import in no-GUI builds.
-    BenchmarkInspector = None
-
-__all__ = [
-    'BenchmarkInspector',
-]
+__all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
+    '_inspector': ['BenchmarkInspector'],
+})
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

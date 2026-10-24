@@ -8,31 +8,11 @@ Painter that draws on it lives in :mod:`solvcon.pilot.painter`.
 """
 
 from .. import _pilot_core as _pcore
-from . import _naca_airfoil
 
-Naca4 = _naca_airfoil.Naca4
-Naca4Sampler = _naca_airfoil.Naca4Sampler
-
-if _pcore.enable:
-    from . import _canvas_gui
-    from . import _svg_gui
-
-    Canvas = _canvas_gui.Canvas
-    Save2DCanvasDialog = _canvas_gui.Save2DCanvasDialog
-    SVGFileDialog = _svg_gui.SVGFileDialog
-else:
-    # Bind only the public names: a None module attribute would shadow the
-    # real submodule import in no-GUI builds.
-    Canvas = None
-    Save2DCanvasDialog = None
-    SVGFileDialog = None
-
-__all__ = [
-    'Canvas',
-    'Naca4',
-    'Naca4Sampler',
-    'SVGFileDialog',
-    'Save2DCanvasDialog',
-]
+__all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
+    '_canvas_gui': ['Canvas', 'Save2DCanvasDialog'],
+    '_naca_airfoil': ['Naca4', 'Naca4Sampler'],
+    '_svg_gui': ['SVGFileDialog'],
+}, ungated=('_naca_airfoil',))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

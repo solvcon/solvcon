@@ -11,33 +11,22 @@ an incident oblique shock, the bottom slip wall reflects that shock, and the
 flow leaves through the non-reflective outflow on the right.
 
 The driver, the analysis, and the session carry the problem itself and import
-unconditionally, so a script or a no-Qt build runs and judges the reflection
-without the GUI that rides behind the pilot toggle.
+without the pilot, so a script or a no-Qt build runs and judges the
+reflection without the GUI that rides behind the pilot toggle.
 """
 
-from ... import core
-from ._analytic import Reflection
-from ._driver import ObliqueShock, ObliqueShockRelation
-from ._session import ReflectionSession
+from ... import pilot
 
-if core.HAS_PILOT:
-    from ... import pilot
-    from ._app import ObsreflApp, build_app
-    from ._panel import SolutionPanel
-    pilot.register_app("obsrefl", build_app)
-else:
-    # Bind only the public names: a None module attribute would shadow the
-    # real submodule import in no-GUI builds.
-    ObsreflApp = None
-    SolutionPanel = None
+__all__, __getattr__, __dir__ = pilot.lazy_exports(__name__, {
+    '_analytic': ['Reflection'],
+    '_app': ['ObsreflApp'],
+    '_driver': ['ObliqueShock', 'ObliqueShockRelation'],
+    '_panel': ['SolutionPanel'],
+    '_session': ['ReflectionSession'],
+}, ungated=('_analytic', '_driver', '_session'))
 
-__all__ = [
-    'ObliqueShock',
-    'ObliqueShockRelation',
-    'ObsreflApp',
-    'Reflection',
-    'ReflectionSession',
-    'SolutionPanel',
-]
+if pilot.enable:
+    from . import _app
+    pilot.register_app("obsrefl", _app.build_app)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
