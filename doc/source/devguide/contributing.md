@@ -6,13 +6,15 @@ keep the source clean, and follow the project conventions below.
 
 ## Before You Commit
 
-Run `make lint` to check the source.  It bundles five checks: `cformat` (C++
+Run `make lint` to check the source.  It bundles seven checks: `cformat` (C++
 formatting), `cinclude` (`#include` ordering), `flake8` (Python style and the
-79-character line limit), `checkascii` (ASCII-only bytes), and `checktws` (no
-trailing whitespace).  All sources are UTF-8, Unix LF, ASCII-only, and carry a
-modeline at the end of file.  The {doc}`style` page is the canonical reference.
+79-character line limit), `checkascii` (ASCII-only bytes), `checktws` (no
+trailing whitespace), `checktests` (a window test lives under `tests/gui/`),
+and `checkapps` (nothing outside an application imports it).  All sources are
+UTF-8, Unix LF, ASCII-only, and carry a modeline at the end of file.  The
+{doc}`style` page is the canonical reference.
 
-Add tests for new behaviour.  Python tests in `tests/` are preferred; add a C++
+Add tests for new behavior.  Python tests in `tests/` are preferred; add a C++
 gtest only when the behaviour cannot or should not be exercised from Python.
 See {doc}`testing` for how to run them.
 
