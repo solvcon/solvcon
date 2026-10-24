@@ -290,4 +290,48 @@ class WorldSunglassesTC(WorldSvgFixtureBase):
         self.assertEqual([len(spad) for spad in spads], [1, 1])
 
 
+class WorldSunglassesLinesTC(WorldSvgFixtureBase):
+    LENS_VERTICES = np.array([
+        [-50, -30], [-25, -33], [0, -34], [25, -33],  # brow
+        [50, -30], [52, -17], [51, -2], [47, 12],  # inner side
+        [40, 25], [23, 35], [0, 38], [-23, 35],  # bottom
+        [-40, 25], [-47, 12], [-51, -2], [-52, -17],  # outer side
+    ], dtype='float64')
+
+    BRIDGE_VERTICES = np.array([
+        [-15, -30], [-8, -37], [0, -39], [8, -37], [15, -30],
+    ], dtype='float64')
+
+    CENTER = (200.0, 100.0)
+    LENS_OFFSET = 65.0
+
+    def add_lines(self, vertices, closed=False):
+        if closed:
+            vertices = np.vstack([vertices, vertices[:1]])
+        for (x0, y0), (x1, y1) in zip(vertices[:-1], vertices[1:]):
+            self.w.add_line(x0, y0, x1, y1)
+
+    def test_add_sunglasses_lines(self):
+        cx, cy = self.CENTER
+        left = self.LENS_VERTICES + (cx - self.LENS_OFFSET, cy)
+        right = (self.LENS_VERTICES * (-1.0, 1.0)
+                 + (cx + self.LENS_OFFSET, cy))
+        self.add_lines(left, closed=True)
+        self.add_lines(right, closed=True)
+        self.add_lines(self.BRIDGE_VERTICES + (cx, cy))
+
+        edge = self.LENS_OFFSET + 50.0
+        self.w.add_line(cx - edge, cy - 30.0, cx - edge - 20.0, cy - 34.0)
+        self.w.add_line(cx + edge, cy - 30.0, cx + edge + 20.0, cy - 34.0)
+
+        self.assertEqual(self.w.nbezier, 0)
+        self.assertEqual(self.w.nsegment, 16 + 16 + 4 + 2)
+
+        spads, cpads = self.assert_svg_fixture(
+            'sunglasses_lines.svg', '#1a1a1a')
+
+        self.assertEqual(cpads, [])
+        self.assertEqual(len(spads), 16 + 16 + 4 + 2)
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
