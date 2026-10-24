@@ -6,7 +6,7 @@ import os
 import re
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -18,14 +18,8 @@ try:
 except ImportError:
     pilot = None
 
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
-
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemeManagerTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -66,8 +60,7 @@ class ThemeManagerTC(unittest.TestCase):
         self.assertEqual(self.mgr.theme_mode, "system")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemeMenuTC(unittest.TestCase):
     def setUp(self):
         # The theme menu is built in Python by the controller, so build the
@@ -127,8 +120,7 @@ class ThemeMenuTC(unittest.TestCase):
         self.assertEqual(checked.objectName(), "theme.mode_dark")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemeLookTC(unittest.TestCase):
     def setUp(self):
         # The theme menu is built in Python by the controller, so build the
@@ -180,8 +172,7 @@ class ThemeLookTC(unittest.TestCase):
                          "theme.look_system")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemePolishTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -218,8 +209,7 @@ class ThemePolishTC(unittest.TestCase):
         self.assertEqual(settings.value("theme/look"), "system")
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemeCanvasTC(unittest.TestCase):
     """The 2D canvas fills every pixel itself instead of letting the style
     paint a widget, so it follows the theme only because the manager hands it
@@ -267,8 +257,7 @@ class ThemeCanvasTC(unittest.TestCase):
             self.app.palette().color(QPalette.Window).lightness())
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemeConsoleTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -322,8 +311,7 @@ class ThemeConsoleTC(unittest.TestCase):
                 edit.palette().color(QPalette.Text).lightness(), 100)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class ThemePanelTC(unittest.TestCase):
     """A dock panel mixes the shades the palette does not give it into a
     style sheet of its own, so it follows the theme only because the switch

@@ -2,10 +2,10 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -15,11 +15,6 @@ try:
     from PySide6.QtWidgets import QApplication
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 def _make_sample_mesh():
@@ -140,8 +135,7 @@ class _CountingWorld:
         return self._real.describe_state(level=level)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class MeshInfoTreeTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -177,8 +171,7 @@ class MeshInfoTreeTC(unittest.TestCase):
         self.assertLess(dense, sparse)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class EntityTreeWidgetTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
@@ -216,8 +209,7 @@ class EntityTreeWidgetTC(unittest.TestCase):
         self.assertFalse(tree._timer.isActive())
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class TreePanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()

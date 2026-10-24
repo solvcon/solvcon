@@ -9,17 +9,13 @@ import unittest
 import numpy as np
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
     from PySide6.QtGui import QImage
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 def _load_rgba(path):
@@ -70,8 +66,7 @@ def _send_key(widget, key):
     QtWidgets.QApplication.sendEvent(widget, event)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "live-GUI interaction needs a real window surface")
+@testing.requires_live_window
 class R2DWidgetSelectToolTC(unittest.TestCase):
     """Drive the select tool through select, move, rotate, and deselect."""
 
@@ -151,8 +146,7 @@ class R2DWidgetSelectToolTC(unittest.TestCase):
         self.assertEqual(self.widget.selectedShape, -1)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "live-GUI interaction needs a real window surface")
+@testing.requires_live_window
 class R2DWidgetNodeEditTC(unittest.TestCase):
     """Enter and leave node-edit mode on a path, and see its handles."""
 
@@ -285,8 +279,7 @@ class R2DWidgetNodeEditTC(unittest.TestCase):
         self.assertTrue(self._shows_selection_color_at(*self.HANDLE))
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "theme switching needs a real window surface")
+@testing.requires_live_window
 class R2DWidgetThemeTC(unittest.TestCase):
     """The painted frame follows the theme, not just the palette the widget
     reports. Whether a canvas is themed can only be settled on the pixels.
@@ -334,8 +327,7 @@ class R2DWidgetThemeTC(unittest.TestCase):
                                  self.widget.canvasPalette["background"])
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "live-GUI interaction needs a real window surface")
+@testing.requires_live_window
 class PainterToolboxTC(unittest.TestCase):
     """Run-through coverage of the Painter toolbox and the 'Create blank 2D
     canvas' flow.

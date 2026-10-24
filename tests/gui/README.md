@@ -1,14 +1,16 @@
 # GUI tests
 
-A test belongs here when it needs a real top-level window surface, which is
-what `NO_LIVE_WINDOW` in each file guards against. That is a property of the
+A test belongs here when it needs a real top-level window surface, and such a
+test says so with the `requires_live_window` decorator or by reading the
+`NO_LIVE_WINDOW` flag, both from `solvcon.testing`. That is a property of the
 test rather than a judgement about it: the offscreen Qt platform and the
 headless Windows CI runner cannot back a live window, so these tests skip
 there, and they are the slow half of the suite because driving real windows
-costs real time.
+costs real time. `make checktests` holds both directions: a file outside this
+directory that uses either fails, and so does a file here that uses neither.
 
 Everything else, including the pilot tests that build widgets without mapping
-a window, stays in `tests/`.
+a window (gated with `testing.requires_pilot`), stays in `tests/`.
 
 Run one side or the other:
 

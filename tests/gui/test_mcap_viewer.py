@@ -8,7 +8,7 @@ import os
 import tempfile
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -23,11 +23,6 @@ try:
     from mcap import writer as foxglove_mcap_writer
 except ImportError:
     foxglove_mcap_writer = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 TOPIC = "/vehicle/brake"
 BRAKE_IDL = b"""
@@ -53,8 +48,7 @@ def write_fixture(path):
         writer.finish()
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 @unittest.skipIf(foxglove_mcap_writer is None,
                  "the Foxglove mcap package is not installed")
 class McapPanelTC(unittest.TestCase):

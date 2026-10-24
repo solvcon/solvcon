@@ -11,7 +11,7 @@ import os
 import tempfile
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -21,11 +21,6 @@ try:
     from PySide6 import QtGui, QtWidgets
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 class FakePart(object):
@@ -45,8 +40,7 @@ class FakePart(object):
         return self.value
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class GeometrySeamTC(unittest.TestCase):
     """Drive the geometry policy against a hidden, fully controlled window.
 
@@ -109,8 +103,7 @@ class GeometrySeamTC(unittest.TestCase):
         self.assertEqual(part.capture()["height"], 420)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class UiStateTC(unittest.TestCase):
     """UiState coordinates any number of named parts, not windows alone."""
 

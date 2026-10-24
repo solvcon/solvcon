@@ -6,10 +6,10 @@ Tests for the Canvas page of the Painter inspector, against a real
 canvas.
 """
 
-import os
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -17,11 +17,6 @@ try:
     from PySide6 import QtWidgets
 except ImportError:
     pilot = None
-
-# The offscreen platform cannot back a live window; neither can the headless
-# Windows CI runner, whose WARP software rasterizer faults on one.
-NO_LIVE_WINDOW = ((os.getenv('QT_QPA_PLATFORM') or '').startswith('offscreen')
-                  or ('nt' == os.name and bool(os.getenv('GITHUB_ACTIONS'))))
 
 
 def _view(pan_x=0.0, pan_y=0.0, zoom=1.0):
@@ -50,8 +45,7 @@ def _assert_centered(case, canvas, point):
     case.assertAlmostEqual(y, 0.5 * height, places=3)
 
 
-@unittest.skipIf(NO_LIVE_WINDOW or not solvcon.HAS_PILOT,
-                 "pilot windows need a real window surface")
+@testing.requires_live_window
 class PainterCanvasCanvasTC(unittest.TestCase):
     """The page against a real canvas, bound by the Painter dock."""
 
