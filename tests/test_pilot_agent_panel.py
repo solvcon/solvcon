@@ -7,7 +7,7 @@ Tests for when the pilot agent console opens.
 
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon.pilot.agent import _agent_gui
@@ -16,7 +16,7 @@ except ImportError:
     _agent_gui = _gui = None
 
 
-@unittest.skipIf(not solvcon.HAS_PILOT, "pilot is not built")
+@testing.requires_pilot
 class AgentAutoOpenTC(unittest.TestCase):
     """The console opens with the canvas commands the table names."""
 

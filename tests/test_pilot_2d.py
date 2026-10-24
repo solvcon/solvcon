@@ -13,6 +13,7 @@ from xml.etree import ElementTree
 import numpy as np
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -130,7 +131,7 @@ def _build_world():
     return w
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class R2DWidgetWorldTC(unittest.TestCase):
 
     @classmethod
@@ -365,7 +366,7 @@ class R2DWidgetWorldTC(unittest.TestCase):
                 "circle interior should be hollow")
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class R2DWidgetScreenshotTC(unittest.TestCase):
     """R2DWidget on-screen screenshot APIs (saveImage/clipImage)."""
 
@@ -482,7 +483,7 @@ class R2DWidgetScreenshotTC(unittest.TestCase):
         self.assertGreater(pixmap.height(), 0)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class R2DWidgetSubWindowGripTC(unittest.TestCase):
     """The resize grip on the sub-window that hosts a 2D canvas."""
 
@@ -499,7 +500,7 @@ class R2DWidgetSubWindowGripTC(unittest.TestCase):
         self.assertEqual(1, len(subwin.findChildren(QSizeGrip)))
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class Save2DCanvasDialogTC(unittest.TestCase):
     """File -> Save 2D canvas dialog and path resolution."""
 
@@ -666,7 +667,7 @@ def _save_and_check_png(testcase, widget):
     testcase.assertEqual(data[:8], _PNG_MAGIC)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class R2DWidgetOverlayTC(unittest.TestCase):
     """Annotation overlay: ids, advanced geometric labels, bounding boxes,
     coordinate labels, and highlight-by-id via R2DWidget.overlay.
@@ -805,7 +806,7 @@ class R2DWidgetOverlayTC(unittest.TestCase):
         self.assertGreater(annotated, plain)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class InspectorLabelControlsTC(unittest.TestCase):
     """Cover the inspector label controls driving the canvas overlay.
 
@@ -925,7 +926,7 @@ class InspectorLabelControlsTC(unittest.TestCase):
         self.assertTrue(first.overlay.coordinate_labels)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class R2DWidgetExportOverlayTC(unittest.TestCase):
     """saveImage renders an explicit overlay offscreen, independent of the
     on-screen overlay, so an image can be exported with or without labels.

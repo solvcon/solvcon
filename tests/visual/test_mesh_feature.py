@@ -6,9 +6,10 @@ import os
 import unittest
 
 import solvcon
+from solvcon import testing
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class SampleMeshTC(unittest.TestCase):
     """The non-GUI sample-mesh data class and its name discovery."""
 
@@ -89,7 +90,7 @@ class _FakeManager:
         return self.viewers[-1]
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class MeshDrawerTC(unittest.TestCase):
     """The viewer sequence every mesh view shares, on a stand-in manager."""
 
@@ -138,7 +139,7 @@ class MeshDrawerTC(unittest.TestCase):
         self.assertEqual(len(self.mgr.pycon.history), 2)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class MeshSummaryTC(unittest.TestCase):
     """The mesh summary every mesh view writes to the console."""
 
@@ -175,7 +176,7 @@ class MeshSummaryTC(unittest.TestCase):
         self.assertIn(f"top ({mh.bc('top').nbound} faces)", text)
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class MeshFeatureDrawTC(unittest.TestCase):
     """The sample meshes and the Gmsh file open in a real viewer."""
 

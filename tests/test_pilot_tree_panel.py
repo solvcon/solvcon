@@ -5,6 +5,7 @@
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -41,7 +42,7 @@ def _section_map(sections):
     return {name: dict(rows) for name, rows in sections}
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class MakeMeshInfoTC(unittest.TestCase):
     def test_excludes_ghost_entities(self):
         info = _section_map(

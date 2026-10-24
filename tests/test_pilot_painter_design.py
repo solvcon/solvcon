@@ -9,6 +9,7 @@ import math
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -35,7 +36,7 @@ class _StubCanvas:
         self.repaints += 1
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PainterDesignPageTC(unittest.TestCase):
     """What the page shows for a selection, and what an edit writes back."""
 

@@ -4,7 +4,7 @@
 
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -22,7 +22,7 @@ def _drawn_pixels(image):
             if image.pixelColor(x, y).alpha() > 0]
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PainterIconTC(unittest.TestCase):
     """The tool icons rasterize to the box they are asked for.
 

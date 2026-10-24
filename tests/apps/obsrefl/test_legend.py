@@ -6,7 +6,7 @@
 
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -16,7 +16,7 @@ except ImportError:
     pilot = None
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class ReflectionLegendTC(unittest.TestCase):
 
     @classmethod

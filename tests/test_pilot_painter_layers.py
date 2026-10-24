@@ -9,6 +9,7 @@ import math
 import unittest
 
 import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -61,7 +62,7 @@ class _StubCanvas:
         self.selectedShape = -1
 
 
-@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+@testing.requires_pilot
 class PainterLayersPageTC(unittest.TestCase):
     """What the list shows for the objects a world holds."""
 

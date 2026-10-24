@@ -4,7 +4,7 @@
 
 import unittest
 
-import solvcon
+from solvcon import testing
 
 try:
     from solvcon import pilot
@@ -47,7 +47,7 @@ def _portable_standard_sequences(standard_key):
             for s in QtGui.QKeySequence.keyBindings(standard_key)]
 
 
-@unittest.skipIf(not solvcon.HAS_PILOT, "GUI is not available")
+@testing.requires_pilot
 class ShortcutResolutionTC(unittest.TestCase):
     """The roof resolves a command id to portable values the Python layer can
     apply. Runs under QT_QPA_PLATFORM=offscreen on CI when pilot is built."""
