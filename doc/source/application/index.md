@@ -1,9 +1,12 @@
 # Application
 
-An application owns everything specific to solving one problem set. It can be
-headless, GUI-heavy, or both, and it can use anything in solvcon. It is not a
-library: the pilot may launch it, but no other code builds on it, and code
-that others need is factored out of it. Applications live in the `solvcon.apps` package.
+An application is a Python package for solving a problem or a set of problems.
+It can be headless, GUI-heavy, or both.  One application should not
+depend on (access) another (it is not a library), but can use everything in
+solvcon.
+
+solvcon provides built-in applications in the `solvcon.apps` package.  Users
+may create their own solvcon applications outside the `solvcon` namespace.
 
 ```{toctree}
 :maxdepth: 2

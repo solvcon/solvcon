@@ -5,11 +5,11 @@
 """
 App boundary checker for solvcon.
 
-An app is not a library. Nothing outside an app can access or use the code in
-it, so code shared among apps is factored out of the apps. Apps are the
-sub-packages of solvcon/apps. Every .py file under solvcon is parsed, its
-imports (relative ones resolved, function-local ones included) are mapped to
-absolute module names, and these are enforced:
+An application owns everything specific to solving one problem set. See
+doc/source/application/index.md for the definition. The built-in
+applications are the sub-packages of solvcon/apps. Every .py file under
+solvcon is parsed, its imports (relative ones resolved, function-local ones
+included) are mapped to absolute module names, and these are enforced:
 
 - A module inside an app may import itself and anything that is not another
   app.

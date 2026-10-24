@@ -63,7 +63,7 @@ The fast set runs on every pull request and `master` push:
 
 - `check_skip`: the gate that decides whether the heavy jobs run (see below).
 - `lint`: `make cformat`, `cinclude`, `checkascii`, `checktws`, `checktests`,
-  `flake8`, and clang-tidy on the diff, on ubuntu and macOS.
+  `checkapps`, `flake8`, and clang-tidy on the diff, on ubuntu and macOS.
 - `standalone_buffer` (in `devbuild`): the standalone buffer build on ubuntu.
 - `build` (in `devbuild`): `make gtest` plus `make pytest` with Qt off and on,
   and the pilot, on ubuntu (Release) and macOS (RelWithDebInfo).
