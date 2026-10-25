@@ -1385,6 +1385,13 @@ fi
 if [ -n "${SCDV_SKIP_LIST# }" ] ; then
   echo "SCDV_SKIP_LIST=${SCDV_SKIP_LIST# }"
 fi
+# PySide6 builds against the core Python; the QT section does not add the core.
+if [ "${SCDVBUILD_ALL:-}" != "1" ] && [ "${SCDVBUILD_QT:-}" = "1" ] \
+   && [ "${SCDVBUILD_NUMPY:-}" != "1" ] \
+   && ! "${PY}" -c 'import numpy' > /dev/null 2>&1 ; then
+  echo "HINT: no Python with numpy at ${PY}; PySide6 will fail to build." \
+       "Run \`$0 --core\` before \`SCDVBUILD_QT=1 $0\`." >&2
+fi
 echo "ready to build"
 
 # --write-activate-only is its own explicit confirmation: create the scdv
