@@ -84,11 +84,11 @@ class LinePlotWidget(QWidget):
 
     def add_series(self, label, color=None):
         """Add one named curve; returns the new series."""
-        series = self.model.add_series()
+        series = _pcore.RPlotSeries()
         series.label = label
         if color is not None:
             series.color = color
-        return series
+        return self.model.add_series(series)
 
     def set_ylabel(self, text):
         """Rename the ordinate, for a plot whose quantity is selectable."""
