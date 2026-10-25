@@ -1059,6 +1059,25 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         self.assertTrue(math.isclose(lo, math.sqrt(2.0), rel_tol=1e-4))
         self.assertTrue(math.isclose(hi, math.sqrt(13.0), rel_tol=1e-4))
 
+    def test_angle_and_skewness_ranges_match_hand_computation(self):
+        """The elongated triangle has an 11-degree and a 135-degree corner."""
+        import math
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_quality_mesh())
+        narrow_angle = math.degrees(math.atan(1.0 / 5.0))
+
+        lo, hi = widget.qualityRange("min_angle")
+        self.assertAlmostEqual(lo, narrow_angle, places=4)
+        self.assertAlmostEqual(hi, 45.0, places=4)
+
+        lo, hi = widget.qualityRange("max_angle")
+        self.assertAlmostEqual(lo, 90.0, places=4)
+        self.assertAlmostEqual(hi, 135.0, places=4)
+
+        lo, hi = widget.qualityRange("skewness")
+        self.assertAlmostEqual(lo, 0.25, places=4)
+        self.assertAlmostEqual(hi, 1.0 - narrow_angle / 60.0, places=4)
+
     def test_color_by_quality_shows_a_gradient(self):
         """Coloring by aspect ratio paints the two cells distinct colors: the
         bad cell at the extreme of the map, the good one at the other end."""
