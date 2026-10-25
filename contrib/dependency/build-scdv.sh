@@ -1363,14 +1363,6 @@ PY=${SCDV_USRDIR}/bin/python3
 # ${SCDV_USRDIR}/bin are found by downstream builders such as meson.
 export PATH="${SCDV_USRDIR}/bin:${PATH}"
 
-# QT needs the core.
-SCDV_CORE_ADDED=0
-if [ "${SCDVBUILD_ALL:-}" != "1" ] && [ "${SCDVBUILD_QT:-}" = "1" ] \
-   && ! "${PY}" -c 'import numpy' > /dev/null 2>&1 ; then
-  SCDVBUILD_BASE=1 ; SCDVBUILD_PYTHON=1 ; SCDVBUILD_NUMPY=1
-  SCDV_CORE_ADDED=1
-fi
-
 scdv_write_activate() {
   # Delegate to the platform block's plat_write_activate (the dynamic-linker
   # env vars and stray-Qt handling are fundamentally per-OS).
@@ -1390,12 +1382,16 @@ echo "PYTHON_VERSION=${PYTHON_VERSION}"
 if [ "${SCDV_CORE_ONLY}" = "1" ] ; then
   echo "SCDV_CORE_ONLY=1 (BASE, PYTHON and NUMPY sections; no Qt)"
 fi
-if [ "${SCDV_CORE_ADDED}" = "1" ] ; then
-  echo "SCDV_CORE_ADDED=1 (no Python with numpy at ${PY}; QT section" \
-       "also builds the BASE, PYTHON and NUMPY sections)"
-fi
 if [ -n "${SCDV_SKIP_LIST# }" ] ; then
   echo "SCDV_SKIP_LIST=${SCDV_SKIP_LIST# }"
+fi
+# PySide6 builds against the core Python; the QT section does not add the core.
+if [ "${SCDV_WRITE_ACTIVATE_ONLY}" != "1" ] \
+   && [ "${SCDVBUILD_ALL:-}" != "1" ] && [ "${SCDVBUILD_QT:-}" = "1" ] \
+   && [ "${SCDVBUILD_NUMPY:-}" != "1" ] \
+   && ! "${PY}" -c 'import numpy' > /dev/null 2>&1 ; then
+  echo "HINT: no Python with numpy at ${PY}; PySide6 will fail to build." \
+       "Run \`$0 --core\` before \`SCDVBUILD_QT=1 $0\`." >&2
 fi
 echo "ready to build"
 
