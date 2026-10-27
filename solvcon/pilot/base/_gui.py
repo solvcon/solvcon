@@ -17,7 +17,6 @@ if _pcore.enable:
     from .. import benchmark
     from .. import visual
     from .. import panel
-    from .. import onedim
     from .. import canvas
     from .. import painter as _painter
     from .. import track
@@ -80,8 +79,6 @@ class _Controller(metaclass=_Singleton):
         self._app_factories = {}
         self.sample_mesh = None
         self.mesh_style_status = None
-        self.burgers = None
-        self.linear_wave = None
         self.painter = None
         self.canvas = None
         self.save_2d_canvas = None
@@ -156,8 +153,6 @@ class _Controller(metaclass=_Singleton):
             mgr=self._rmgr, style_status=self.mesh_style_status)
         self.mesh_sample_dialog = visual.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
-        self.burgers = onedim.Burgers1DApp(mgr=self._rmgr)
-        self.linear_wave = onedim.LinearWave1DApp(mgr=self._rmgr)
         self.painter = _painter.Painter(mgr=self._rmgr)
         self.canvas = canvas.Canvas(mgr=self._rmgr, painter=self.painter)
         self.save_2d_canvas = canvas.Save2DCanvasDialog(mgr=self._rmgr)
@@ -212,8 +207,6 @@ class _Controller(metaclass=_Singleton):
         self.painter.populate_menu()
         self.mesh_sample_dialog.populate_menu()
         self.mesh_style_status.populate_menu()
-        self.burgers.populate_menu()
-        self.linear_wave.populate_menu()
         self.canvas.populate_menu()
         self.openprofiledata.populate_menu()
         self.runprofiling.populate_menu()
