@@ -80,7 +80,6 @@ class _Controller(metaclass=_Singleton):
         self._app_factories = {}
         self.sample_mesh = None
         self.mesh_style_status = None
-        self.eulerone = None
         self.burgers = None
         self.linear_wave = None
         self.painter = None
@@ -157,7 +156,6 @@ class _Controller(metaclass=_Singleton):
             mgr=self._rmgr, style_status=self.mesh_style_status)
         self.mesh_sample_dialog = visual.SampleMeshDialog(
             mgr=self._rmgr, entries=self._mesh_sample_dialog_entries())
-        self.eulerone = onedim.Euler1DApp(mgr=self._rmgr)
         self.burgers = onedim.Burgers1DApp(mgr=self._rmgr)
         self.linear_wave = onedim.LinearWave1DApp(mgr=self._rmgr)
         self.painter = _painter.Painter(mgr=self._rmgr)
@@ -214,7 +212,6 @@ class _Controller(metaclass=_Singleton):
         self.painter.populate_menu()
         self.mesh_sample_dialog.populate_menu()
         self.mesh_style_status.populate_menu()
-        self.eulerone.populate_menu()
         self.burgers.populate_menu()
         self.linear_wave.populate_menu()
         self.canvas.populate_menu()

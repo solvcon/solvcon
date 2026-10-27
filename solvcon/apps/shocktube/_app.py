@@ -2,9 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
-from ...onedim import euler1d
+from ...pilot import base
 
-from .. import base
+from . import _shocktube
 
 
 class Euler1DApp(base.OneDimBaseApp):
@@ -20,7 +20,7 @@ class Euler1DApp(base.OneDimBaseApp):
         """
         self.add_action(
             "One",
-            text="Euler solver",
+            text="Shock tube",
             tip="One-dimensional shock-tube problem with Euler solver",
             func=self.run,
             id="one.euler",
@@ -120,7 +120,7 @@ class Euler1DApp(base.OneDimBaseApp):
         """
         Initialize the shock tube solver and set up the initial condition.
         """
-        self.st = euler1d.ShockTube()
+        self.st = _shocktube.ShockTube()
         _s = self.solver_config
         self.st.build_constant(gamma=_s["gamma"]["value"],
                                pressure1=_s["p_left"]["value"],
@@ -146,5 +146,9 @@ class Euler1DApp(base.OneDimBaseApp):
         cfl = self.st.svr.cfl
         self.log(f"CFL: min {cfl.min()} max {cfl.max()}")
 
+
+def build_app(controller):
+    """Build the app on the pilot."""
+    return Euler1DApp(mgr=controller.mgr)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

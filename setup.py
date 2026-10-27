@@ -71,6 +71,7 @@ def main():
             'solvcon.agent.window',
             'solvcon.apps',
             'solvcon.apps.obsrefl',
+            'solvcon.apps.shocktube',
             'solvcon.benchmark',
             'solvcon.mesh',
             'solvcon.multidim',

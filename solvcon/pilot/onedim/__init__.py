@@ -3,15 +3,14 @@
 
 
 """
-One-dimensional CESE solver demos: the Euler shock tube, Burgers' equation,
-and the linear scalar wave.
+One-dimensional CESE solver demos: Burgers' equation and the linear scalar
+wave.
 """
 
 from .. import _pilot_core as _pcore
 
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_burgers1d': ['Burgers1DApp'],
-    '_euler1d': ['Euler1DApp'],
     '_linear_wave': ['LinearWave1DApp'],
 })
 
