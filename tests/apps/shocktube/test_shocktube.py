@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from solvcon.onedim import euler1d
+from solvcon.onedim import euler
 from solvcon.apps import shocktube
 
 
@@ -44,7 +44,7 @@ class ShockTubeTC(unittest.TestCase):
         self.st.build_numerical(xmin=-1, xmax=1, ncoord=21,
                                 time_increment=0.05, keep_edge=True)
         self.st.build_field(t=0.0)
-        self.assertIsInstance(self.st.svr, euler1d.Euler1DSolver)
+        self.assertIsInstance(self.st.svr, euler.Euler1DSolver)
         self.assertEqual(len(self.st.coord_field), 11)
         self._check_field_value_at_t0()
 

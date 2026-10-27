@@ -77,6 +77,7 @@ def main():
             'solvcon.multidim',
             'solvcon.multidim.euler',
             'solvcon.onedim',
+            'solvcon.onedim.euler',
             'solvcon.pilot',
             'solvcon.pilot.agent',
             'solvcon.pilot.base',

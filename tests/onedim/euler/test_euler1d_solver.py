@@ -5,7 +5,7 @@ import unittest
 
 import numpy as np
 
-from solvcon.onedim import euler1d
+from solvcon.onedim import euler
 
 
 class Euler1DSolverTC(unittest.TestCase):
@@ -21,7 +21,7 @@ class Euler1DSolverTC(unittest.TestCase):
         nstep = int(np.ceil(time_stop / dt_max))
         dt = time_stop / nstep
 
-        svr = euler1d.Euler1DSolver(
+        svr = euler.Euler1DSolver(
             xmin=xmin, xmax=xmax, ncoord=resolution + 1,
             time_increment=dt)
         svr.setup_march()

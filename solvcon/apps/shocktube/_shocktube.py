@@ -8,7 +8,7 @@ The shock tube problem with its analytic solution.
 
 import numpy as np
 
-from ...onedim import euler1d
+from ...onedim import euler
 
 
 class ShockTube:
@@ -88,9 +88,9 @@ class ShockTube:
             raise ValueError("constants are not set; call build_constant()")
 
         # Initialize the numerical solver.
-        self.svr = euler1d.Euler1DSolver(xmin, xmax, ncoord,
-                                         time_increment=time_increment,
-                                         keep_edge=keep_edge)
+        self.svr = euler.Euler1DSolver(xmin, xmax, ncoord,
+                                       time_increment=time_increment,
+                                       keep_edge=keep_edge)
 
         # Fill gamma.
         self.svr.gamma.fill(self.gamma)

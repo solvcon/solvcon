@@ -11,11 +11,14 @@ import numpy as np
 try:
     from _solvcon import onedim as _impl  # noqa: F401
 except ImportError:
-    from .._solvcon import onedim as _impl  # noqa: F401
+    from ..._solvcon import onedim as _impl  # noqa: F401
 
 __all__ = [
+    'Euler1DCore',
     'Euler1DSolver',
 ]
+
+Euler1DCore = _impl.Euler1DCore
 
 
 class Euler1DSolver:
@@ -41,7 +44,7 @@ class Euler1DSolver:
     @staticmethod
     def init_solver(xmin, xmax, ncoord, time_increment, gamma):
         # Create the solver object.
-        svr = _impl.Euler1DCore(ncoord=ncoord, time_increment=time_increment)
+        svr = Euler1DCore(ncoord=ncoord, time_increment=time_increment)
 
         # Initialize spatial grid.
         svr.coord[...] = np.linspace(xmin, xmax, num=ncoord)
