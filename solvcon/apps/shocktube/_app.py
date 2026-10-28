@@ -19,11 +19,11 @@ class Euler1DApp(base.OneDimBaseApp):
         Set menu item for GUI.
         """
         self.add_action(
-            "One",
+            "App",
             text="Shock tube",
             tip="One-dimensional shock-tube problem with Euler solver",
             func=self.run,
-            id="one.euler",
+            id="app.shocktube",
             weight=10,
         )
 

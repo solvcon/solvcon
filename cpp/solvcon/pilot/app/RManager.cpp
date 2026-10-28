@@ -553,7 +553,7 @@ void RManager::setUpMenu()
     m_menuModel->menu("File", 0);
     m_menuModel->menu("Edit", 10);
     m_menuModel->menu("View", 20);
-    m_menuModel->menu("One", 30);
+    m_menuModel->menu("App", 30);
     m_menuModel->menu("Mesh", 40);
     m_menuModel->menu("Canvas", 50);
     m_menuModel->menu("Profiling", 60);
