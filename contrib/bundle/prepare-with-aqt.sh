@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Prepare the pinned dependencies used to build the self-contained macOS Pilot
+# bundle. The script creates isolated tools and relocatable SDK prefixes under
+# build/bundle-deps for bundle-with-aqt.sh.
+#
 
 set -euo pipefail
 
@@ -75,7 +80,9 @@ PYSIDE_QT_LIB="$PYSIDE_DIR/Qt/lib"
     exit 1
 }
 
-# Make the wheel bindings and Pilot load the same AQT Qt frameworks.
+# Pilot links against AQT Qt, while PySide6 normally resolves Qt from its
+# wheel. Redirect PySide6 before the build so both sides load the SDK's Qt
+# instead of conflicting copies.
 rm -rf "$PYSIDE_QT_LIB"
 ln -s ../../../.. "$PYSIDE_QT_LIB"
 

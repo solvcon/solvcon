@@ -567,6 +567,9 @@ echo "    [Step 3 (Bundle prepared SDK): $((SECONDS - T_STEP))s]"
 # ---------------------------------------------------------------------------
 
 T_STEP=$SECONDS
+# Pilot's C++ code and the PySide6 bindings must use one Qt runtime. Point
+# PySide6 to the frameworks deployed by macdeployqt instead of loading the Qt
+# runtime originally supplied by its wheel.
 PYSIDE_QT="$BUNDLED_SITE/PySide6/Qt"
 rm -rf "$PYSIDE_QT"
 mkdir -p "$PYSIDE_QT"
