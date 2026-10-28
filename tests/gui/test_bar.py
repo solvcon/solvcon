@@ -16,7 +16,7 @@ try:
 except ImportError:
     pilot = None
 
-BUILTINS = ["File", "Edit", "View", "One", "Mesh", "Canvas", "Profiling",
+BUILTINS = ["File", "Edit", "View", "App", "Mesh", "Canvas", "Profiling",
             "Track", "Window"]
 
 
