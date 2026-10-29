@@ -325,17 +325,17 @@ p = pathlib.Path("/tmp")
 ```python
 # BAD: imports content from a sub-module.
 from matplotlib.figure import Figure
-from ._base_app import QuantityLine
+from ._base_app import SolverConfig
 
 fig = Figure()
-line = QuantityLine(...)
+config = SolverConfig(...)
 
 # GOOD: import the module.
 from matplotlib import figure
 from . import _base_app
 
 fig = figure.Figure()
-line = _base_app.QuantityLine(...)
+config = _base_app.SolverConfig(...)
 ```
 
 > **Note:**
