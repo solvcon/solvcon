@@ -232,10 +232,10 @@ check_self_contained() {
         fi
     done < <(list_macho "$1")
     if [[ $bad -eq 0 ]]; then
-        echo "    OK: $total Mach-O files, none reference the dependency prefixes"
+        ok "$total Mach-O files, none reference the dependency prefixes"
         return 0
     fi
-    echo "ERROR: $bad of $total Mach-O files still reference dependency prefixes" >&2
+    fail "$bad of $total Mach-O files still reference dependency prefixes"
     return 1
 }
 
@@ -282,16 +282,18 @@ smoke_launch_verify() {
 
     loaded=$(grep -c '^dyld\[' "$trace" 2>/dev/null || true)
     if [[ $loaded -lt $MIN_LOADS ]]; then
-        echo "ERROR: pilot loaded only $loaded libraries; did it crash early?" >&2
-        sed -n '1,80p' "$trace" >&2
-        return 1
+        fail "pilot loaded only $loaded libraries; did it crash early?" || {
+            sed -n '1,80p' "$trace" >&2
+            return 1
+        }
     fi
     if grep -E '^dyld\[' "$trace" | grep -E "${HOST_PREFIX_RE#^}" >/dev/null; then
-        echo "ERROR: smoke launch loaded libraries from host package prefixes:" >&2
-        grep -E '^dyld\[' "$trace" | grep -E "${HOST_PREFIX_RE#^}" | head -20 >&2
-        return 1
+        fail "smoke launch loaded libraries from host package prefixes:" || {
+            grep -E '^dyld\[' "$trace" | grep -E "${HOST_PREFIX_RE#^}" | head -20 >&2
+            return 1
+        }
     fi
-    echo "    OK: $loaded libraries loaded, none from host package prefixes"
+    ok "$loaded libraries loaded, none from host package prefixes"
 }
 
 VERIFY_MNT=""
@@ -349,9 +351,10 @@ verify_dmg() {
     touch "$marker"
     runtime_import_check "$copied_app/Contents/MacOS/$(basename "$copied_app" .app)"
     if find "$copied_app" -name '*.pyc' -newer "$marker" -print -quit | grep -q .; then
-        echo "ERROR: runtime import wrote Python bytecode into the signed app bundle:" >&2
-        find "$copied_app" -name '*.pyc' -newer "$marker" -print | sed -n '1,20p' >&2
-        return 1
+        fail "runtime import wrote Python bytecode into the signed app bundle:" || {
+            find "$copied_app" -name '*.pyc' -newer "$marker" -print | sed -n '1,20p' >&2
+            return 1
+        }
     fi
     codesign --verify --deep --strict "$copied_app"
 
@@ -462,9 +465,9 @@ PY_DYLIB="$PREFIX/lib/libpython${PY_VER}.dylib"
 BUNDLED_LIB="$APP/Contents/lib/python${PY_VER}"
 BUNDLED_SITE="$BUNDLED_LIB/site-packages"
 
-echo "==> Build path : $BUILD_PATH"
-echo "==> App bundle : $APP"
-echo "==> Python     : $PY_DYLIB"
+note "Build path : $BUILD_PATH"
+note "App bundle : $APP"
+note "Python     : $PY_DYLIB"
 
 # ---------------------------------------------------------------------------
 # Step 1: Build pilot
@@ -478,14 +481,14 @@ if [[ $SKIP_BUILD -eq 0 ]]; then
     # `make pilot` only re-links the binary; remove the .app so the
     # build produces a virgin one each run.
     rm -rf "$APP"
-    echo "==> make pilot CMAKE_BUILD_TYPE=Release BUILD_PATH=$BUILD_PATH"
+    note "make pilot CMAKE_BUILD_TYPE=Release BUILD_PATH=$BUILD_PATH"
     PYBIND11_CMAKE_DIR=$("$TOOLS_PREFIX/bin/python3" -m pybind11 --cmakedir)
     env -u CMAKE_PREFIX_PATH make -W CMakeLists.txt pilot \
         CMAKE_BUILD_TYPE=Release BUILD_PATH="$BUILD_PATH" \
         CMAKE_ARGS="${CMAKE_ARGS:-} --fresh -DCMAKE_PREFIX_PATH=\"$PREFIX\" -DQt6_DIR=\"$PREFIX/lib/cmake/Qt6\" -DPYTHON_EXECUTABLE=\"$PREFIX/bin/python3\" -Dpybind11_DIR=\"$PYBIND11_CMAKE_DIR\""
 fi
 
-[[ -f "$BINARY" ]] || { echo "ERROR: pilot binary not found at $BINARY" >&2; exit 1; }
+[[ -f "$BINARY" ]] || fail "pilot binary not found at $BINARY"
 echo "    [Step 1 (Build pilot): $((SECONDS - T_STEP))s]"
 
 # ---------------------------------------------------------------------------
@@ -493,7 +496,7 @@ echo "    [Step 1 (Build pilot): $((SECONDS - T_STEP))s]"
 # ---------------------------------------------------------------------------
 
 T_STEP=$SECONDS
-echo "==> macdeployqt (bundles Qt frameworks, plugins, transitive dylibs)"
+note "macdeployqt (bundles Qt frameworks, plugins, transitive dylibs)"
 # Later steps modify the deployed files, so sign the finished bundle once.
 macdeployqt "$APP" -verbose=1 -no-codesign -libpath="$PREFIX/lib"
 for plugin_dir in "$APP"/Contents/PlugIns/*/; do
@@ -508,7 +511,7 @@ echo "    [Step 2 (Deploy Qt): $((SECONDS - T_STEP))s]"
 # ---------------------------------------------------------------------------
 
 T_STEP=$SECONDS
-echo "==> Copying prepared SDK into the app bundle"
+note "Copying prepared SDK into the app bundle"
 SDK_RSYNC_EXCLUDES=(
     # Generated caches and static typing metadata are rebuilt or unused.
     '--exclude=__pycache__'
@@ -581,7 +584,7 @@ echo "    [Step 4 (Replace the PySide6 Qt runtime): $((SECONDS - T_STEP))s]"
 # ---------------------------------------------------------------------------
 
 T_STEP=$SECONDS
-echo "==> Copying solvcon package into bundled site-packages"
+note "Copying solvcon package into bundled site-packages"
 # Copy the solvcon Python package. Skip _solvcon*.so because the binary code is
 # statically linked into pilot via PYBIND11_EMBEDDED_MODULE.
 rsync -a --exclude '__pycache__' --exclude '_solvcon*.so' \
@@ -612,14 +615,14 @@ echo "    [Step 5 (Bundle solvcon): $((SECONDS - T_STEP))s]"
 # ---------------------------------------------------------------------------
 
 T_STEP=$SECONDS
-echo "==> Pre-compiling bundled Python modules"
+note "Pre-compiling bundled Python modules"
 PY_LIB="$BUNDLED_LIB"
 python3 -m compileall -f --invalidation-mode unchecked-hash -q \
     -x '(^|/)(test|tests)/|\.tmpl\.py$' \
     "$PY_LIB" || true
 PYC_COUNT=$(find "$PY_LIB" -name '*.pyc' | wc -l | tr -d ' ')
 [[ $PYC_COUNT -gt 0 ]] || \
-    { echo "ERROR: compileall produced no .pyc files under $PY_LIB" >&2; exit 1; }
+    fail "compileall produced no .pyc files under $PY_LIB"
 echo "    compiled $PYC_COUNT .pyc files"
 echo "    [Step 5.5 (Pre-compile bytecode): $((SECONDS - T_STEP))s]"
 
@@ -870,7 +873,7 @@ thin_bundle_arm64() {
         archs=$(lipo -archs "$BIN" 2>/dev/null || true)
         [[ "$archs" == *x86_64* ]] || continue
         [[ "$archs" == *arm64* ]] || {
-            echo "ERROR: x86_64-only Mach-O in Apple Silicon bundle: $BIN" >&2
+            fail "x86_64-only Mach-O in Apple Silicon bundle: $BIN"
             return 1
         }
 
@@ -889,7 +892,7 @@ thin_bundle_arm64() {
     while IFS= read -r -d '' BIN; do
         archs=$(lipo -archs "$BIN" 2>/dev/null || true)
         [[ "$archs" != *x86_64* ]] || {
-            echo "ERROR: x86_64 remains in $BIN" >&2
+            fail "x86_64 remains in $BIN"
             return 1
         }
     done < <(list_macho "$APP")
@@ -909,7 +912,7 @@ inject_pythonnousersite() {
             "$plist" >/dev/null 2>&1; then
         /usr/libexec/PlistBuddy -c \
             "Set :LSEnvironment:PYTHONNOUSERSITE 1" "$plist" || {
-            echo "    ERROR: failed to set LSEnvironment.PYTHONNOUSERSITE" >&2
+            fail "failed to set LSEnvironment.PYTHONNOUSERSITE"
             return 1
         }
     else
@@ -918,7 +921,7 @@ inject_pythonnousersite() {
             2>/dev/null || true
         /usr/libexec/PlistBuddy -c \
             "Add :LSEnvironment:PYTHONNOUSERSITE string 1" "$plist" || {
-            echo "    ERROR: failed to add LSEnvironment.PYTHONNOUSERSITE" >&2
+            fail "failed to add LSEnvironment.PYTHONNOUSERSITE"
             return 1
         }
     fi
@@ -926,17 +929,17 @@ inject_pythonnousersite() {
 }
 
 T_STEP=$SECONDS
-echo "==> Vendoring prefix dependencies"
+note "Vendoring prefix dependencies"
 vendor_prefix_deps
-echo "==> Redirecting prefix load commands to bundled copies"
+note "Redirecting prefix load commands to bundled copies"
 rewrite_load_commands
-echo "==> Stripping prefix rpaths"
+note "Stripping prefix rpaths"
 strip_prefix_rpaths
-echo "==> Pruning Mach-O files with unresolvable prefix deps"
+note "Pruning Mach-O files with unresolvable prefix deps"
 prune_unfixable_machos
-echo "==> Thinning universal Mach-O files to arm64"
+note "Thinning universal Mach-O files to arm64"
 thin_bundle_arm64
-echo "==> Setting PYTHONNOUSERSITE=1 in Info.plist"
+note "Setting PYTHONNOUSERSITE=1 in Info.plist"
 inject_pythonnousersite
 echo "    [Step 6 (Vendor prefix deps): $((SECONDS - T_STEP))s]"
 
@@ -991,16 +994,16 @@ sign_main_app() {
 }
 
 T_STEP=$SECONDS
-echo "==> Ad-hoc re-signing all bundled Mach-O files"
+note "Ad-hoc re-signing all bundled Mach-O files"
 sign_inner_machos
 sign_helper_apps
 sign_frameworks
-echo "==> Ad-hoc re-signing the app bundle"
+note "Ad-hoc re-signing the app bundle"
 sign_main_app
 echo "    [Step 7 (Ad-hoc codesign): $((SECONDS - T_STEP))s]"
 
 echo ""
-echo "Bundle complete: $APP"
+ok "Bundle complete: $APP"
 
 # ---------------------------------------------------------------------------
 # Step 8: Package DMG
@@ -1009,7 +1012,7 @@ echo "Bundle complete: $APP"
 T_STEP=$SECONDS
 mkdir -p "$OUTPUT_DIR"
 DMG="$OUTPUT_DIR/pilot.dmg"
-echo "==> Creating $DMG from $APP"
+note "Creating $DMG from $APP"
 hdiutil create -volname "solvcon Pilot" \
     -srcfolder "$APP" \
     -ov -format UDZO \
@@ -1018,7 +1021,7 @@ SIZE=$(du -sh "$DMG" | cut -f1)
 echo "    [Step 8 (Package DMG): $((SECONDS - T_STEP))s]"
 
 echo ""
-echo "DMG complete: $DMG ($SIZE)"
+ok "DMG complete: $DMG ($SIZE)"
 
 # ---------------------------------------------------------------------------
 # Step 9: Verify hermeticity
@@ -1045,24 +1048,26 @@ launch_and_trace() {
 smoke_check() {
     local bin="$1" label="${2:-}" total prefix_count
     [[ -n "$label" ]] && label=" ($label)"
-    echo "==> Smoke launch${label} under sandboxed env (DYLD_PRINT_LIBRARIES=1)"
+    note "Smoke launch${label} under sandboxed env (DYLD_PRINT_LIBRARIES=1)"
     launch_and_trace "$bin"
     total=$(grep -c '^dyld\[' "$TRACE" || true)
     prefix_count=$(grep -E '^dyld\[' "$TRACE" \
         | grep -E -c "${HOST_PREFIX_RE#^}" || true)
     if [[ $total -lt $MIN_LOADS ]]; then
-        echo "ERROR: pilot loaded only $total libraries (expected >= $MIN_LOADS);" \
-             "did it crash early?" >&2
-        sed -n '1,40p' "$TRACE" >&2
-        exit 1
+        fail "pilot loaded only $total libraries (expected >= $MIN_LOADS);" \
+            "did it crash early?" || {
+            sed -n '1,40p' "$TRACE" >&2
+            exit 1
+        }
     fi
     if [[ $prefix_count -gt 0 ]]; then
-        echo "ERROR: $prefix_count of $total dyld loads came from dependency prefixes:" >&2
-        grep -E '^dyld\[' "$TRACE" | grep -E "${HOST_PREFIX_RE#^}" \
-            | head -10 | sed 's/^/    /' >&2
-        exit 1
+        fail "$prefix_count of $total dyld loads came from dependency prefixes:" || {
+            grep -E '^dyld\[' "$TRACE" | grep -E "${HOST_PREFIX_RE#^}" \
+                | head -10 | sed 's/^/    /' >&2
+            exit 1
+        }
     fi
-    echo "    OK: $total libraries loaded, none from dependency prefixes"
+    ok "$total libraries loaded, none from dependency prefixes"
 }
 
 if [[ $SKIP_CHECK -eq 0 ]]; then
@@ -1070,28 +1075,28 @@ if [[ $SKIP_CHECK -eq 0 ]]; then
     TRACE=$(mktemp -t check-bundle-trace)
 
     echo ""
-    echo "==> Checking $APP"
-    echo "==> Static scan for dependency path references"
+    note "Checking $APP"
+    note "Static scan for dependency path references"
     check_self_contained "$APP"
     smoke_check "$BINARY"
     echo ""
-    echo "Bundle check passed: $APP"
+    ok "Bundle check passed: $APP"
 
     DMG_MOUNT=$(mktemp -d -t check-dmg)
     echo ""
-    echo "==> Mounting $DMG at $DMG_MOUNT"
+    note "Mounting $DMG at $DMG_MOUNT"
     hdiutil attach -nobrowse -readonly -mountpoint "$DMG_MOUNT" "$DMG" \
         >/dev/null
 
     DMG_APP=$(find "$DMG_MOUNT" -maxdepth 2 -name '*.app' -type d -print -quit)
-    [[ -n "$DMG_APP" ]] || { echo "ERROR: no .app found in $DMG" >&2; exit 1; }
-    echo "==> Found app: $DMG_APP"
-    echo "==> Static scan (DMG) for dependency path references"
+    [[ -n "$DMG_APP" ]] || fail "no .app found in $DMG"
+    note "Found app: $DMG_APP"
+    note "Static scan (DMG) for dependency path references"
     check_self_contained "$DMG_APP"
     DMG_BINARY="$DMG_APP/Contents/MacOS/$(basename "$DMG_APP" .app)"
     smoke_check "$DMG_BINARY" "DMG"
     echo ""
-    echo "DMG check passed: $DMG"
+    ok "DMG check passed: $DMG"
     echo "    [Step 9 (Verify hermeticity): $((SECONDS - T_STEP))s]"
 fi
 
