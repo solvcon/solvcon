@@ -17,7 +17,7 @@ from solvcon import testing
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
-    from solvcon.apps import shocktube
+    from solvcon import apps  # noqa: F401
     from solvcon.pilot.panel._window_manager import WindowManager
     from PySide6 import QtWidgets
 except ImportError:
@@ -119,11 +119,12 @@ class WindowMenuTC(unittest.TestCase):
     def test_solver_window_carries_its_title(self):
         # A 1D solver window used to carry no title at all, so the list
         # could only show it as a bare numbered "window" entry.
-        app = shocktube.Euler1DApp(mgr=self.mgr)
-        app.run()
+        app = _gui.controller.apps['shocktube']
+        app.open()
+        self.addCleanup(app.close)
         self._show()
         items = self._items()
-        self.assertTrue(items[-1].text().endswith("Euler solver"))
+        self.assertTrue(items[-1].text().endswith("Shock tube: Sod"))
 
 
 @testing.requires_live_window

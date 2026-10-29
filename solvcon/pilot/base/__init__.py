@@ -16,7 +16,8 @@ from .. import _pilot_core as _pcore
 # and tests import the feature modules in builds without it, so they are
 # ungated.
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
-    '_base_app': ['OneDimBaseApp', 'QuantityLine', 'SolverConfig'],
+    '_base_app': ['ConfigTableModel', 'OneDimBaseApp', 'QuantityLine',
+                  'SolverConfig'],
     '_gui': ['controller', 'launch', 'register_app'],
     '_gui_common': ['PilotFeature', 'SubWindowCloseFilter',
                     'apply_label_mode', 'label_switch_and_mode'],
