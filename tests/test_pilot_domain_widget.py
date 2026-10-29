@@ -11,6 +11,7 @@ render-dependent tests skip rather than fail. The Linux CI build job drives
 them under Xvfb with the software rasterizer.
 """
 
+import math
 import os
 import platform
 import tempfile
@@ -1042,39 +1043,36 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         pilot.RManager.instance.setUp()
 
     def test_volume_range_matches_hand_computation(self):
-        """qualityRange("volume") returns the two cell areas, 0.5 and 2.0."""
-        import math
+        """The two cell areas are 0.5 and 2.0."""
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
-        lo, hi = widget.qualityRange("volume")
+        lo, hi = widget.qualityRange(pilot.QualityMetric.Volume)
         self.assertTrue(math.isclose(lo, 0.5, rel_tol=1e-4))
         self.assertTrue(math.isclose(hi, 2.0, rel_tol=1e-4))
 
     def test_aspect_ratio_range_matches_hand_computation(self):
         """The elongated cell sets the aspect-ratio maximum to sqrt(13)."""
-        import math
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
-        lo, hi = widget.qualityRange("aspect_ratio")
+        lo, hi = widget.qualityRange(pilot.QualityMetric.AspectRatio)
         self.assertTrue(math.isclose(lo, math.sqrt(2.0), rel_tol=1e-4))
         self.assertTrue(math.isclose(hi, math.sqrt(13.0), rel_tol=1e-4))
 
     def test_angle_and_skewness_ranges_match_hand_computation(self):
         """The elongated triangle has an 11-degree and a 135-degree corner."""
-        import math
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
         narrow_angle = math.degrees(math.atan(1.0 / 5.0))
 
-        lo, hi = widget.qualityRange("min_angle")
+        lo, hi = widget.qualityRange(pilot.QualityMetric.MinAngle)
         self.assertAlmostEqual(lo, narrow_angle, places=4)
         self.assertAlmostEqual(hi, 45.0, places=4)
 
-        lo, hi = widget.qualityRange("max_angle")
+        lo, hi = widget.qualityRange(pilot.QualityMetric.MaxAngle)
         self.assertAlmostEqual(lo, 90.0, places=4)
         self.assertAlmostEqual(hi, 135.0, places=4)
 
-        lo, hi = widget.qualityRange("skewness")
+        lo, hi = widget.qualityRange(pilot.QualityMetric.Skewness)
         self.assertAlmostEqual(lo, 0.25, places=4)
         self.assertAlmostEqual(hi, 1.0 - narrow_angle / 60.0, places=4)
 
@@ -1085,24 +1083,95 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         widget.resize(320, 240)
         widget.updateMesh(_make_quality_mesh())
         widget.showMeshStyle("wireframe", False)
-        widget.colorByQuality("aspect_ratio")
+        widget.colorByQuality(pilot.QualityMetric.AspectRatio)
         image = _grab_or_skip(widget)
         self.assertGreaterEqual(_distinct_field_colors(image), 2)
 
-    def test_unknown_metric_raises(self):
-        """An unknown metric name is rejected, not silently colored."""
+    def test_quality_ranges_preserve_translated_geometry(self):
+        """Large offsets must not erase cell geometry through float casts."""
+        mesh = _make_quality_mesh()
+        mesh.ndcrd.ndarray[:, :] += 1.0e8
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(mesh)
+        narrow_angle = math.degrees(math.atan(1.0 / 5.0))
+        ranges = (
+            (pilot.QualityMetric.Volume, (0.5, 2.0)),
+            (pilot.QualityMetric.AspectRatio,
+             (math.sqrt(2.0), math.sqrt(13.0))),
+            (pilot.QualityMetric.MinAngle, (narrow_angle, 45.0)),
+            (pilot.QualityMetric.MaxAngle, (90.0, 135.0)),
+            (pilot.QualityMetric.Skewness,
+             (0.25, 1.0 - narrow_angle / 60.0)),
+        )
+        for metric, expected in ranges:
+            with self.subTest(metric=metric):
+                actual = widget.qualityRange(metric)
+                for value, bound in zip(actual, expected):
+                    self.assertAlmostEqual(value, bound, places=11)
+
+    def test_metric_names_match_enum_values(self):
+        """Console metric names select the same computations as enums."""
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
-        with self.assertRaises(ValueError):
+        metrics = (
+            ("volume", pilot.QualityMetric.Volume),
+            ("aspect_ratio", pilot.QualityMetric.AspectRatio),
+            ("skewness", pilot.QualityMetric.Skewness),
+            ("min_angle", pilot.QualityMetric.MinAngle),
+            ("max_angle", pilot.QualityMetric.MaxAngle),
+        )
+        for name, metric in metrics:
+            with self.subTest(metric=name):
+                expected = widget.qualityRange(metric)
+                self.assertEqual(widget.qualityRange(name), expected)
+                for value in (name, metric):
+                    widget.colorByQuality(value)
+                    for actual, bound in zip(widget.scalarRange, expected):
+                        self.assertAlmostEqual(actual, bound, places=6)
+
+    def test_unknown_metric_raises(self):
+        """An unknown metric name must not silently select a computation."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_quality_mesh())
+        with self.assertRaisesRegex(ValueError, "unknown quality metric"):
             widget.qualityRange("bogus")
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "unknown quality metric"):
             widget.colorByQuality("bogus")
+
+    def test_invalid_metric_type_raises(self):
+        """Other parameter types must not become metric names or enums."""
+        widget = pilot.RDomainWidget()
+        widget.updateMesh(_make_quality_mesh())
+        for metric in (None, 0):
+            with self.subTest(metric=metric):
+                with self.assertRaises(TypeError):
+                    widget.qualityRange(metric)
+                with self.assertRaises(TypeError):
+                    widget.colorByQuality(metric)
+
+    def test_manager_widget_accepts_quality_metrics(self):
+        """C++-created widgets accept console names as well as enums."""
+        mgr = pilot.RManager.instance
+        widget = mgr.add3DWidget()
+        mdi = mgr.mdiArea
+        try:
+            self.assertIsInstance(widget, pilot.RDomainWidget)
+            widget.updateMesh(_make_quality_mesh())
+            for metric in ("volume", pilot.QualityMetric.Volume):
+                with self.subTest(metric=metric):
+                    self.assertEqual(widget.qualityRange(metric), (0.5, 2.0))
+                    widget.colorByQuality(metric)
+                    self.assertEqual(widget.scalarRange, (0.5, 2.0))
+        finally:
+            mdi.closeAllSubWindows()
 
     def test_color_by_quality_without_mesh_is_noop(self):
         """Coloring by quality before a mesh loads does nothing, not crash."""
         widget = pilot.RDomainWidget()
-        widget.colorByQuality("volume")
-        self.assertEqual(widget.qualityRange("volume"), (0.0, 0.0))
+        for metric in ("volume", pilot.QualityMetric.Volume):
+            with self.subTest(metric=metric):
+                widget.colorByQuality(metric)
+                self.assertEqual(widget.qualityRange(metric), (0.0, 0.0))
 
 
 @testing.requires_pilot

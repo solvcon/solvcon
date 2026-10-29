@@ -31,6 +31,7 @@
 #include <QRhiWidget>
 #include <QVector3D>
 
+#include <array>
 #include <map>
 #include <memory>
 #include <string>
@@ -41,6 +42,46 @@ namespace solvcon
 {
 
 class RScalarField;
+
+/**
+ * Per-cell geometric quality metrics, over the SimpleArray mesh path.
+ * The angle-based metrics read the cell node polygon, so they are
+ * meaningful for 2D cells; "volume" and "aspect_ratio" work in any dimension.
+ */
+class CellQualityHelper
+{
+public:
+
+    enum class Metric : uint8_t
+    {
+        Volume,
+        AspectRatio,
+        Skewness,
+        MinAngle,
+        MaxAngle,
+    }; /* end enum class Metric */
+
+    CellQualityHelper(StaticMesh const & mesh, Metric metric);
+
+    static Metric parse_metric(std::string const & name);
+    static char const * name(Metric metric);
+
+    real_type volume(int_type icl) const;
+    real_type aspect_ratio(int_type icl) const;
+    real_type skewness(int_type icl) const;
+    real_type min_angle(int_type icl) const;
+    real_type max_angle(int_type icl) const;
+
+    SimpleArray<real_type> calculate() const;
+
+private:
+
+    small_vector<std::array<real_type, 3>> cell_points(int_type icl) const;
+    std::pair<real_type, real_type> angle_range(int_type icl) const;
+
+    Metric m_metric;
+    StaticMesh const & m_mesh;
+}; /* end class CellQualityHelper */
 
 /**
  * @brief Interactive 2D/3D viewer for spatial domains and fields on
@@ -208,13 +249,14 @@ public:
     void colorByBoundary();
     void clearCellColoring();
 
-    /// Color the mesh by a per-cell geometric quality metric through the
-    /// continuous colormap and scalar bar. @p metric is one of "volume",
-    /// "aspect_ratio", "skewness", "min_angle", "max_angle".
-    void colorByQuality(std::string const & metric);
+    /**
+     * Color the mesh by a per-cell geometric quality metric through the
+     * continuous colormap and scalar bar.
+     */
+    void colorByQuality(CellQualityHelper::Metric metric);
 
-    /// The (min, max) range of the named quality metric over the cells.
-    std::pair<float, float> qualityRange(std::string const & metric) const;
+    /// The (min, max) range of the quality metric over the cells.
+    std::pair<real_type, real_type> qualityRange(CellQualityHelper::Metric metric) const;
 
     /// Frame the camera so the whole domain is in view.
     void fitCameraToScene();
