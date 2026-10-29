@@ -43,9 +43,13 @@ def _blend(color, other, ratio):
 
 class ProfilePlot(QWidget):
     """The profile panels, one per shown quantity: the analytic solution as
-    a line and the numerical one as markers.
+    a line, the numerical one as markers, and the wave fronts of the
+    analytic solution as dotted guides.
 
     :ivar quantities: The names of the shown quantities.
+    :ivar fronts: ``(label, x)`` of the wave fronts, left first.
+    :ivar x0: Where the diaphragm stood at t = 0, or None.
+    :ivar show_fronts: Whether to draw the guides.
     """
 
     TITLE = 18
@@ -60,6 +64,9 @@ class ProfilePlot(QWidget):
         self.xlim = (0.0, 1.0)
         self.exact = None
         self.points = None
+        self.fronts = []
+        self.x0 = None
+        self.show_fronts = True
         self._tickers = {}
         self.setMinimumSize(320, 220)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -80,6 +87,28 @@ class ProfilePlot(QWidget):
         self.exact = exact
         self.points = points
         self.update()
+
+    def set_fronts(self, fronts, x0):
+        """Guide the wave ``fronts``, ``(label, x)`` left first, and the
+        diaphragm at ``x0``."""
+        self.fronts = list(fronts)
+        self.x0 = x0
+        self.update()
+
+    def set_show_fronts(self, shown):
+        """Draw or hide the guides."""
+        self.show_fronts = shown
+        self.update()
+
+    def guides(self):
+        """Return ``(x, label, dashed)`` of each guide drawn: the fronts
+        dotted, then the diaphragm dashed.  At t = 0 every front stands on
+        the diaphragm, which alone is guided."""
+        if not self.show_fronts or self.x0 is None:
+            return []
+        out = [(x, label, False) for label, x in self.fronts
+               if x != self.x0]
+        return out + [(self.x0, "x0", True)]
 
     def panels(self):
         """Return ``(name, rect, bottom)`` of the plot frame of each panel,
@@ -163,6 +192,16 @@ class ProfilePlot(QWidget):
                                      Qt.AlignHCenter | Qt.AlignTop, text)
             painter.save()
             painter.setClipRect(rect.adjusted(-4, -4, 4, 4))
+            for it, (pos, label, dashed) in enumerate(self.guides()):
+                x = at(pos, ylo)[0]
+                painter.setPen(QPen(muted, 1, Qt.DashLine if dashed
+                                    else Qt.DotLine))
+                painter.drawLine(QPointF(x, rect.top()),
+                                 QPointF(x, rect.bottom()))
+                # Staggered, so the labels of close fronts stay apart.
+                painter.drawText(QRectF(x + 3, rect.top() + 2 + it % 2 * 12,
+                                        60, 12),
+                                 Qt.AlignLeft | Qt.AlignTop, label)
             if self.exact is not None:
                 xs, values = self.exact
                 painter.setPen(QPen(ink, 1.25))
@@ -201,6 +240,7 @@ class ShockTubeWindow(QWidget):
 
     :ivar plot: The :class:`ProfilePlot`.
     :ivar chips: The checkable button of each quantity, by name.
+    :ivar fronts_chip: The checkable button that shows the wave fronts.
     :ivar buttons: The ``'run'``, ``'step'``, and ``'reset'`` buttons.
     :ivar run_clicked: Owner-supplied callback for the button that runs,
         pauses, or runs again.
@@ -236,6 +276,10 @@ class ShockTubeWindow(QWidget):
         font.setPixelSize(14)
         font.setWeight(QFont.DemiBold)
         self._title.setFont(font)
+        self._waves = QLabel("")
+        self._waves.setToolTip("The waves of the exact solution, left to "
+                               "right (S shock, R rarefaction, C contact), "
+                               "and the star state between them")
         self.chips = {}
         chips = QHBoxLayout()
         chips.setSpacing(5)
@@ -249,11 +293,19 @@ class ShockTubeWindow(QWidget):
             self.chips[name] = chip
             chips.addWidget(chip)
         chips.addStretch(1)
+        self.fronts_chip = QToolButton()
+        self.fronts_chip.setText("wave fronts")
+        self.fronts_chip.setCheckable(True)
+        self.fronts_chip.setChecked(True)
+        self.fronts_chip.setFocusPolicy(Qt.NoFocus)
+        self.fronts_chip.toggled.connect(self.plot.set_show_fronts)
+        chips.addWidget(self.fronts_chip)
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(14, 10, 14, 8)
         self._layout.setSpacing(6)
         self._layout.addLayout(controls)
         self._layout.addWidget(self._title)
+        self._layout.addWidget(self._waves)
         self._layout.addWidget(self.plot, 1)
         self._layout.addLayout(chips)
 
@@ -267,6 +319,19 @@ class ShockTubeWindow(QWidget):
     def title(self):
         """Return the text heading the panels."""
         return self._title.text()
+
+    def show_waves(self, exact):
+        """Say the wave pattern and the star state of ``exact``, an
+        :class:`~._riemann.ExactRiemann`."""
+        self._waves.setText(
+            f"{exact.pattern}    p* = {exact.p_star:.5g}    "
+            f"u* = {exact.u_star:.5g}    "
+            f"rho*L = {exact.rho_star_left:.5g}    "
+            f"rho*R = {exact.rho_star_right:.5g}")
+
+    def waves_text(self):
+        """Return what the window says of the waves."""
+        return self._waves.text()
 
     def show_state(self, state, step, nstep):
         """Show the run state (``'ready'``, ``'running'``, ``'paused'``, or

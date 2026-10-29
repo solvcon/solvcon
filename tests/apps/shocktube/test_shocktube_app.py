@@ -78,10 +78,28 @@ class AppTC(unittest.TestCase):
         # right one.
         self.assertEqual(1.0, values['density'][0])
         self.assertEqual(0.125, values['density'][-1])
-        np.testing.assert_array_equal(self.app.st.density_field,
-                                      values['density'])
+        # The exact solver draws what the closed form of the legacy solver
+        # gives for every quantity.
+        self.app.st.build_field(t=2.5, coord=xs)
+        for name in values:
+            with self.subTest(name=name):
+                np.testing.assert_allclose(
+                    getattr(self.app.st, f"{name}_field"), values[name],
+                    rtol=1.e-12, atol=1.e-12)
         self.assertEqual(['density', 'velocity', 'pressure'],
                          plot.quantities)
+        # The fronts stand where the waves of Sod's problem, at the speeds
+        # -1.1832, -0.0703, 0.9275, and 1.7522, have gone by t = 2.5.
+        self.assertEqual(['head', 'tail', 'contact', 'shock', 'x0'],
+                         [label for _, label, _ in plot.guides()])
+        np.testing.assert_allclose(
+            np.array([-1.1832, -0.0703, 0.9275, 1.7522],
+                     dtype='float64') * 2.5,
+            [x for x, _, _ in plot.guides()[:4]], atol=1.e-3)
+        self.assertTrue(self.app.window.waves_text().startswith(
+            "R-C-S    p* = 0.30313    u* = 0.92745"))
+        self.app.window.fronts_chip.setChecked(False)
+        self.assertEqual([], plot.guides())
         lo, hi = plot.yrange('density')
         self.assertLess(lo, 0.125)
         self.assertGreater(hi, 1.0)
