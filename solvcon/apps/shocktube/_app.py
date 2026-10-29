@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QDockWidget
 from ...pilot import base
 
 from . import _panel
+from . import _riemann
 from . import _shocktube
 from . import _window
 
@@ -40,6 +41,7 @@ class ShockTubeApp(base.PilotFeature):
             ["max_steps", 50, "Maximum step"],
         ])
         self.st = None
+        self.exact = None
         self.current_step = 0
         self.state = 'ready'
         self.timer = QTimer()
@@ -154,6 +156,10 @@ class ShockTubeApp(base.PilotFeature):
         self.st.build_numerical(xmin=cfg["xmin"], xmax=cfg["xmax"],
                                 ncoord=cfg["ncoord"],
                                 time_increment=cfg["time_increment"])
+        self.exact = _riemann.ExactRiemann(
+            (cfg["rho_left"], 0.0, cfg["p_left"]),
+            (cfg["rho_right"], 0.0, cfg["p_right"]), gamma=cfg["gamma"])
+        self.window.show_waves(self.exact)
         self.timer.stop()
         self.timer.setInterval(cfg["time_interval"])
         self.current_step = 0
@@ -195,14 +201,24 @@ class ShockTubeApp(base.PilotFeature):
                    for name, _ in _window.QUANTITIES})
         coord = np.linspace(cfg["xmin"], cfg["xmax"], self.EXACT_POINTS,
                             dtype='float64')
-        self.st.build_field(t=time, coord=coord)
-        exact = (self.st.coord_field,
-                 {name: getattr(self.st, f"{name}_field")
-                  for name, _ in _window.QUANTITIES})
+        exact = (coord, self.exact_values(coord, time))
         self.window.plot.set_data((cfg["xmin"], cfg["xmax"]), exact, points)
+        self.window.plot.set_fronts(self.exact.positions(time),
+                                    self.exact.x0)
         self.window.set_title("Sod", time)
         self.window.show_state(self.state, self.current_step,
                                cfg["max_steps"])
+
+    def exact_values(self, coord, time):
+        """Return the exact solution at ``coord`` and ``time`` by the name of
+        each quantity of the window."""
+        sol = self.exact.sample(coord, time)
+        rho, vel, pre = sol['rho'], sol['u'], sol['p']
+        gamma = self.exact.gamma
+        return {'density': rho, 'velocity': vel, 'pressure': pre,
+                'temperature': pre / (rho * _shocktube.ShockTube.R),
+                'internal_energy': _riemann.derive('e', rho, vel, pre, gamma),
+                'entropy': _riemann.derive('s', rho, vel, pre, gamma)}
 
 
 def build_app(controller):

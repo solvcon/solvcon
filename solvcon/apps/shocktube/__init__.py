@@ -15,8 +15,9 @@ from ... import pilot
 
 __all__, __getattr__, __dir__ = pilot.lazy_exports(__name__, {
     '_app': ['ShockTubeApp'],
+    '_riemann': ['GasState', 'Wave', 'ExactRiemann', 'QUANTITIES', 'derive'],
     '_shocktube': ['ShockTube'],
-}, ungated=('_shocktube',))
+}, ungated=('_riemann', '_shocktube'))
 
 if pilot.enable:
     from . import _app
