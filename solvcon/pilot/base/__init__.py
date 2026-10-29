@@ -4,19 +4,18 @@
 
 """
 The base application layer: the launch and controller wiring, the shared
-GUI helpers and feature base class, the 1D application scaffold, and the
-theme menu.
+GUI helpers and feature base class, the configuration table, and the theme
+menu.
 """
 
 from .. import _pilot_core as _pcore
 
 # _gui imports the feature neighborhoods, whose modules subclass PilotFeature
-# and OneDimBaseApp in class statements, so these names must resolve before
-# _gui runs. _gui_common and _base_app need PySide6 but not the C++ pilot,
-# and tests import the feature modules in builds without it, so they are
-# ungated.
+# in class statements, so the name must resolve before _gui runs.
+# _gui_common and _base_app need PySide6 but not the C++ pilot, and tests
+# import the feature modules in builds without it, so they are ungated.
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
-    '_base_app': ['OneDimBaseApp', 'QuantityLine', 'SolverConfig'],
+    '_base_app': ['ConfigTableModel', 'SolverConfig'],
     '_gui': ['controller', 'launch', 'register_app'],
     '_gui_common': ['PilotFeature', 'SubWindowCloseFilter',
                     'apply_label_mode', 'label_switch_and_mode'],
