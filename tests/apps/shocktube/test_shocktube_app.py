@@ -17,7 +17,7 @@ try:
     from solvcon import pilot
     if pilot.enable:
         from PySide6.QtCore import QEvent
-        from PySide6.QtWidgets import QApplication, QPushButton
+        from PySide6.QtWidgets import QApplication
 except ImportError:
     pilot = None
 
@@ -165,22 +165,43 @@ class AppTC(unittest.TestCase):
     def test_the_config_panel_sets_the_problem_anew(self):
         self._open()
         dock = self.app.dock
-        self.assertEqual("config", dock.windowTitle())
+        self.assertEqual("App config", dock.windowTitle())
         self.assertFalse(dock.isHidden())
+        column = dock.widget()
+        self.assertEqual((self.app.config, {}), column.read())
+        self.app.window.buttons['step'].click()
+        field = column.fields['max_steps']
+        field.setText("20")
+        field.textEdited.emit("20")
         model = self.app.solver_config
         row = [model.data(i, 0) for i in range(model.rowCount())].index(
             'max_steps')
-        self.app.window.buttons['step'].click()
-        model.setData(row, 1, 20)
-        try:
-            # An edit waits for Set, which starts over from t = 0.
-            self.assertEqual("paused, step 1 / 50",
-                             self.app.window.state_text())
-            dock.findChild(QPushButton).click()
-            self.assertEqual("ready, step 0 / 20",
-                             self.app.window.state_text())
-        finally:
-            model.setData(row, 1, 50)
+        self.addCleanup(model.setData, row, 1, 50)
+        # An edit waits for Apply, which starts over from t = 0.
+        self.assertEqual("paused, step 1 / 50", self.app.window.state_text())
+        column.apply_button.click()
+        self.assertEqual("ready, step 0 / 20", self.app.window.state_text())
+        self.assertEqual(20, self.app.config['max_steps'])
+
+    def test_the_view_menu_toggles_the_config_panel(self):
+        action = self.mgr.menu_model.action("panel.shocktube_config")
+        self.assertIs(self.app.dock_action, action)
+        # Without the window there is no panel to show.
+        self.assertFalse(action.isEnabled())
+        self._open()
+        dock = self.app.dock
+        self.assertTrue(action.isEnabled())
+        self.assertTrue(action.isChecked())
+        action.trigger()
+        self.assertTrue(dock.isHidden())
+        action.trigger()
+        self.assertFalse(dock.isHidden())
+        # A panel closed from its own bar unchecks the item.
+        dock.close()
+        self.assertFalse(action.isChecked())
+        self.app.close()
+        self.assertFalse(action.isEnabled())
+        self.assertFalse(action.isChecked())
 
     def test_closing_the_window_stops_its_march(self):
         self._open()
