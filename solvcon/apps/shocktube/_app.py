@@ -42,6 +42,10 @@ class ShockTubeApp(base.PilotFeature):
         ])
         self.st = None
         self.exact = None
+        # The time and the numerical density of each step, for the x-t
+        # diagram.
+        self.xt_times = []
+        self.xt_rows = []
         self.current_step = 0
         self.state = 'ready'
         self.timer = QTimer()
@@ -160,6 +164,9 @@ class ShockTubeApp(base.PilotFeature):
             (cfg["rho_left"], 0.0, cfg["p_left"]),
             (cfg["rho_right"], 0.0, cfg["p_right"]), gamma=cfg["gamma"])
         self.window.show_waves(self.exact)
+        self.window.xt.set_waves(self.exact.waves, self.exact.x0,
+                                 cfg["max_steps"] * cfg["time_increment"])
+        self.xt_times, self.xt_rows = [], []
         self.timer.stop()
         self.timer.setInterval(cfg["time_interval"])
         self.current_step = 0
@@ -205,6 +212,12 @@ class ShockTubeApp(base.PilotFeature):
         self.window.plot.set_data((cfg["xmin"], cfg["xmax"]), exact, points)
         self.window.plot.set_fronts(self.exact.positions(time),
                                     self.exact.x0)
+        # A redraw of the same step, on a pause, adds no row.
+        if len(self.xt_rows) == self.current_step:
+            self.xt_times.append(time)
+            self.xt_rows.append(points[1]['density'].copy())
+        self.window.xt.set_history((cfg["xmin"], cfg["xmax"]), points[0],
+                                   self.xt_times, self.xt_rows)
         self.window.set_title("Sod", time)
         self.window.show_state(self.state, self.current_step,
                                cfg["max_steps"])
