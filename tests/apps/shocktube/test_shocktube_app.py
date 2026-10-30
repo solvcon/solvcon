@@ -104,6 +104,33 @@ class AppTC(unittest.TestCase):
         self.assertLess(lo, 0.125)
         self.assertGreater(hi, 1.0)
 
+    def test_the_xt_diagram_colors_a_row_per_step(self):
+        self._open()
+        window = self.app.window
+        xt = window.xt
+        self.assertEqual([('rarefaction', 2), ('contact', 1), ('shock', 1)],
+                         [(kind, len(speeds)) for kind, speeds in xt.waves])
+        self.assertAlmostEqual(2.5, xt.t_end)
+        for _ in range(3):
+            window.buttons['step'].click()
+        # A pause redraws the same step without a row of its own.
+        window.buttons['run'].click()
+        window.buttons['run'].click()
+        np.testing.assert_allclose([0.0, 0.05, 0.1, 0.15], xt.times)
+        svr = self.app.st.svr
+        np.testing.assert_array_equal(svr.density[svr.xindices], xt.rows[-1])
+        # The first row holds the two states, the ends of the colors.
+        self.assertEqual((0.125, 1.0), xt.vrange())
+        words = xt.colors()
+        self.assertEqual(xt.rows.shape, words.shape)
+        self.assertTrue(np.all(words >> 24 == 0xff))
+        self.assertNotEqual(words[0, 0], words[0, -1])
+        self.assertFalse(xt.grab().isNull())
+        window.buttons['reset'].click()
+        self.assertEqual(1, len(xt.times))
+        window.xt_chip.setChecked(False)
+        self.assertTrue(xt.isHidden())
+
     def test_a_run_starts_at_t_zero_with_the_two_states(self):
         self._open()
         window = self.app.window

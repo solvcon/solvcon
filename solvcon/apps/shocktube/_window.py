@@ -11,15 +11,18 @@ import math
 import numpy as np
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPalette, QPen, QPolygonF
+from PySide6.QtGui import (QColor, QFont, QImage, QPainter, QPalette, QPen,
+                           QPolygonF)
 from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton,
                                QSizePolicy, QToolButton, QVBoxLayout,
                                QWidget)
 
 from ... import pilot
+from ...pilot import visual
 
 __all__ = [
     'ProfilePlot',
+    'XtDiagram',
     'ShockTubeWindow',
 ]
 
@@ -223,15 +226,167 @@ class ProfilePlot(QWidget):
         painter.end()
 
     def _ticks(self, lo, hi, pixels, spacing):
-        """Return ``(value, text)`` of the ticks over ``lo`` to ``hi``,
-        about one per ``spacing`` of the ``pixels`` they span."""
-        target = max(2, min(9, int(pixels // spacing)))
-        ticker = self._tickers.get(target)
-        if ticker is None:
-            ticker = self._tickers[target] = pilot.RPlotTicker(target)
-        ticks = list(ticker.locate(lo, hi))
-        return [(value, text) for value, text
-                in zip(ticks, ticker.labels(ticks)) if lo <= value <= hi]
+        return _ticks(self._tickers, lo, hi, pixels, spacing)
+
+
+class XtDiagram(QWidget):
+    """The x-t diagram: the history of the numerical density colored in the
+    x-t plane, time running up, under the wave fronts of the analytic
+    solution drawn from the diaphragm, fan edges dashed, the contact dotted,
+    and the shock solid.  A line marks the time of the last step.
+
+    :ivar times: The time of each row of :attr:`rows`, ascending.
+    :ivar rows: ``[len(times), len(x)]`` density history.
+    :ivar waves: ``(kind, speeds)`` of each wave of the analytic solution.
+    """
+
+    TITLE = ProfilePlot.TITLE
+    LEFT = ProfilePlot.LEFT
+    BOTTOM = ProfilePlot.BOTTOM
+    #: The dash pattern of each kind of wave, None for a solid line.
+    DASHES = {'rarefaction': [4, 3], 'contact': [1, 2.5]}
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.xlim = (0.0, 1.0)
+        self.x = np.empty(0, dtype='float64')
+        self.times = np.empty(0, dtype='float64')
+        self.rows = np.empty((0, 0), dtype='float64')
+        self.waves = []
+        self.x0 = 0.0
+        self.t_end = 1.0
+        self._tickers = {}
+        self.setMinimumSize(320, 120)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+    def set_waves(self, waves, x0, t_end):
+        """Draw ``waves``, :class:`~._riemann.Wave`, from ``x0`` up to
+        ``t_end``, the time of the last step."""
+        self.waves = [(wave.kind, wave.speeds) for wave in waves
+                      if 'vacuum' != wave.kind]
+        self.x0 = x0
+        self.t_end = max(float(t_end), 1.e-30)
+        self.update()
+
+    def set_history(self, xlim, x, times, rows):
+        """Color ``rows``, a density over ``x`` at each of ``times``."""
+        self.xlim = tuple(xlim)
+        self.x = np.asarray(x, dtype='float64')
+        self.times = np.asarray(times, dtype='float64')
+        self.rows = np.asarray(rows, dtype='float64')
+        self.update()
+
+    def vrange(self):
+        """Return the ``(lo, hi)`` the colors span."""
+        values = self.rows[np.isfinite(self.rows)]
+        if 0 == values.size:
+            return 0.0, 1.0
+        lo, hi = float(values.min()), float(values.max())
+        return (lo, hi) if hi > lo else (lo - 0.5, hi + 0.5)
+
+    def colors(self):
+        """Return the rows as ARGB words, the first row at t = 0; a value
+        that is not finite stays clear."""
+        lo, hi = self.vrange()
+        rgb = np.rint(visual.colormap((self.rows - lo) / (hi - lo))
+                      * 255).astype('uint32')
+        words = (0xff000000 | rgb[..., 0] << 16 | rgb[..., 1] << 8
+                 | rgb[..., 2]).astype('uint32')
+        words[~np.isfinite(self.rows)] = 0
+        return np.ascontiguousarray(words)
+
+    def plot_rect(self):
+        """Return the frame of the diagram."""
+        return QRectF(self.LEFT, self.TITLE, self.width() - self.LEFT - 2,
+                      self.height() - self.TITLE - self.BOTTOM)
+
+    def paintEvent(self, event):
+        palette = self.palette()
+        ground = palette.color(QPalette.Base)
+        ink = palette.color(QPalette.Text)
+        frame = _blend(ground, ink, 0.35)
+        muted = _blend(ink, ground, 0.35)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.fillRect(self.rect(), ground)
+        rect = self.plot_rect()
+        lo, hi = self.xlim
+
+        def at(x, t):
+            return QPointF(rect.left() + (x - lo) / (hi - lo) * rect.width(),
+                           rect.bottom() - t / self.t_end * rect.height())
+
+        bold = QFont(self.font())
+        bold.setPixelSize(12)
+        bold.setWeight(QFont.DemiBold)
+        painter.setFont(bold)
+        painter.setPen(ink)
+        painter.drawText(QRectF(rect.left(), 0, rect.width(), self.TITLE - 3),
+                         Qt.AlignLeft | Qt.AlignBottom, "x-t diagram")
+        painter.save()
+        painter.setClipRect(rect)
+        if self.rows.size and len(self.x) > 1:
+            words = self.colors()
+            image = QImage(words.data, words.shape[1], words.shape[0],
+                           words.shape[1] * 4, QImage.Format_ARGB32)
+            half = (self.x[-1] - self.x[0]) / (len(self.x) - 1) / 2
+            top = at(self.x[-1] + half, self.times[-1])
+            bottom = at(self.x[0] - half, 0.0)
+            # The rows run up in time and down in the image, so the image is
+            # drawn mirrored about the middle of its target.
+            painter.translate(0, top.y() + bottom.y())
+            painter.scale(1, -1)
+            painter.drawImage(QRectF(bottom.x(), top.y(),
+                                     top.x() - bottom.x(),
+                                     bottom.y() - top.y()), image)
+            painter.resetTransform()
+        for kind, speeds in self.waves:
+            for speed in speeds:
+                pen = QPen(ink, 1.3)
+                pen.setCapStyle(Qt.FlatCap)
+                if kind in self.DASHES:
+                    pen.setDashPattern(self.DASHES[kind])
+                painter.setPen(pen)
+                painter.drawLine(at(self.x0, 0.0),
+                                 at(self.x0 + speed * self.t_end, self.t_end))
+        if self.times.size:
+            now = at(lo, self.times[-1]).y()
+            painter.setPen(QPen(palette.color(QPalette.Highlight), 1.4))
+            painter.drawLine(QPointF(rect.left(), now),
+                             QPointF(rect.right(), now))
+        painter.restore()
+        painter.setPen(QPen(frame, 1))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(rect)
+        small = QFont(self.font())
+        small.setPixelSize(10)
+        painter.setFont(small)
+        painter.setPen(muted)
+        for value, text in _ticks(self._tickers, 0.0, self.t_end,
+                                  rect.height(), 28):
+            y = at(lo, value).y()
+            painter.drawText(QRectF(0, y - 7, rect.left() - 5, 14),
+                             Qt.AlignRight | Qt.AlignVCenter, text)
+        for value, text in _ticks(self._tickers, lo, hi, rect.width(), 60):
+            left = min(max(at(value, 0.0).x() - 30, 0), self.width() - 60)
+            painter.drawText(QRectF(left, rect.bottom() + 2, 60, 14),
+                             Qt.AlignHCenter | Qt.AlignTop, text)
+        painter.drawText(QRectF(4, rect.top(), rect.left() - 10, 14),
+                         Qt.AlignLeft | Qt.AlignTop, "t")
+        painter.end()
+
+
+def _ticks(tickers, lo, hi, pixels, spacing):
+    """Return ``(value, text)`` of the ticks over ``lo`` to ``hi``, about one
+    per ``spacing`` of the ``pixels`` they span, with a ticker of ``tickers``
+    kept by its target count."""
+    target = max(2, min(9, int(pixels // spacing)))
+    ticker = tickers.get(target)
+    if ticker is None:
+        ticker = tickers[target] = pilot.RPlotTicker(target)
+    ticks = list(ticker.locate(lo, hi))
+    return [(value, text) for value, text
+            in zip(ticks, ticker.labels(ticks)) if lo <= value <= hi]
 
 
 class ShockTubeWindow(QWidget):
@@ -241,6 +396,8 @@ class ShockTubeWindow(QWidget):
     :ivar plot: The :class:`ProfilePlot`.
     :ivar chips: The checkable button of each quantity, by name.
     :ivar fronts_chip: The checkable button that shows the wave fronts.
+    :ivar xt: The :class:`XtDiagram` under the panels.
+    :ivar xt_chip: The checkable button that shows :attr:`xt`.
     :ivar buttons: The ``'run'``, ``'step'``, and ``'reset'`` buttons.
     :ivar run_clicked: Owner-supplied callback for the button that runs,
         pauses, or runs again.
@@ -300,13 +457,22 @@ class ShockTubeWindow(QWidget):
         self.fronts_chip.setFocusPolicy(Qt.NoFocus)
         self.fronts_chip.toggled.connect(self.plot.set_show_fronts)
         chips.addWidget(self.fronts_chip)
+        self.xt = XtDiagram()
+        self.xt_chip = QToolButton()
+        self.xt_chip.setText("x-t diagram")
+        self.xt_chip.setCheckable(True)
+        self.xt_chip.setChecked(True)
+        self.xt_chip.setFocusPolicy(Qt.NoFocus)
+        self.xt_chip.toggled.connect(self.xt.setVisible)
+        chips.addWidget(self.xt_chip)
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(14, 10, 14, 8)
         self._layout.setSpacing(6)
         self._layout.addLayout(controls)
         self._layout.addWidget(self._title)
         self._layout.addWidget(self._waves)
-        self._layout.addWidget(self.plot, 1)
+        self._layout.addWidget(self.plot, 2)
+        self._layout.addWidget(self.xt, 1)
         self._layout.addLayout(chips)
 
     def sizeHint(self):
