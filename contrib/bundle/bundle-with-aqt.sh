@@ -301,10 +301,15 @@ VERIFY_TMP=""
 VERIFY_TRACE=""
 VERIFY_MARKER=""
 cleanup_verify() {
-    [[ -n "${VERIFY_MNT:-}" ]] && hdiutil detach -quiet "$VERIFY_MNT" >/dev/null 2>&1 || true
-    [[ -n "${VERIFY_TMP:-}" ]] && rm -rf "$VERIFY_TMP"
-    [[ -n "${VERIFY_TRACE:-}" ]] && rm -f "$VERIFY_TRACE"
-    [[ -n "${VERIFY_MARKER:-}" ]] && rm -f "$VERIFY_MARKER"
+    if [[ -n "${VERIFY_MNT:-}" ]]; then
+        hdiutil detach -quiet "$VERIFY_MNT" >/dev/null 2>&1 \
+            || hdiutil detach -force -quiet "$VERIFY_MNT" >/dev/null 2>&1 \
+            || true
+        rmdir "$VERIFY_MNT" 2>/dev/null || true
+    fi
+    [[ -z "${VERIFY_TMP:-}" ]] || rm -rf "$VERIFY_TMP"
+    [[ -z "${VERIFY_TRACE:-}" ]] || rm -f "$VERIFY_TRACE"
+    [[ -z "${VERIFY_MARKER:-}" ]] || rm -f "$VERIFY_MARKER"
 }
 
 verify_dmg() {
@@ -437,6 +442,7 @@ cleanup() {
             || true
         rmdir "$DMG_MOUNT" 2>/dev/null || true
     fi
+    cleanup_verify
 }
 trap cleanup EXIT
 
