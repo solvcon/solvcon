@@ -6,8 +6,9 @@
 
 The star states are pinned to the values other codes publish for the same
 tests, Sod's problem to the closed form of the legacy solver, and the sampled
-solution to what every exact solution obeys: it starts from the initial data
-and it mirrors with the problem.
+solution to what every exact solution obeys: it starts from the initial data,
+it mirrors with the problem, and it conserves mass, momentum, and energy up
+to the fluxes through the ends.
 """
 
 import math
@@ -23,6 +24,23 @@ SOD = ((1.0, 0.0, 1.0), (0.125, 0.0, 0.1))
 EINFELDT = ((1.0, -2.0, 0.4), (1.0, 2.0, 0.4))
 #: Two streams parting fast enough to leave vacuum between them.
 VACUUM = ((1.0, -10.0, 1.0), (1.0, 10.0, 1.0))
+#: Standard tests on [0, 1] as ``(left, right, x0, t_end)``, with the
+#: diaphragm and the end time their sources use (Sod as in the FLASH user's
+#: guide, Toro's tests 1 to 4 and 7, and Lax and the shock-contact-shock
+#: test of LANL ExactPack); the vacuum gets an end time before its fans
+#: leave [0, 1].
+PROBLEMS = {
+    'sod': SOD + (0.5, 0.2),
+    'modified_sod': ((1.0, 0.75, 1.0), (0.125, 0.0, 0.1), 0.3, 0.2),
+    'lax': ((0.445, 0.698, 3.528), (0.5, 0.0, 0.571), 0.5, 0.15),
+    'einfeldt': EINFELDT + (0.5, 0.15),
+    'left_blast': ((1.0, 0.0, 1000.0), (1.0, 0.0, 0.01), 0.5, 0.012),
+    'collision': ((5.99924, 19.5975, 460.894),
+                  (5.99242, -6.19633, 46.0950), 0.4, 0.035),
+    'shock_contact_shock': ((1.0, 0.5, 1.0), (1.25, -0.5, 1.0), 0.5, 0.3),
+    'moving_contact': ((1.4, 0.1, 1.0), (1.0, 0.1, 1.0), 0.5, 2.0),
+    'vacuum': VACUUM + (0.5, 0.04),
+}
 
 
 def _published_delta(text):
@@ -36,6 +54,19 @@ def _published_delta(text):
     """
     decimals = len(text.split('.')[1]) if '.' in text else 0
     return max(1.e-4 * abs(float(text)), 10.0 ** -decimals)
+
+
+def _problem(key):
+    """Return ``(exact, left, right, t_end)`` of :data:`PROBLEMS` ``key``."""
+    left, right, x0, t_end = PROBLEMS[key]
+    return shocktube.ExactRiemann(left, right, x0=x0), left, right, t_end
+
+
+def _flux(state, gamma):
+    rho, vel, pre = state
+    energy = pre / (gamma - 1.0) + 0.5 * rho * vel * vel
+    return np.array([rho * vel, rho * vel * vel + pre, vel * (energy + pre)],
+                    dtype='float64')
 
 
 class PublishedStarStateTC(unittest.TestCase):
@@ -269,6 +300,183 @@ class VacuumTC(unittest.TestCase):
         np.testing.assert_allclose(
             [-0.01 * sound, 0.01 * sound],
             [exact.waves[0].speeds[1], exact.waves[2].speeds[1]], rtol=1.e-9)
+
+
+class IntegralTC(unittest.TestCase):
+    """Hold the integrals to what the Euler equations demand: every signal
+    stays within the speed bound, and the totals over a window change only
+    by the fluxes through its ends."""
+
+    def test_max_speed_bounds_every_signal(self):
+        coord = np.linspace(0.0, 1.0, 501, dtype='float64')
+        for key in PROBLEMS:
+            exact, _, _, t_end = _problem(key)
+            sol = exact.sample(coord, t_end)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                signal = np.abs(sol['u']) + np.sqrt(exact.gamma * sol['p']
+                                                    / sol['rho'])
+            signal = signal[np.isfinite(signal)]
+            with self.subTest(key=key):
+                self.assertLessEqual(signal.max(),
+                                     exact.max_speed() * (1 + 1.e-12))
+
+    def test_the_star_sound_speed_behind_a_shock_bounds_the_signals(self):
+        # In Sod's problem the gas behind the shock is hotter than the gas
+        # behind the fan at the same p*, and its |u| + c, 2.19, is the
+        # largest signal: above every wave speed and above the 1.93 the
+        # isentrope from the left state gives.
+        exact, _, _, _ = _problem('sod')
+        behind = [abs(exact.u_star) + math.sqrt(exact.gamma * exact.p_star
+                                                / rho)
+                  for rho in (exact.rho_star_left, exact.rho_star_right)]
+        self.assertAlmostEqual(1.9252, behind[0], places=4)
+        self.assertAlmostEqual(2.1916, behind[1], places=4)
+        self.assertEqual(behind[1], exact.max_speed())
+
+    def test_the_solution_conserves_over_a_closed_window(self):
+        # Over a window the waves have not left, the totals change only by
+        # the fluxes of the two initial states through its ends.
+        for key in PROBLEMS:
+            exact, left, right, time = _problem(key)
+            reach = 1.01 * exact.max_speed() * time
+            lower, upper = exact.x0 - reach, exact.x0 + reach
+            start = np.array(exact.integrate(lower, upper, 0.0),
+                             dtype='float64')
+            end = np.array(exact.integrate(lower, upper, time),
+                           dtype='float64')
+            change = time * (_flux(left, exact.gamma)
+                             - _flux(right, exact.gamma))
+            with self.subTest(key=key):
+                np.testing.assert_allclose(end - start, change, rtol=0,
+                                           atol=1.e-11 * np.abs(start).max())
+
+    def test_fans_near_gamma_one_conserve(self):
+        # The fans of the streams in
+        # VacuumTC.test_a_star_pressure_below_the_floats_is_no_vacuum
+        # integrate with powers of the sound speed of order 200.
+        sound = math.sqrt(1.01)
+        speed = 0.99 * 2.0 / 0.01 * sound
+        left, right = (1.0, -speed, 1.0), (1.0, speed, 1.0)
+        exact = shocktube.ExactRiemann(left, right, gamma=1.01)
+        reach = 1.01 * exact.max_speed()
+        start = np.array(exact.integrate(-reach, reach, 0.0), dtype='float64')
+        end = np.array(exact.integrate(-reach, reach, 1.0), dtype='float64')
+        change = _flux(left, 1.01) - _flux(right, 1.01)
+        np.testing.assert_allclose(end - start, change, rtol=0,
+                                   atol=1.e-11 * np.abs(change).max())
+
+    def test_the_integral_is_the_integral_of_the_samples(self):
+        # integrate() cuts at the fronts and integrates each piece in closed
+        # form; a fine trapezoid over the samples has to land on the same
+        # numbers.
+        exact, _, _, t_end = _problem('lax')
+        coord = np.linspace(0.0, 1.0, 200001, dtype='float64')
+        sol = exact.sample(coord, t_end)
+        energy = (sol['p'] / (exact.gamma - 1.0)
+                  + 0.5 * sol['rho'] * sol['u'] ** 2)
+        trapezoid = [(0.5 * (values[1:] + values[:-1])
+                      * np.diff(coord)).sum()
+                     for values in (sol['rho'], sol['rho'] * sol['u'],
+                                    energy)]
+        np.testing.assert_allclose(trapezoid,
+                                   exact.integrate(0.0, 1.0, t_end),
+                                   rtol=1.e-5)
+
+
+class AveragesTC(unittest.TestCase):
+    """Hold the cell averages, the reference of a conservative scheme, to
+    what such a cell holds: the exact state where the solution is uniform
+    over the cell, the mix of the conserved variables where a front cuts
+    it, and in total the integral of the solution."""
+
+    def test_a_uniform_cell_holds_its_state_bit_for_bit(self):
+        exact, _, _, t_end = _problem('sod')
+        faces = np.linspace(0.0, 1.0, 51, dtype='float64')
+        avg = exact.averages(faces, t_end)
+        lower, upper = faces[:-1], faces[1:]
+        sol = exact.sample(0.5 * (lower + upper), t_end)
+        head, tail, contact, shock = (pos for _, pos
+                                      in exact.positions(t_end))
+        uniform = (upper < head) | (lower > tail)
+        for pos in (contact, shock):
+            uniform &= (upper < pos) | (lower > pos)
+        self.assertEqual(36, uniform.sum())
+        for name in ('rho', 'u', 'p'):
+            np.testing.assert_array_equal(sol[name][uniform],
+                                          avg[name][uniform])
+
+    def test_a_cut_cell_holds_the_mix_of_the_conserved_variables(self):
+        # The diaphragm of the modified Sod problem cuts the cell [0.28,
+        # 0.32] in half; the cell holds the mean momentum and energy, so
+        # its velocity is the momentum over the mean density, not the mean
+        # velocity.
+        exact, (rho_l, u_l, p_l), (rho_r, u_r, p_r), _ = _problem(
+            'modified_sod')
+        avg = exact.averages([0.28, 0.32], 0.0)
+        gm1 = exact.gamma - 1.0
+        rho = 0.5 * (rho_l + rho_r)
+        mom = 0.5 * (rho_l * u_l + rho_r * u_r)
+        energy = 0.5 * ((p_l + p_r) / gm1 + 0.5 * rho_l * u_l ** 2
+                        + 0.5 * rho_r * u_r ** 2)
+        np.testing.assert_allclose(
+            [rho, mom / rho, gm1 * (energy - 0.5 * mom ** 2 / rho)],
+            [avg['rho'][0], avg['u'][0], avg['p'][0]], rtol=1.e-14)
+        self.assertNotAlmostEqual(0.5 * (u_l + u_r), avg['u'][0], places=3)
+
+    def test_the_cells_add_up_to_the_integral(self):
+        faces = np.linspace(0.0, 1.0, 38, dtype='float64') ** 1.5
+        for key in ('lax', 'einfeldt', 'vacuum'):
+            exact, _, _, t_end = _problem(key)
+            avg = exact.averages(faces, t_end)
+            # A cell of pure vacuum carries no momentum and no energy,
+            # though it has no velocity either.
+            rho = avg['rho']
+            mom = np.where(rho > 0.0, rho * avg['u'], 0.0)
+            kinetic = np.where(rho > 0.0, 0.5 * mom * avg['u'], 0.0)
+            cells = np.stack([rho, mom, avg['p'] / (exact.gamma - 1.0)
+                              + kinetic], axis=1)
+            with self.subTest(key=key):
+                np.testing.assert_allclose(
+                    exact.integrate(0.0, 1.0, t_end),
+                    (cells * np.diff(faces)[:, None]).sum(axis=0),
+                    rtol=1.e-13, atol=1.e-15)
+
+    def test_inside_a_fan_the_average_nears_the_centre_at_second_order(self):
+        exact, _, _, t_end = _problem('sod')
+        head, tail = (exact.x0 + speed * t_end
+                      for speed in exact.waves[0].speeds)
+        middle = 0.5 * (head + tail)
+        centre = float(exact.sample(middle, t_end)['rho'])
+        gaps = [float(exact.averages([middle - width, middle + width],
+                                     t_end)['rho'][0]) - centre
+                for width in (0.02, 0.01)]
+        self.assertAlmostEqual(4.0, gaps[0] / gaps[1], delta=0.01)
+
+    def test_a_cell_of_pure_vacuum_has_no_velocity(self):
+        # No mass carries a velocity in the vacuum, so the cell mean has
+        # none, while sample() draws the fans' velocity on; a cell the
+        # vacuum front cuts holds gas and a velocity.
+        exact, _, _, t_end = _problem('vacuum')
+        front = exact.x0 + exact.waves[1].speeds[1] * t_end
+        avg = exact.averages([0.49, 0.51, front - 0.01, front + 0.01], t_end)
+        self.assertEqual((0.0, 0.0), (avg['rho'][0], avg['p'][0]))
+        self.assertTrue(math.isnan(avg['u'][0]))
+        self.assertTrue(math.isfinite(float(exact.sample(0.5, t_end)['u'])))
+        self.assertGreater(avg['rho'][2], 0.0)
+        self.assertTrue(math.isfinite(avg['u'][2]))
+
+    def test_faces_out_of_order_are_rejected(self):
+        # Reversed bounds or a repeated face would otherwise give a
+        # plausible but wrong total, or a zero-width cell of infinite
+        # density.
+        exact, _, _, _ = _problem('sod')
+        for faces in ([0.6, 0.4], [0.1, 0.1, 0.2], [0.5], 0.5,
+                      [0.1, float('nan')]):
+            with self.subTest(faces=faces):
+                with self.assertRaisesRegex(ValueError, "strictly ascending"):
+                    exact.averages(faces, 0.2)
+        with self.assertRaisesRegex(ValueError, "strictly ascending"):
+            exact.integrate(0.6, 0.4, 0.2)
 
 
 class DeriveTC(unittest.TestCase):

@@ -10,12 +10,12 @@ import math
 
 import numpy as np
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import (QColor, QFont, QImage, QPainter, QPalette, QPen,
                            QPolygonF)
-from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton,
-                               QSizePolicy, QToolButton, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QHBoxLayout, QLabel,
+                               QPushButton, QSizePolicy, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from ... import pilot
 from ...pilot import visual
@@ -42,6 +42,59 @@ def _blend(color, other, ratio):
     return QColor(round(color.red() * keep + other.red() * ratio),
                   round(color.green() * keep + other.green() * ratio),
                   round(color.blue() * keep + other.blue() * ratio))
+
+
+class Rules(pilot.RuleCatalog):
+    """The style of the toggles under the panels: the chips that each turn
+    one thing on or off, and the two-way switch whose halves join into one
+    pill.  They sit on the base ground of the window, so every shade steps
+    off the base: an outline that shows a toggle is there, and the accent
+    tint that shows it is on."""
+
+    _SMALL_PX = 11
+    _EDGE_MIX = 0.45
+    _MUTED_MIX = 0.35
+    _HOVER_MIX = 0.07
+    _TINT_MIX = 0.16
+
+    @classmethod
+    def toggles(cls, shades):
+        base, ink = shades.base, shades.on_base
+        return """
+            QToolButton#chip, QToolButton#switch {{
+                border: 1px solid {edge};
+                padding: 1px 9px;
+                font-size: {small}px;
+                color: {muted};
+                background: transparent;
+            }}
+            QToolButton#chip {{ border-radius: 10px; }}
+            QToolButton#switch[edge="left"] {{
+                border-top-left-radius: 10px;
+                border-bottom-left-radius: 10px;
+                border-right: none;
+            }}
+            QToolButton#switch[edge="right"] {{
+                border-top-right-radius: 10px;
+                border-bottom-right-radius: 10px;
+            }}
+            QToolButton#chip:hover, QToolButton#switch:hover {{
+                background: {hover};
+                color: {ink};
+            }}
+            QToolButton#chip:checked, QToolButton#switch:checked {{
+                background: {tint};
+                color: {ink};
+            }}
+            QToolButton#chip:checked {{ border-color: {accent}; }}
+            QLabel#switchLabel {{ font-size: {small}px; color: {muted}; }}
+            """.format(
+            edge=shades.blend(base, ink, cls._EDGE_MIX).name(),
+            muted=shades.blend(ink, base, cls._MUTED_MIX).name(),
+            hover=shades.blend(base, ink, cls._HOVER_MIX).name(),
+            tint=shades.blend(base, shades.accent, cls._TINT_MIX).name(),
+            accent=shades.accent.name(), ink=ink.name(),
+            small=cls._SMALL_PX)
 
 
 class ProfilePlot(QWidget):
@@ -395,6 +448,9 @@ class ShockTubeWindow(QWidget):
 
     :ivar plot: The :class:`ProfilePlot`.
     :ivar chips: The checkable button of each quantity, by name.
+    :ivar exact_buttons: The ``'points'`` and ``'cells'`` halves of the
+        switch that draws the analytic solution at points or averaged over
+        the cells of the run.
     :ivar fronts_chip: The checkable button that shows the wave fronts.
     :ivar xt: The :class:`XtDiagram` under the panels.
     :ivar xt_chip: The checkable button that shows :attr:`xt`.
@@ -403,6 +459,8 @@ class ShockTubeWindow(QWidget):
         pauses, or runs again.
     :ivar step_clicked: Owner-supplied callback for Step.
     :ivar reset_clicked: Owner-supplied callback for Reset.
+    :ivar exact_clicked: Owner-supplied callback for
+        :attr:`exact_buttons`.
     """
 
     #: What the run button reads by the state of the run.
@@ -415,6 +473,7 @@ class ShockTubeWindow(QWidget):
         self.setAutoFillBackground(True)
         self.plot = ProfilePlot()
         self.run_clicked = self.step_clicked = self.reset_clicked = None
+        self.exact_clicked = None
         self.buttons = {}
         controls = QHBoxLayout()
         controls.setSpacing(8)
@@ -441,28 +500,42 @@ class ShockTubeWindow(QWidget):
         chips = QHBoxLayout()
         chips.setSpacing(5)
         for name, text in QUANTITIES:
-            chip = QToolButton()
-            chip.setText(text)
-            chip.setCheckable(True)
-            chip.setChecked(name in SHOWN)
-            chip.setFocusPolicy(Qt.NoFocus)
+            chip = self._chip(text, name in SHOWN)
             chip.toggled.connect(lambda on, key=name: self._on_chip(key))
             self.chips[name] = chip
             chips.addWidget(chip)
         chips.addStretch(1)
-        self.fronts_chip = QToolButton()
-        self.fronts_chip.setText("wave fronts")
-        self.fronts_chip.setCheckable(True)
-        self.fronts_chip.setChecked(True)
-        self.fronts_chip.setFocusPolicy(Qt.NoFocus)
+        label = QLabel("exact:")
+        label.setObjectName("switchLabel")
+        chips.addWidget(label)
+        self.exact_buttons = {}
+        group = QButtonGroup(self)
+        switch = QHBoxLayout()
+        switch.setSpacing(0)
+        for key, edge, tip in (
+                ('points', 'left', "Draw the exact solution at points"),
+                ('cells', 'right', "Draw the exact solution averaged over "
+                 "the cells of the run, as a conservative scheme holds "
+                 "it")):
+            button = QToolButton()
+            button.setObjectName("switch")
+            button.setProperty('edge', edge)
+            button.setText(key)
+            button.setToolTip(tip)
+            button.setCheckable(True)
+            button.setChecked('points' == key)
+            button.setFocusPolicy(Qt.NoFocus)
+            button.clicked.connect(lambda _=False: self._on('exact'))
+            group.addButton(button)
+            self.exact_buttons[key] = button
+            switch.addWidget(button)
+        chips.addLayout(switch)
+        chips.addSpacing(10)
+        self.fronts_chip = self._chip("wave fronts", True)
         self.fronts_chip.toggled.connect(self.plot.set_show_fronts)
         chips.addWidget(self.fronts_chip)
         self.xt = XtDiagram()
-        self.xt_chip = QToolButton()
-        self.xt_chip.setText("x-t diagram")
-        self.xt_chip.setCheckable(True)
-        self.xt_chip.setChecked(True)
-        self.xt_chip.setFocusPolicy(Qt.NoFocus)
+        self.xt_chip = self._chip("x-t diagram", True)
         self.xt_chip.toggled.connect(self.xt.setVisible)
         chips.addWidget(self.xt_chip)
         self._layout = QVBoxLayout(self)
@@ -474,9 +547,24 @@ class ShockTubeWindow(QWidget):
         self._layout.addWidget(self.plot, 2)
         self._layout.addWidget(self.xt, 1)
         self._layout.addLayout(chips)
+        self._apply_style()
 
     def sizeHint(self):
         return QSize(1000, 560)
+
+    def event(self, event):
+        # A theme switch changes the palette, and the toggles' shades with
+        # it.
+        if event.type() in (QEvent.PaletteChange,
+                            QEvent.ApplicationPaletteChange):
+            self._apply_style()
+        return super().event(event)
+
+    def exact_mode(self):
+        """Return how the analytic solution is drawn: ``'points'`` or
+        ``'cells'``."""
+        return next(key for key, button in self.exact_buttons.items()
+                    if button.isChecked())
 
     def set_title(self, title, time):
         """Head the panels with ``title`` at ``time``."""
@@ -515,6 +603,18 @@ class ShockTubeWindow(QWidget):
         callback = getattr(self, f"{name}_clicked")
         if callback is not None:
             callback()
+
+    def _chip(self, text, checked):
+        chip = QToolButton()
+        chip.setObjectName("chip")
+        chip.setText(text)
+        chip.setCheckable(True)
+        chip.setChecked(checked)
+        chip.setFocusPolicy(Qt.NoFocus)
+        return chip
+
+    def _apply_style(self):
+        self.setStyleSheet(Rules.sheet(self, "toggles"))
 
     def _on_chip(self, name):
         names = [key for key, _ in QUANTITIES if self.chips[key].isChecked()]

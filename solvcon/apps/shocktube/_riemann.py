@@ -52,7 +52,7 @@ class Wave(typing.NamedTuple):
 
 class ExactRiemann(object):
     """Solve the Riemann problem of the ideal-gas Euler equations exactly
-    on construction, and sample its solution.
+    on construction, and give its solution at points and over cells.
 
     The diaphragm at ``x0`` separates the ``left`` and ``right`` states at t
     = 0.  The solution is self-similar in (x - x0) / t: the left wave, the
@@ -420,6 +420,145 @@ class ExactRiemann(object):
             fronts.extend((label, self.x0 + speed * elapsed)
                           for label, speed in pairs)
         return fronts
+
+    def max_speed(self):
+        """Return the largest signal speed of the solution in magnitude.
+
+        It is the largest of the wave speeds and of |u| + c over the states,
+        which bounds |u| + c inside the fans too, because u and c vary
+        linearly with x / t there.
+        """
+        speeds = [abs(speed) for wave in self.waves for speed in wave.speeds]
+        speeds += [abs(self.left.u) + self.c_left,
+                   abs(self.right.u) + self.c_right]
+        if not self.vacuum:
+            # Behind a shock the gas is hotter than the isentrope gives, so
+            # the star sound speed comes from the star state itself.
+            speeds += [abs(self.u_star) + math.sqrt(self.gamma * self.p_star
+                                                    / rho)
+                       for rho in (self.rho_star_left, self.rho_star_right)
+                       if rho > 0.0]
+        return max(speeds)
+
+    def integrate(self, xmin, xmax, time):
+        """Return the mass, momentum, and total energy over [xmin, xmax],
+        xmin < xmax, at ``time``.
+
+        :return: ``(mass, momentum, energy)`` as floats.
+        """
+        _, pieces, _, _ = self._pieces((xmin, xmax), time)
+        return tuple(float(value) for value in pieces.sum(axis=0))
+
+    def averages(self, faces, time):
+        """Return the solution averaged over each cell between consecutive
+        ``faces`` at ``time``, as a cell of a conservative scheme holds it.
+
+        A cell holds the mean of the conserved variables over it, and the
+        primitive variables follow from that mean, as a run derives them
+        from its own cells; the result differs from the mean of the
+        primitive variables wherever the state varies inside the cell.  A
+        cell that no front cuts and no fan crosses holds its state exactly
+        as :meth:`sample` gives it, except that a cell of pure vacuum holds
+        no mass and so has no velocity: NaN, where :meth:`sample` draws the
+        velocity of the fans on.
+
+        :param faces: Strictly ascending positions, array-like of n + 1
+            values.
+        :return: ``{'rho', 'u', 'p'}`` float64 arrays of n values.
+        """
+        faces = np.asarray(faces, dtype='float64')
+        start, pieces, sol, plain = self._pieces(faces, time)
+        mean = (np.add.reduceat(pieces, start, axis=0)
+                / np.diff(faces)[:, None])
+        plain = plain[start] & (np.diff(start, append=len(pieces)) == 1)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            vel = mean[:, 1] / mean[:, 0]
+            pre = (self.gamma - 1.0) * (mean[:, 2] - 0.5 * mean[:, 1] * vel)
+        return {'rho': np.where(plain, sol['rho'][start], mean[:, 0]),
+                'u': np.where(plain & (mean[:, 0] > 0.0), sol['u'][start],
+                              vel),
+                'p': np.where(plain, sol['p'][start], pre)}
+
+    def _pieces(self, faces, time):
+        """Cut the cells between consecutive ``faces`` at the fronts and
+        integrate the conserved variables over each piece.
+
+        Between two fronts the solution is uniform or a fan, and in a fan
+        the density, the momentum, and the energy are powers of the sound
+        speed, which varies linearly in x, so every piece integrates in
+        closed form for any gamma.
+
+        :return: ``(start, pieces, sol, plain)``: the index of the first
+            piece of each cell, the integrals ``[npiece, 3]``, the
+            :meth:`sample` at the middle of each piece, and whether a piece
+            lies outside the fans.
+        """
+        faces = np.asarray(faces, dtype='float64')
+        if (1 != faces.ndim or faces.size < 2
+                or not (np.diff(faces) > 0.0).all()):
+            raise ValueError(f"the faces must be two or more strictly "
+                             f"ascending positions, got {faces}")
+        fronts = ([self.x0] if time <= 0.0
+                  else [pos for _, pos in self.positions(time)])
+        cuts = np.union1d(faces, np.array(
+            [pos for pos in fronts if faces[0] < pos < faces[-1]],
+            dtype='float64'))
+        lower, upper = cuts[:-1], cuts[1:]
+        middle = 0.5 * (lower + upper)
+        sol = self.sample(middle, time)
+        rho, vel = sol['rho'], sol['u']
+        pieces = (upper - lower)[:, None] * np.stack(
+            [rho, rho * vel,
+             sol['p'] / (self.gamma - 1.0) + 0.5 * rho * vel * vel], axis=1)
+        plain = np.ones(middle.shape, dtype='bool')
+        for wave, state, sound, sign in (
+                (self.waves[0], self.left, self.c_left, -1.0),
+                (self.waves[2], self.right, self.c_right, 1.0)):
+            if 'rarefaction' != wave.kind or time <= 0.0:
+                continue
+            low, high = sorted(wave.speeds)
+            fan = (middle > self.x0 + low * time) & (
+                middle < self.x0 + high * time)
+            pieces[fan] = self._integrate_fan(lower[fan], upper[fan], time,
+                                              state, sound, sign)
+            plain &= ~fan
+        return np.searchsorted(cuts, faces[:-1]), pieces, sol, plain
+
+    def _integrate_fan(self, lower, upper, time, state, sound, sign):
+        """Return the integrals of the conserved variables over the pieces
+        from ``lower`` to ``upper`` inside the fan of ``state`` on the side
+        ``sign``, ``[npiece, 3]``.
+
+        As in :meth:`_fan`, the sound speed c across the fan is linear in
+        (x - x0) / t and u = J + sign n c with the invariant J = u_K - sign
+        n c_K and n = 2 / (gamma - 1).  With r = c / c_K the fan has rho =
+        rho_K r^n and p = p_K r^(n + 2), and dx is a constant times dr, so
+        each integrand is a sum of powers of r.
+        """
+        gamma = self.gamma
+        power = 2.0 / (gamma - 1.0)
+        invariant = state.u - sign * power * sound
+        # dc / d((x - x0) / t) across the fan.
+        rate = sign * (gamma - 1.0) / (gamma + 1.0)
+
+        def ratio(coord):
+            speed = (coord - self.x0) / time
+            return np.maximum(rate * (speed - invariant), 0.0) / sound
+
+        low, high = ratio(lower), ratio(upper)
+        span1, span2, span3 = ((high ** order - low ** order) / order
+                               for order in (power + 1, power + 2,
+                                             power + 3))
+        jacobian = sound * time / rate
+        slope = sign * power * sound
+        mass = state.rho * jacobian * span1
+        momentum = state.rho * jacobian * (invariant * span1 + slope * span2)
+        energy = jacobian * (
+            state.p / (gamma - 1.0) * span3
+            + 0.5 * state.rho * (invariant * invariant * span1
+                                 + 2.0 * invariant * slope * span2
+                                 + slope * slope * span3))
+        return np.stack([mass, momentum, energy], axis=1)
 
 
 def _fill(out, mask, values):
