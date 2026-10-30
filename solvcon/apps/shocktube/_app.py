@@ -94,6 +94,7 @@ class ShockTubeApp(base.PilotFeature):
         self.window.run_clicked = self.run_or_pause
         self.window.step_clicked = self.step
         self.window.reset_clicked = self.init_solver
+        self.window.exact_clicked = self.draw
         self.init_solver()
         self.subwindow = self._mgr.addSubWindow(self.window)
         self.subwindow.setWindowTitle("Shock tube: Sod")
@@ -206,9 +207,12 @@ class ShockTubeApp(base.PilotFeature):
         points = (svr.coord[svr.xindices],
                   {name: getattr(svr, name)[svr.xindices]
                    for name, _ in _window.QUANTITIES})
-        coord = np.linspace(cfg["xmin"], cfg["xmax"], self.EXACT_POINTS,
-                            dtype='float64')
-        exact = (coord, self.exact_values(coord, time))
+        if 'cells' == self.window.exact_mode():
+            exact = self.exact_averages(points[0], time)
+        else:
+            coord = np.linspace(cfg["xmin"], cfg["xmax"], self.EXACT_POINTS,
+                                dtype='float64')
+            exact = (coord, self.exact_values(coord, time))
         self.window.plot.set_data((cfg["xmin"], cfg["xmax"]), exact, points)
         self.window.plot.set_fronts(self.exact.positions(time),
                                     self.exact.x0)
@@ -225,7 +229,25 @@ class ShockTubeApp(base.PilotFeature):
     def exact_values(self, coord, time):
         """Return the exact solution at ``coord`` and ``time`` by the name of
         each quantity of the window."""
-        sol = self.exact.sample(coord, time)
+        return self._quantities(self.exact.sample(coord, time))
+
+    def exact_averages(self, centres, time):
+        """Return ``(x, values)`` of the exact solution averaged over the
+        cells around ``centres`` at ``time``, as steps that span each cell.
+
+        The faces sit midway between the centres, and the end cells reach
+        half a cell out but not past the ends of the tube.
+        """
+        cfg = self.config
+        middle = 0.5 * (centres[:-1] + centres[1:])
+        faces = np.concatenate([2.0 * centres[:1] - middle[:1], middle,
+                                2.0 * centres[-1:] - middle[-1:]])
+        faces = np.clip(faces, cfg["xmin"], cfg["xmax"])
+        values = self._quantities(self.exact.averages(faces, time))
+        return (np.repeat(faces, 2)[1:-1],
+                {name: np.repeat(value, 2) for name, value in values.items()})
+
+    def _quantities(self, sol):
         rho, vel, pre = sol['rho'], sol['u'], sol['p']
         gamma = self.exact.gamma
         return {'density': rho, 'velocity': vel, 'pressure': pre,

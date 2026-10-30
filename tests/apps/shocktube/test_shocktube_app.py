@@ -104,6 +104,39 @@ class AppTC(unittest.TestCase):
         self.assertLess(lo, 0.125)
         self.assertGreater(hi, 1.0)
 
+    def test_the_exact_switch_draws_what_the_cells_hold(self):
+        self._open()
+        window = self.app.window
+        for _ in range(10):
+            window.buttons['step'].click()
+        plot = window.plot
+        self.assertEqual('points', window.exact_mode())
+        self.assertEqual(self.app.EXACT_POINTS, len(plot.exact[0]))
+        window.exact_buttons['cells'].click()
+        self.assertEqual('cells', window.exact_mode())
+        self.assertFalse(window.exact_buttons['points'].isChecked())
+        xs, values = plot.exact
+        centres = plot.points[0]
+        self.assertEqual(2 * len(centres), len(xs))
+        # Each step spans one cell around its centre and holds its mean, so
+        # the steps add up to the mass in the tube.
+        faces = np.append(xs[::2], xs[-1])
+        self.assertTrue(np.all((faces[:-1] < centres)
+                               & (centres < faces[1:])))
+        density = values['density'][::2]
+        np.testing.assert_array_equal(density, values['density'][1::2])
+        mass = self.app.exact.integrate(faces[0], faces[-1], 0.5)[0]
+        self.assertAlmostEqual(mass, np.sum(density * np.diff(faces)),
+                               places=12)
+        # The cell the shock cuts holds a mix, not the state at its centre.
+        shock = [x for label, x in self.app.exact.positions(0.5)
+                 if 'shock' == label][0]
+        cut = np.searchsorted(faces, shock) - 1
+        point = self.app.exact.sample(centres[cut:cut + 1], 0.5)['rho'][0]
+        self.assertGreater(abs(density[cut] - point), 1.e-3)
+        window.exact_buttons['points'].click()
+        self.assertEqual(self.app.EXACT_POINTS, len(plot.exact[0]))
+
     def test_the_xt_diagram_colors_a_row_per_step(self):
         self._open()
         window = self.app.window
