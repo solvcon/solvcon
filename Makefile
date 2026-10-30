@@ -240,18 +240,22 @@ run_pilot_pytest: pilot
 	env $(RUNENV) PYTEST_OPTS="$(PYTEST_OPTS)" \
 		cmake --build $(BUILD_PATH) --target $@ VERBOSE=$(VERBOSE)
 
+.PHONY: bundle-prepare
+bundle-prepare:
+	$(SOLVCON_ROOT)/contrib/bundle/prepare-with-aqt.sh
+
 .PHONY: bundle-precheck
 bundle-precheck:
-	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-homebrew.sh check
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh check
 
 .PHONY: bundle
 bundle:
-	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-homebrew.sh all \
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh all \
 		--output "$(RELEASE_OUTPUT)" $(RELEASE_ARGS)
 
 .PHONY: bundle-test
 bundle-test:
-	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-homebrew.sh verify \
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh verify \
 		"$(RELEASE_ARTIFACT)"
 
 .PHONY: standalone_buffer_setup
