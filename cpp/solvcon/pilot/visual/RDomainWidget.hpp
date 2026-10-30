@@ -66,11 +66,11 @@ public:
     static Metric parse_metric(std::string const & name);
     static char const * name(Metric metric);
 
-    real_type volume(int_type icl) const;
+    real_type volume(int_type icl) const { return m_mesh.clvol(icl); }
     real_type aspect_ratio(int_type icl) const;
     real_type skewness(int_type icl) const;
-    real_type min_angle(int_type icl) const;
-    real_type max_angle(int_type icl) const;
+    real_type min_angle(int_type icl) const { return angle_range(icl).first; }
+    real_type max_angle(int_type icl) const { return angle_range(icl).second; }
 
     SimpleArray<real_type> calculate() const;
 

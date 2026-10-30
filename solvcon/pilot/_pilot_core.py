@@ -90,7 +90,7 @@ def lazy_exports(package, modules, ungated=()):
 # RDomainWidget.hpp/.cpp
 list_of_rdomainwidget = [
     'RDomainWidget',
-    'QualityMetric',
+    'CellQualityMetric',
 ]
 
 # R2DWidget.hpp/.cpp

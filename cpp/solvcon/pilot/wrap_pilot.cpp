@@ -417,7 +417,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "colorByQuality",
                 &wrapped_type::colorByQuality,
                 py::arg("metric"),
-                "Color the mesh using a QualityMetric enum value through "
+                "Color the mesh using a CellQualityMetric enum value through "
                 "the continuous colormap and scalar bar.")
             .def(
                 "colorByQuality",
@@ -437,7 +437,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                     return py::make_tuple(range.first, range.second);
                 },
                 py::arg("metric"),
-                "The (min, max) range of a QualityMetric enum over the cells.")
+                "The (min, max) range of a CellQualityMetric enum over the cells.")
             .def(
                 "qualityRange",
                 [](wrapped_type & self, std::string const & metric)
@@ -1295,7 +1295,7 @@ void wrap_pilot(pybind11::module & mod)
 {
     namespace py = pybind11;
 
-    py::enum_<CellQualityHelper::Metric>(mod, "QualityMetric")
+    py::enum_<CellQualityHelper::Metric>(mod, "CellQualityMetric")
         .value("Volume", CellQualityHelper::Metric::Volume)
         .value("AspectRatio", CellQualityHelper::Metric::AspectRatio)
         .value("Skewness", CellQualityHelper::Metric::Skewness)

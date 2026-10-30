@@ -53,8 +53,6 @@ small_vector<std::array<real_type, 3>> CellQualityHelper::cell_points(int_type i
     return points;
 }
 
-real_type CellQualityHelper::volume(int_type icl) const { return m_mesh.clvol(icl); }
-
 real_type CellQualityHelper::aspect_ratio(int_type icl) const
 {
     auto const points = cell_points(icl);
@@ -107,10 +105,6 @@ std::pair<real_type, real_type> CellQualityHelper::angle_range(int_type icl) con
     }
     return {amin, amax};
 }
-
-real_type CellQualityHelper::min_angle(int_type icl) const { return angle_range(icl).first; }
-
-real_type CellQualityHelper::max_angle(int_type icl) const { return angle_range(icl).second; }
 
 real_type CellQualityHelper::skewness(int_type icl) const
 {

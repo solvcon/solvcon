@@ -1046,7 +1046,7 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         """The two cell areas are 0.5 and 2.0."""
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
-        lo, hi = widget.qualityRange(pilot.QualityMetric.Volume)
+        lo, hi = widget.qualityRange(pilot.CellQualityMetric.Volume)
         self.assertTrue(math.isclose(lo, 0.5, rel_tol=1e-4))
         self.assertTrue(math.isclose(hi, 2.0, rel_tol=1e-4))
 
@@ -1054,7 +1054,7 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         """The elongated cell sets the aspect-ratio maximum to sqrt(13)."""
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
-        lo, hi = widget.qualityRange(pilot.QualityMetric.AspectRatio)
+        lo, hi = widget.qualityRange(pilot.CellQualityMetric.AspectRatio)
         self.assertTrue(math.isclose(lo, math.sqrt(2.0), rel_tol=1e-4))
         self.assertTrue(math.isclose(hi, math.sqrt(13.0), rel_tol=1e-4))
 
@@ -1064,15 +1064,15 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         widget.updateMesh(_make_quality_mesh())
         narrow_angle = math.degrees(math.atan(1.0 / 5.0))
 
-        lo, hi = widget.qualityRange(pilot.QualityMetric.MinAngle)
+        lo, hi = widget.qualityRange(pilot.CellQualityMetric.MinAngle)
         self.assertAlmostEqual(lo, narrow_angle, places=4)
         self.assertAlmostEqual(hi, 45.0, places=4)
 
-        lo, hi = widget.qualityRange(pilot.QualityMetric.MaxAngle)
+        lo, hi = widget.qualityRange(pilot.CellQualityMetric.MaxAngle)
         self.assertAlmostEqual(lo, 90.0, places=4)
         self.assertAlmostEqual(hi, 135.0, places=4)
 
-        lo, hi = widget.qualityRange(pilot.QualityMetric.Skewness)
+        lo, hi = widget.qualityRange(pilot.CellQualityMetric.Skewness)
         self.assertAlmostEqual(lo, 0.25, places=4)
         self.assertAlmostEqual(hi, 1.0 - narrow_angle / 60.0, places=4)
 
@@ -1083,7 +1083,7 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         widget.resize(320, 240)
         widget.updateMesh(_make_quality_mesh())
         widget.showMeshStyle("wireframe", False)
-        widget.colorByQuality(pilot.QualityMetric.AspectRatio)
+        widget.colorByQuality(pilot.CellQualityMetric.AspectRatio)
         image = _grab_or_skip(widget)
         self.assertGreaterEqual(_distinct_field_colors(image), 2)
 
@@ -1095,12 +1095,12 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         widget.updateMesh(mesh)
         narrow_angle = math.degrees(math.atan(1.0 / 5.0))
         ranges = (
-            (pilot.QualityMetric.Volume, (0.5, 2.0)),
-            (pilot.QualityMetric.AspectRatio,
+            (pilot.CellQualityMetric.Volume, (0.5, 2.0)),
+            (pilot.CellQualityMetric.AspectRatio,
              (math.sqrt(2.0), math.sqrt(13.0))),
-            (pilot.QualityMetric.MinAngle, (narrow_angle, 45.0)),
-            (pilot.QualityMetric.MaxAngle, (90.0, 135.0)),
-            (pilot.QualityMetric.Skewness,
+            (pilot.CellQualityMetric.MinAngle, (narrow_angle, 45.0)),
+            (pilot.CellQualityMetric.MaxAngle, (90.0, 135.0)),
+            (pilot.CellQualityMetric.Skewness,
              (0.25, 1.0 - narrow_angle / 60.0)),
         )
         for metric, expected in ranges:
@@ -1114,11 +1114,11 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         widget = pilot.RDomainWidget()
         widget.updateMesh(_make_quality_mesh())
         metrics = (
-            ("volume", pilot.QualityMetric.Volume),
-            ("aspect_ratio", pilot.QualityMetric.AspectRatio),
-            ("skewness", pilot.QualityMetric.Skewness),
-            ("min_angle", pilot.QualityMetric.MinAngle),
-            ("max_angle", pilot.QualityMetric.MaxAngle),
+            ("volume", pilot.CellQualityMetric.Volume),
+            ("aspect_ratio", pilot.CellQualityMetric.AspectRatio),
+            ("skewness", pilot.CellQualityMetric.Skewness),
+            ("min_angle", pilot.CellQualityMetric.MinAngle),
+            ("max_angle", pilot.CellQualityMetric.MaxAngle),
         )
         for name, metric in metrics:
             with self.subTest(metric=name):
@@ -1157,7 +1157,7 @@ class RDomainWidgetQualityTC(unittest.TestCase):
         try:
             self.assertIsInstance(widget, pilot.RDomainWidget)
             widget.updateMesh(_make_quality_mesh())
-            for metric in ("volume", pilot.QualityMetric.Volume):
+            for metric in ("volume", pilot.CellQualityMetric.Volume):
                 with self.subTest(metric=metric):
                     self.assertEqual(widget.qualityRange(metric), (0.5, 2.0))
                     widget.colorByQuality(metric)
@@ -1168,7 +1168,7 @@ class RDomainWidgetQualityTC(unittest.TestCase):
     def test_color_by_quality_without_mesh_is_noop(self):
         """Coloring by quality before a mesh loads does nothing, not crash."""
         widget = pilot.RDomainWidget()
-        for metric in ("volume", pilot.QualityMetric.Volume):
+        for metric in ("volume", pilot.CellQualityMetric.Volume):
             with self.subTest(metric=metric):
                 widget.colorByQuality(metric)
                 self.assertEqual(widget.qualityRange(metric), (0.0, 0.0))
