@@ -417,19 +417,36 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 "colorByQuality",
                 &wrapped_type::colorByQuality,
                 py::arg("metric"),
+                "Color the mesh using a CellQualityMetric enum value through "
+                "the continuous colormap and scalar bar.")
+            .def(
+                "colorByQuality",
+                [](wrapped_type & self, std::string const & metric)
+                {
+                    self.colorByQuality(CellQualityHelper::parse_metric(metric));
+                },
+                py::arg("metric"),
                 "Color the mesh by a per-cell quality metric (\"volume\", "
                 "\"aspect_ratio\", \"skewness\", \"min_angle\", \"max_angle\") "
                 "through the continuous colormap and scalar bar.")
             .def(
                 "qualityRange",
-                [](wrapped_type & self, std::string const & metric)
+                [](wrapped_type & self, CellQualityHelper::Metric metric)
                 {
                     auto const range = self.qualityRange(metric);
                     return py::make_tuple(range.first, range.second);
                 },
                 py::arg("metric"),
-                "The (min, max) range of the named quality metric over the "
-                "cells.")
+                "The (min, max) range of a CellQualityMetric enum over the cells.")
+            .def(
+                "qualityRange",
+                [](wrapped_type & self, std::string const & metric)
+                {
+                    auto const range = self.qualityRange(CellQualityHelper::parse_metric(metric));
+                    return py::make_tuple(range.first, range.second);
+                },
+                py::arg("metric"),
+                "The (min, max) range of the named quality metric over the cells.")
             .def("showAxis", &wrapped_type::showAxis, py::arg("show"))
             .def(
                 "showCubeAxes",
@@ -1277,6 +1294,13 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManagerProxy
 void wrap_pilot(pybind11::module & mod)
 {
     namespace py = pybind11;
+
+    py::enum_<CellQualityHelper::Metric>(mod, "CellQualityMetric")
+        .value("Volume", CellQualityHelper::Metric::Volume)
+        .value("AspectRatio", CellQualityHelper::Metric::AspectRatio)
+        .value("Skewness", CellQualityHelper::Metric::Skewness)
+        .value("MinAngle", CellQualityHelper::Metric::MinAngle)
+        .value("MaxAngle", CellQualityHelper::Metric::MaxAngle);
 
     WrapRDomainWidget::commit(
         mod,

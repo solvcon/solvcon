@@ -32,106 +32,163 @@
 namespace solvcon
 {
 
-namespace
+CellQualityHelper::CellQualityHelper(StaticMesh const & mesh, Metric metric)
+    : m_metric(metric)
+    , m_mesh(mesh)
 {
+}
 
-/// Per-cell value of the named geometric quality metric, over the SimpleArray
-/// mesh path. The angle-based metrics read the cell node polygon, so they are
-/// meaningful for 2D cells; "volume" and "aspect_ratio" work in any dimension.
-/// Throws std::invalid_argument for an unknown metric name.
-std::vector<float> cell_quality(StaticMesh const & mh, std::string const & metric)
+small_vector<std::array<real_type, 3>> CellQualityHelper::cell_points(int_type icl) const
 {
-    static char const * const known[] = {
-        "volume", "aspect_ratio", "skewness", "min_angle", "max_angle"};
-    if (std::none_of(std::begin(known), std::end(known), [&metric](char const * n)
-                     { return metric == n; }))
+    uint32_t const ndim = m_mesh.ndim();
+    int32_t const nnd = m_mesh.clnds(icl, 0);
+    small_vector<std::array<real_type, 3>> points(static_cast<size_t>(nnd));
+    for (int32_t k = 0; k < nnd; ++k)
     {
-        throw std::invalid_argument(
-            "RDomainWidget: unknown quality metric \"" + metric +
-            "\"; pick one of volume, aspect_ratio, skewness, min_angle, "
-            "max_angle");
+        int32_t const ind = m_mesh.clnds(icl, k + 1);
+        auto coord = [this, ndim, ind](uint32_t d) -> real_type
+        { return (d < ndim) ? m_mesh.ndcrd(ind, d) : 0.0; };
+        points[k] = {coord(0), coord(1), coord(2)};
     }
+    return points;
+}
 
-    uint32_t const ndim = mh.ndim();
-    uint32_t const ncell = mh.ncell();
-    auto coord = [&mh, ndim](int32_t ind, uint32_t d) -> float
-    { return (d < ndim) ? static_cast<float>(mh.ndcrd(ind, d)) : 0.0f; };
-
-    std::vector<float> out(ncell, 0.0f);
-    for (uint32_t icl = 0; icl < ncell; ++icl)
+real_type CellQualityHelper::aspect_ratio(int_type icl) const
+{
+    auto const points = cell_points(icl);
+    int32_t const nnd = static_cast<int32_t>(points.size());
+    real_type dmin = std::numeric_limits<real_type>::max();
+    real_type dmax = 0.0;
+    for (int32_t a = 0; a < nnd; ++a)
     {
-        if ("volume" == metric)
+        for (int32_t b = a + 1; b < nnd; ++b)
         {
-            out[icl] = static_cast<float>(mh.clvol(icl));
+            real_type dsq = 0.0;
+            for (size_t dim = 0; dim < 3; ++dim)
+            {
+                real_type const delta = points[a][dim] - points[b][dim];
+                dsq += delta * delta;
+            }
+            real_type const d = std::sqrt(dsq);
+            dmin = std::min(dmin, d);
+            dmax = std::max(dmax, d);
+        }
+    }
+    return (dmin > 0.0) ? dmax / dmin : 0.0;
+}
+
+std::pair<real_type, real_type> CellQualityHelper::angle_range(int_type icl) const
+{
+    auto const points = cell_points(icl);
+    int32_t const nnd = static_cast<int32_t>(points.size());
+    real_type amin = 180.0;
+    real_type amax = 0.0;
+    for (int32_t k = 0; k < nnd; ++k)
+    {
+        real_type la2 = 0.0, lb2 = 0.0, dot = 0.0;
+        for (size_t dim = 0; dim < 3; ++dim)
+        {
+            real_type const a = points[(k + nnd - 1) % nnd][dim] - points[k][dim];
+            real_type const b = points[(k + 1) % nnd][dim] - points[k][dim];
+            la2 += a * a;
+            lb2 += b * b;
+            dot += a * b;
+        }
+        if (la2 <= 0.0 || lb2 <= 0.0)
+        {
             continue;
         }
+        real_type const c = std::clamp(dot / (std::sqrt(la2) * std::sqrt(lb2)), -1.0, 1.0);
+        real_type const ang = std::acos(c) * 180.0 / pi<real_type>;
+        amin = std::min(amin, ang);
+        amax = std::max(amax, ang);
+    }
+    return {amin, amax};
+}
 
-        int32_t const nnd = mh.clnds(icl, 0);
-        std::vector<QVector3D> p(static_cast<size_t>(nnd));
-        for (int32_t k = 0; k < nnd; ++k)
-        {
-            int32_t const ind = mh.clnds(icl, k + 1);
-            p[k] = QVector3D(coord(ind, 0), coord(ind, 1), coord(ind, 2));
-        }
+real_type CellQualityHelper::skewness(int_type icl) const
+{
+    auto const [amin, amax] = angle_range(icl);
+    real_type const nnd = static_cast<real_type>(m_mesh.clnds(icl, 0));
+    real_type const te = 180.0 * (nnd - 2.0) / nnd;
+    real_type const skew = std::max(
+        (amax - te) / std::max(180.0 - te, 1.0e-3),
+        (te - amin) / std::max(te, 1.0e-3));
+    return std::clamp(skew, 0.0, 1.0);
+}
 
-        if ("aspect_ratio" == metric)
-        {
-            float dmin = std::numeric_limits<float>::max();
-            float dmax = 0.0f;
-            for (int32_t a = 0; a < nnd; ++a)
-            {
-                for (int32_t b = a + 1; b < nnd; ++b)
-                {
-                    float const d = (p[a] - p[b]).length();
-                    dmin = std::min(dmin, d);
-                    dmax = std::max(dmax, d);
-                }
-            }
-            out[icl] = (dmin > 0.0f) ? dmax / dmin : 0.0f;
-            continue;
-        }
+CellQualityHelper::Metric CellQualityHelper::parse_metric(std::string const & name)
+{
+    if ("volume" == name)
+    {
+        return Metric::Volume;
+    }
+    if ("aspect_ratio" == name)
+    {
+        return Metric::AspectRatio;
+    }
+    if ("skewness" == name)
+    {
+        return Metric::Skewness;
+    }
+    if ("min_angle" == name)
+    {
+        return Metric::MinAngle;
+    }
+    if ("max_angle" == name)
+    {
+        return Metric::MaxAngle;
+    }
+    throw std::invalid_argument(
+        "RDomainWidget: unknown quality metric \"" + name +
+        "\"; pick one of volume, aspect_ratio, skewness, min_angle, max_angle");
+}
 
-        // The remaining metrics read the interior angles of the node polygon.
-        float amin = 180.0f;
-        float amax = 0.0f;
-        for (int32_t k = 0; k < nnd; ++k)
-        {
-            QVector3D const a = p[(k + nnd - 1) % nnd] - p[k];
-            QVector3D const b = p[(k + 1) % nnd] - p[k];
-            float const la = a.length();
-            float const lb = b.length();
-            if (la <= 0.0f || lb <= 0.0f)
-            {
-                continue;
-            }
-            float const c = std::clamp(
-                QVector3D::dotProduct(a, b) / (la * lb), -1.0f, 1.0f);
-            float const ang = std::acos(c) * 180.0f / pi<float>;
-            amin = std::min(amin, ang);
-            amax = std::max(amax, ang);
-        }
+char const * CellQualityHelper::name(Metric metric)
+{
+    switch (metric)
+    {
+    case Metric::Volume: return "volume";
+    case Metric::AspectRatio: return "aspect_ratio";
+    case Metric::Skewness: return "skewness";
+    case Metric::MinAngle: return "min_angle";
+    case Metric::MaxAngle: return "max_angle";
+    }
+    throw std::invalid_argument("RDomainWidget: invalid quality metric");
+}
 
-        if ("min_angle" == metric)
-        {
-            out[icl] = amin;
-        }
-        else if ("max_angle" == metric)
-        {
-            out[icl] = amax;
-        }
-        else // skewness: the equiangle skew against the regular-polygon angle.
-        {
-            float const te = 180.0f * static_cast<float>(nnd - 2) / static_cast<float>(nnd);
-            float const skew = std::max(
-                (amax - te) / std::max(180.0f - te, 1.0e-3f),
-                (te - amin) / std::max(te, 1.0e-3f));
-            out[icl] = std::clamp(skew, 0.0f, 1.0f);
-        }
+SimpleArray<real_type> CellQualityHelper::calculate() const
+{
+    real_type (CellQualityHelper::*compute)(int_type) const = nullptr;
+    switch (m_metric)
+    {
+    case Metric::Volume:
+        compute = &CellQualityHelper::volume;
+        break;
+    case Metric::AspectRatio:
+        compute = &CellQualityHelper::aspect_ratio;
+        break;
+    case Metric::Skewness:
+        compute = &CellQualityHelper::skewness;
+        break;
+    case Metric::MinAngle:
+        compute = &CellQualityHelper::min_angle;
+        break;
+    case Metric::MaxAngle:
+        compute = &CellQualityHelper::max_angle;
+        break;
+    }
+    if (nullptr == compute)
+    {
+        throw std::invalid_argument("RDomainWidget: invalid quality metric");
+    }
+    SimpleArray<real_type> out(m_mesh.ncell());
+    for (uint32_t icl = 0; icl < m_mesh.ncell(); ++icl)
+    {
+        out[icl] = (this->*compute)(static_cast<int_type>(icl));
     }
     return out;
 }
-
-} /* end namespace */
 
 RDomainWidget::RDomainWidget(QWidget * parent)
     : QRhiWidget(parent)
@@ -649,14 +706,14 @@ void RDomainWidget::clearCellColoring()
     update();
 }
 
-void RDomainWidget::colorByQuality(std::string const & metric)
+void RDomainWidget::colorByQuality(CellQualityHelper::Metric metric)
 {
     if (nullptr == m_mesh)
     {
         return;
     }
     StaticMesh const & mh = *m_mesh;
-    std::vector<float> const cellval = cell_quality(mh, metric);
+    SimpleArray<real_type> const cellval = CellQualityHelper(mh, metric).calculate();
 
     // The 3D surface is the boundary shell, so a boundary face takes its owning
     // cell's metric; a 2D cell takes its own.
@@ -667,26 +724,26 @@ void RDomainWidget::colorByQuality(std::string const & metric)
         primitive.reserve(bndfcs.shape(0));
         for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
         {
-            primitive.push_back(cellval[mh.fcicl(bndfcs(ibnd, 0))]);
+            primitive.push_back(static_cast<float>(cellval[mh.fcicl(bndfcs(ibnd, 0))]));
         }
     }
     else
     {
-        primitive = cellval;
+        primitive.assign(cellval.begin(), cellval.end());
     }
-    installMetricField(primitive, metric);
+    installMetricField(primitive, CellQualityHelper::name(metric));
 }
 
-std::pair<float, float> RDomainWidget::qualityRange(std::string const & metric) const
+std::pair<real_type, real_type> RDomainWidget::qualityRange(CellQualityHelper::Metric metric) const
 {
     if (nullptr == m_mesh)
     {
-        return {0.0f, 0.0f};
+        return {0.0, 0.0};
     }
-    std::vector<float> const v = cell_quality(*m_mesh, metric);
-    if (v.empty())
+    SimpleArray<real_type> const v = CellQualityHelper(*m_mesh, metric).calculate();
+    if (0 == v.size())
     {
-        return {0.0f, 0.0f};
+        return {0.0, 0.0};
     }
     auto const mm = std::minmax_element(v.begin(), v.end());
     return {*mm.first, *mm.second};
