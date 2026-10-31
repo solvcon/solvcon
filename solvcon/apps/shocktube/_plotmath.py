@@ -2,8 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The arithmetic of the shock-tube plots.
-"""
+"""Plot arithmetic."""
 
 # Code in this file should not use Qt.
 

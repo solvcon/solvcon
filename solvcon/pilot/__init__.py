@@ -25,7 +25,7 @@ __getattr__, __dir__ = lazy_exports(__name__, {
         'RPythonConsoleDockWidget', 'RPythonTerminalDockWidget', 'RManager',
         'PlotLimits2d', 'PlotColor', 'RPlotSeries', 'RPlotModel',
         'RPlotTicker', 'plot_color_cycle', 'plot_cycle_color'],
-    '_style': ['RuleCatalog'],
+    '_style': ['RuleCatalog', 'Shades'],
     'base': ['controller', 'launch', 'register_app'],
 })[1:]
 
