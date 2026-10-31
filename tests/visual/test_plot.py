@@ -159,6 +159,44 @@ class LinePlotWidgetTC(unittest.TestCase):
             inked += int(color != background)
         self.assertGreater(inked, 10)
 
+    def test_a_sparse_lineplot_draws_every_point(self):
+        # A plot no denser than its pixels draws what it drew before the
+        # cut existed, leaving out only what it left out before.
+        for log_y in (False, True):
+            widget = self._filled([1.0, 2.0, 3.0, 4.0, 5.0],
+                                  [1e-2, 0.0, float('nan'), -1.0, 1e-4],
+                                  log_y=log_y)
+            widget.resize(320, 240)
+            series = widget.model.series(0)
+            self.assertEqual(
+                widget._points(series),
+                widget._drawn_points(series, widget._lineplot_rect()))
+
+    def test_a_dense_lineplot_paints_a_bounded_polyline_with_its_spike(self):
+        # Painting every sample of a long run stalls the window, so the
+        # polyline is cut to the pixel columns, and a lone spike in it
+        # still shows.
+        xs = np.linspace(0.0, 1.0, 200000, dtype='float64')
+        ys = np.zeros(len(xs), dtype='float64')
+        ys[107400] = 5.0
+        widget = self._filled(xs, ys)
+        widget.resize(320, 240)
+        painted = []
+
+        def drawn_points(series, rect):
+            points = _plot.LinePlotWidget._drawn_points(widget, series, rect)
+            painted.append(points)
+            return points
+
+        widget._drawn_points = drawn_points
+        widget.grab()
+        columns = math.ceil(widget._lineplot_rect().width()
+                            * widget.devicePixelRatioF())
+        self.assertTrue(painted)
+        for points in painted:
+            self.assertLessEqual(len(points), 4 * columns)
+            self.assertIn((xs[107400], 5.0), points)
+
 
 @testing.requires_pilot
 class LinePlotNavigationTC(unittest.TestCase):

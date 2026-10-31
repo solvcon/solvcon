@@ -23,8 +23,8 @@ __getattr__, __dir__ = lazy_exports(__name__, {
         'mgr', 'RDomainWidget', 'R2DWidget', 'Overlay2dOptions',
         'CellQualityMetric',
         'RPythonConsoleDockWidget', 'RPythonTerminalDockWidget', 'RManager',
-        'PlotLimits2d', 'PlotColor', 'RPlotSeries', 'RPlotModel',
-        'RPlotTicker', 'plot_color_cycle', 'plot_cycle_color'],
+        'PlotLimits2d', 'PlotColor', 'RPlotSeries', 'RPlotDecimator',
+        'RPlotModel', 'RPlotTicker', 'plot_color_cycle', 'plot_cycle_color'],
     '_style': ['RuleCatalog'],
     'base': ['controller', 'launch', 'register_app'],
 })[1:]

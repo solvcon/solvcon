@@ -47,6 +47,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/PlotLimits2d.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotDecimator.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotModel.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotTicker.hpp
     # app/
@@ -103,6 +104,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     # plot/
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotSeries.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotDecimator.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotModel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotTicker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/wrap_plot.cpp
