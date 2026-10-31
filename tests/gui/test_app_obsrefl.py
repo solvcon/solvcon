@@ -14,6 +14,7 @@ from solvcon import testing
 try:
     from solvcon import pilot
     from solvcon.pilot.base import _gui
+    from PySide6.QtCore import QEvent
     from PySide6.QtWidgets import QApplication, QLabel, QSizeGrip
     from PIL import Image
     # The app needs the pilot, so import it only with the pilot.
@@ -30,7 +31,26 @@ class _AppFixture(object):
         feature = _app.ObsreflApp(mgr=self.mgr)
         feature.populate_menu()
         feature._action.setChecked(True)  # builds the dock and panel
+        self.addCleanup(self._dispose, feature)
         return feature
+
+    @staticmethod
+    def _dispose(feature):
+        """Delete the windows the feature built.
+
+        Every test builds a feature on the one main window, and a later
+        theme switch repolishes every widget still alive, so thousands left
+        behind here slow the theme tests several times over.
+        """
+        if feature._control is not None:
+            feature._control.reset()  # stops the march, closes the viewer
+        feature._viewer.close()
+        feature._lineplots.close()
+        feature._lineplots.lineplots.deleteLater()
+        if feature._dock is not None:
+            feature._mgr.mainWindow.removeDockWidget(feature._dock)
+            feature._dock.deleteLater()
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
     @staticmethod
     def _coarsen(feature, nx=10, ny=4):
