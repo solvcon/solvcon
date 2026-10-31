@@ -11,7 +11,7 @@ __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_mesh': ['GmshFileDialog', 'MeshDrawer', 'MeshStyleStatus',
               'SampleMesh', 'SampleMeshDialog', 'SampleMeshFeature'],
     '_movie': ['MovieRecorder', 'default_movie_suffix'],
-    '_plot': ['LinePlotWidget', 'plot_array'],
+    '_plot': ['LinePlotWidget', 'SaveLinePlotDialog', 'plot_array'],
     '_viewer': ['DomainViewer'],
 })
 

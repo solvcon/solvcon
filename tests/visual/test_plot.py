@@ -11,6 +11,8 @@ it takes to map the axes and render the curves.
 """
 
 import math
+import os
+import tempfile
 import unittest
 
 import numpy as np
@@ -20,8 +22,8 @@ from solvcon import testing
 
 try:
     from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-    from PySide6.QtGui import QMouseEvent, QWheelEvent
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QImage, QMouseEvent, QWheelEvent
+    from PySide6.QtWidgets import QApplication, QWidget
     from solvcon import pilot
     from solvcon.pilot.visual import _plot
 except ImportError:
@@ -159,6 +161,31 @@ class LinePlotWidgetTC(unittest.TestCase):
             inked += int(color != background)
         self.assertGreater(inked, 10)
 
+    def test_the_saved_image_is_what_the_widget_draws(self):
+        widget = self._filled([0.0, 1.0, 2.0], [0.0, 1.0, 2.0])
+        widget.resize(320, 240)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "lineplot.png")
+            widget.save_image(path)
+            saved = QImage(path)
+        self.assertFalse(saved.isNull())
+        drawn = widget.grab().toImage().convertToFormat(saved.format())
+        self.assertEqual(drawn, saved)
+
+    def test_a_path_naming_no_format_is_refused(self):
+        widget = self._filled([0.0, 1.0], [0.0, 1.0])
+        widget.resize(320, 240)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "lineplot.unknown")
+            with self.assertRaises(OSError):
+                widget.save_image(path)
+            self.assertFalse(os.path.exists(path))
+
+    def test_the_context_menu_offers_to_save_the_image(self):
+        widget = self._filled([0.0, 1.0], [0.0, 1.0])
+        texts = [action.text() for action in widget._context_menu().actions()]
+        self.assertIn("Save image...", texts)
+
 
 @testing.requires_pilot
 class LinePlotNavigationTC(unittest.TestCase):
@@ -268,6 +295,41 @@ class LinePlotNavigationTC(unittest.TestCase):
         self.assertEqual(after, widget.limits())
         widget.reset_view()
         self.assertEqual(before, widget.limits())
+
+
+@testing.requires_pilot
+class SaveLinePlotDialogTC(unittest.TestCase):
+    """File -> Save line plot finds the plot in the current window."""
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.mgr.mdiArea.closeAllSubWindows()
+        self.feature = _plot.SaveLinePlotDialog(mgr=self.mgr)
+
+    def tearDown(self):
+        # The manager is a singleton; a window left open would be the
+        # current one for every later test.
+        self.mgr.mdiArea.closeAllSubWindows()
+
+    def test_the_file_menu_holds_the_action(self):
+        from solvcon.pilot.base import _gui
+        mgr = _gui.controller.build()
+        act = mgr.menu_model.action("file.save_line_plot")
+        self.assertIsNotNone(act)
+        self.assertIn(
+            "Save line plot",
+            [a.text() for a in mgr.menu_model.menu("File").actions()])
+
+    def test_a_window_without_a_plot_saves_nothing(self):
+        self.assertIsNone(self.feature.current_plot())
+        self.assertFalse(self.feature.run())
+
+    def test_the_plot_in_the_current_window_is_found(self):
+        host = QWidget()
+        plot = _plot.LinePlotWidget(parent=host)
+        subwin = self.mgr.addSubWindow(host)
+        self.mgr.mdiArea.setActiveSubWindow(subwin)
+        self.assertIs(self.feature.current_plot(), plot)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

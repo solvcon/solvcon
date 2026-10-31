@@ -21,18 +21,22 @@ tick labels.  A double-click returns to following the data.
 """
 
 import math
+import os
 
 import numpy as np
 
 from PySide6.QtCore import Qt, QRect, QPointF
 from PySide6.QtGui import QPainter, QPen, QColor, QPolygonF
-from PySide6.QtWidgets import QWidget, QSizePolicy
+from PySide6.QtWidgets import (QWidget, QSizePolicy, QMenu, QFileDialog,
+                               QMessageBox)
 
 from ... import core
 from .. import _pilot_core as _pcore
+from .. import base
 
 __all__ = [  # noqa: F822
     'LinePlotWidget',
+    'SaveLinePlotDialog',
     'plot_array',
 ]
 
@@ -60,6 +64,7 @@ class LinePlotWidget(QWidget):
     #: Wheel zoom per degree of rotation, as on the 2D canvas: one full
     #: revolution doubles the zoom.
     ZOOM_STEP_PER_DEGREE = 1.0 / 360.0
+    IMAGE_FILTERS = "PNG image (*.png);;JPEG image (*.jpg *.jpeg)"
 
     def __init__(self, title="", xlabel="", ylabel="", log_y=False,
                  parent=None):
@@ -109,6 +114,30 @@ class LinePlotWidget(QWidget):
     def _view_model(self):
         """The model holding the view in the space that is drawn."""
         return self._log_model if self.log_y else self.model
+
+    def save_image(self, path):
+        if not self.grab().save(path):
+            raise OSError(f"cannot save the plot image to {path!r}")
+
+    def _context_menu(self):
+        menu = QMenu(self)
+        menu.addAction("Save image...", self.ask_save_image)
+        return menu
+
+    def contextMenuEvent(self, event):
+        self._context_menu().exec(event.globalPos())
+
+    def ask_save_image(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save plot image", "lineplot.png", self.IMAGE_FILTERS)
+        if not path:
+            return
+        if not os.path.splitext(path)[1]:
+            path += ".png"
+        try:
+            self.save_image(path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Save plot image", str(exc))
 
     def limits(self):
         """The drawn limits as a ``PlotLimits2d``, or None while there
@@ -377,6 +406,36 @@ class LinePlotWidget(QWidget):
                                    metrics.height()),
                              Qt.AlignRight | Qt.AlignVCenter, series.label)
             top += metrics.height()
+
+
+class SaveLinePlotDialog(base.PilotFeature):
+    """File-menu action that saves the line plot in the current window."""
+
+    def populate_menu(self):
+        self.add_action(
+            "File",
+            text="Save line plot",
+            tip="Save the line plot in the current window as an image",
+            func=self.run,
+            id="file.save_line_plot",
+            weight=40,
+        )
+
+    def current_plot(self):
+        subwin = self._mgr.mdiArea.currentSubWindow()
+        if subwin is None:
+            return None
+        plots = subwin.findChildren(LinePlotWidget)
+        return plots[0] if plots else None
+
+    def run(self):
+        plot = self.current_plot()
+        if plot is None:
+            self._pycon.writeToHistory(
+                "Save line plot: no line plot in the current window\n")
+            return False
+        plot.ask_save_image()
+        return True
 
 
 def plot_array(values):
