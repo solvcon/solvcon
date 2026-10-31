@@ -6,6 +6,7 @@
 #include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
 
 #include <solvcon/pilot/common/config_home.hpp>
+#include <solvcon/pilot/common/cursor.hpp>
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
@@ -512,7 +513,7 @@ void RPythonTerminalDockWidget::executeCommand()
     // The command runs on the GUI thread, so a slow one freezes the window.
     // Show a busy cursor for the duration; run_worker in the console offloads
     // heavy work to a worker thread when responsiveness matters.
-    QApplication::setOverrideCursor(Qt::WaitCursor);
+    QApplication::setOverrideCursor(shapeCursor(Qt::WaitCursor));
     m_python_redirect.activate();
     for (QString const & line : lines)
     {
