@@ -2,9 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The window of the shock-tube app, painted in the colors of the palette so
-it follows the theme.
-"""
+"""Shock-tube window."""
 
 import math
 
@@ -18,9 +16,9 @@ from PySide6.QtWidgets import (QButtonGroup, QHBoxLayout, QLabel,
                                QVBoxLayout, QWidget)
 
 from ... import pilot
-from ...pilot import visual
 
 from . import _plotmath
+from . import _style
 
 __all__ = [
     'Legend',
@@ -37,67 +35,6 @@ QUANTITIES = (('density', "density"), ('velocity', "velocity"),
               ('entropy', "entropy"))
 #: The quantities shown at start.
 SHOWN = ('density', 'velocity', 'pressure')
-
-
-def _blend(color, other, ratio):
-    """Mix ``ratio`` of ``other`` into ``color``."""
-    keep = 1.0 - ratio
-    return QColor(round(color.red() * keep + other.red() * ratio),
-                  round(color.green() * keep + other.green() * ratio),
-                  round(color.blue() * keep + other.blue() * ratio))
-
-
-class Rules(pilot.RuleCatalog):
-    """The style of the toggles under the panels: the chips that each turn
-    one thing on or off, and the two-way switch whose halves join into one
-    pill.  They sit on the base ground of the window, so every shade steps
-    off the base: an outline that shows a toggle is there, and the accent
-    tint that shows it is on."""
-
-    _SMALL_PX = 11
-    _EDGE_MIX = 0.45
-    _MUTED_MIX = 0.35
-    _HOVER_MIX = 0.07
-    _TINT_MIX = 0.16
-
-    @classmethod
-    def toggles(cls, shades):
-        base, ink = shades.base, shades.on_base
-        return """
-            QToolButton#chip, QToolButton#switch {{
-                border: 1px solid {edge};
-                padding: 1px 9px;
-                font-size: {small}px;
-                color: {muted};
-                background: transparent;
-            }}
-            QToolButton#chip {{ border-radius: 10px; }}
-            QToolButton#switch[edge="left"] {{
-                border-top-left-radius: 10px;
-                border-bottom-left-radius: 10px;
-                border-right: none;
-            }}
-            QToolButton#switch[edge="right"] {{
-                border-top-right-radius: 10px;
-                border-bottom-right-radius: 10px;
-            }}
-            QToolButton#chip:hover, QToolButton#switch:hover {{
-                background: {hover};
-                color: {ink};
-            }}
-            QToolButton#chip:checked, QToolButton#switch:checked {{
-                background: {tint};
-                color: {ink};
-            }}
-            QToolButton#chip:checked {{ border-color: {accent}; }}
-            QLabel#switchLabel {{ font-size: {small}px; color: {muted}; }}
-            """.format(
-            edge=shades.blend(base, ink, cls._EDGE_MIX).name(),
-            muted=shades.blend(ink, base, cls._MUTED_MIX).name(),
-            hover=shades.blend(base, ink, cls._HOVER_MIX).name(),
-            tint=shades.blend(base, shades.accent, cls._TINT_MIX).name(),
-            accent=shades.accent.name(), ink=ink.name(),
-            small=cls._SMALL_PX)
 
 
 class Legend(QWidget):
@@ -131,9 +68,8 @@ class Legend(QWidget):
         return QSize(width, metrics.height() + 2)
 
     def paintEvent(self, event):
-        palette = self.palette()
-        ink = palette.color(QPalette.Text)
-        mark = palette.color(QPalette.Highlight)
+        shades = _style.Ink(self)
+        ink, mark = shades.ink, shades.march
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         metrics = self.fontMetrics()
@@ -291,9 +227,7 @@ class ProfilePlot(QWidget):
         self.set_view((left, left + width))
 
     def readout(self, name, x):
-        """Return the lines that read out the panel of ``name`` at ``x``:
-        the point of the march nearest it, the exact solution there, and,
-        with a reference, the march minus the exact cell mean."""
+        """Read out the value at the point."""
         if self.points is None:
             return []
         xs, values = self.points
@@ -464,9 +398,7 @@ class ProfilePlot(QWidget):
         return [(texts[index], left, row) for index, row, left in placed]
 
     def _small_font(self):
-        small = QFont(self.font())
-        small.setPixelSize(10)
-        return small
+        return _style.number_font(self.font(), 10)
 
     def yrange(self, name):
         """Return the ``(lo, hi)`` the panel of ``name`` spans."""
@@ -478,12 +410,9 @@ class ProfilePlot(QWidget):
         return lo - pad, hi + pad
 
     def paintEvent(self, event):
-        palette = self.palette()
-        ground = palette.color(QPalette.Base)
-        ink = palette.color(QPalette.Text)
-        grid, frame = _blend(ground, ink, 0.1), _blend(ground, ink, 0.35)
-        muted = _blend(ink, ground, 0.35)
-        mark = palette.color(QPalette.Highlight)
+        shades = _style.Ink(self)
+        ground, ink, mark = shades.base, shades.ink, shades.march
+        grid, frame, muted = shades.grid, shades.frame, shades.muted
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.fillRect(self.rect(), ground)
@@ -547,7 +476,7 @@ class ProfilePlot(QWidget):
             painter.setClipRect(rect.adjusted(-4, -4, 4, 4))
             for pos, _, dashed in self.guides():
                 x = at(pos, ylo)[0]
-                painter.setPen(QPen(muted, 1, Qt.DashLine if dashed
+                painter.setPen(QPen(shades.guide, 1, Qt.DashLine if dashed
                                     else Qt.DotLine))
                 painter.drawLine(QPointF(x, rect.top()),
                                  QPointF(x, rect.bottom()))
@@ -723,9 +652,7 @@ class XtDiagram(QWidget):
         return f"{lo:.3g}", f"{hi:.3g}"
 
     def _small_font(self):
-        small = QFont(self.font())
-        small.setPixelSize(10)
-        return small
+        return _style.number_font(self.font(), 10)
 
     def set_history(self, xlim, x, times, rows):
         """Color ``rows``, a density over ``x`` at each of ``times``."""
@@ -747,7 +674,7 @@ class XtDiagram(QWidget):
         """Return the rows as ARGB words, the first row at t = 0; a value
         that is not finite stays clear."""
         lo, hi = self.vrange()
-        rgb = np.rint(visual.colormap((self.rows - lo) / (hi - lo))
+        rgb = np.rint(_style.colormap((self.rows - lo) / (hi - lo))
                       * 255).astype('uint32')
         words = (0xff000000 | rgb[..., 0] << 16 | rgb[..., 1] << 8
                  | rgb[..., 2]).astype('uint32')
@@ -760,11 +687,9 @@ class XtDiagram(QWidget):
                       self.height() - self.TITLE - self.BOTTOM)
 
     def paintEvent(self, event):
-        palette = self.palette()
-        ground = palette.color(QPalette.Base)
-        ink = palette.color(QPalette.Text)
-        frame = _blend(ground, ink, 0.35)
-        muted = _blend(ink, ground, 0.35)
+        shades = _style.Ink(self)
+        ground, ink = shades.base, shades.ink
+        frame, muted = shades.frame, shades.muted
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.fillRect(self.rect(), ground)
@@ -794,7 +719,7 @@ class XtDiagram(QWidget):
             low, high = self._ends()
             steps = np.linspace(0.0, 1.0, int(bar.width()),
                                 dtype='float64')
-            rgb = np.rint(visual.colormap(steps) * 255).astype('int32')
+            rgb = np.rint(_style.colormap(steps) * 255).astype('int32')
             for it, (red, green, blue) in enumerate(rgb[:, :3]):
                 painter.fillRect(QRectF(bar.left() + it, bar.top(), 1,
                                         bar.height()),
@@ -835,16 +760,14 @@ class XtDiagram(QWidget):
                                  at(self.x0 + speed * self.t_end, self.t_end))
         if self.times.size:
             now = at(lo, self.times[-1]).y()
-            painter.setPen(QPen(palette.color(QPalette.Highlight), 1.4))
+            painter.setPen(QPen(shades.accent, 1.4))
             painter.drawLine(QPointF(rect.left(), now),
                              QPointF(rect.right(), now))
         painter.restore()
         painter.setPen(QPen(frame, 1))
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(rect)
-        small = QFont(self.font())
-        small.setPixelSize(10)
-        painter.setFont(small)
+        painter.setFont(self._small_font())
         painter.setPen(muted)
         for value, text in _ticks(self._tickers, 0.0, self.t_end,
                                   rect.height(), 28):
@@ -875,7 +798,8 @@ def _ticks(tickers, lo, hi, pixels, spacing):
 
 class ShockTubeWindow(QWidget):
     """The run controls and the title over the panels, and the chips that
-    pick the quantities.
+    pick the quantities.  It paints in the colors of the palette, in the
+    style of :mod:`._style`, so it follows the theme.
 
     :ivar plot: The :class:`ProfilePlot`.
     :ivar legend: The :class:`Legend` of its curves, right of the title.
@@ -899,6 +823,9 @@ class ShockTubeWindow(QWidget):
         :attr:`exact_buttons`.
     """
 
+    #: The tone of the state pill by the state of the run.
+    TONES = {'ready': 'muted', 'running': 'accent', 'paused': 'muted',
+             'finished': 'good'}
     #: What the run button reads by the state of the run.
     RUN_TEXT = {'ready': "Run", 'running': "Pause", 'paused': "Resume",
                 'finished': "Run again"}
@@ -916,14 +843,17 @@ class ShockTubeWindow(QWidget):
         for key, text in (('run', "Run"), ('step', "Step"),
                           ('reset', "Reset")):
             button = QPushButton(text)
+            button.setObjectName('primary' if 'run' == key else 'secondary')
             button.clicked.connect(lambda _=False, name=key: self._on(name))
             self.buttons[key] = button
             controls.addWidget(button)
         self._state = QLabel("")
+        self._state.setObjectName("pill")
         controls.addSpacing(10)
         controls.addWidget(self._state)
         controls.addStretch(1)
         self.fit_button = QPushButton("Reset zoom")
+        self.fit_button.setObjectName("secondary")
         self.fit_button.setToolTip("Show the whole tube again (a "
                                    "double-click on the panels does the "
                                    "same)")
@@ -1056,6 +986,11 @@ class ShockTubeWindow(QWidget):
         self.buttons['step'].setEnabled(state in ('ready', 'paused'))
         self.buttons['reset'].setEnabled('ready' != state)
         self._state.setText(f"{state}, step {step} / {nstep}")
+        if self._state.property("tone") != self.TONES[state]:
+            self._state.setProperty("tone", self.TONES[state])
+            # A sheet reads a dynamic property only when it polishes.
+            self._state.style().unpolish(self._state)
+            self._state.style().polish(self._state)
 
     def state_text(self):
         """Return what the controls say of the run."""
@@ -1080,7 +1015,8 @@ class ShockTubeWindow(QWidget):
         return chip
 
     def _apply_style(self):
-        self.setStyleSheet(Rules.sheet(self, "toggles"))
+        self.setStyleSheet(_style.Rules.sheet(self, "buttons", "pill",
+                                              "chips"))
 
     def _on_chip(self, name):
         names = [key for key, _ in QUANTITIES if self.chips[key].isChecked()]
