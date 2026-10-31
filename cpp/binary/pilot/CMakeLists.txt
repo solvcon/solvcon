@@ -118,7 +118,11 @@ if(APPLE)
 endif()
 
 add_custom_target(run_pilot $<TARGET_FILE:pilot>)
-add_custom_target(run_pilot_pytest $<TARGET_FILE:pilot> --mode=pytest)
+add_custom_target(
+    run_pilot_pytest
+    ${PYTHON_EXECUTABLE} ${solvcon_SOURCE_DIR}/contrib/pytest_parallel.py
+    --pilot $<TARGET_FILE:pilot>
+)
 
 if(DO_CLANG_TIDY_DIFF)
     # The core, the pilot, and the entry unit are three targets, and the diff

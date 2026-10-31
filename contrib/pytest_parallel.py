@@ -10,14 +10,22 @@ in parallel without requiring additional plugins.
 
 Job i of N runs every N-th collected test, starting from the i-th.
 
+With ``--pilot``, every job is a pilot binary in its pytest mode instead of a
+plain Python, so the tests that need the pilot run in parallel too. The pilot
+reads no ``PYTEST_OPTS`` once it is given arguments, so the options are taken
+from that variable here. With ``SOLVCON_TEST_SHOW_WINDOWS`` on, a single
+pilot runs every test.
+
 Usage:
 
     python3 contrib/pytest_parallel.py --jobs 8 [PYTEST_ARGS]
+    python3 contrib/pytest_parallel.py --pilot /path/to/pilot --jobs 8
 """
 
 import argparse
 import os
 import pathlib
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -36,10 +44,26 @@ def pytest_collection_modifyitems(config, items):
 def main():
     parser = argparse.ArgumentParser(
         description='Run pytest in parallel jobs.', allow_abbrev=False)
-    parser.add_argument('--jobs', '-j', type=int, default=os.cpu_count(),
-                        help='number of jobs (default: processor count)')
+    parser.add_argument('--jobs', '-j', type=int,
+                        default=int(os.environ.get('PYTEST_JOBS', 0))
+                        or os.cpu_count(),
+                        help='number of jobs (default: PYTEST_JOBS or the '
+                             'processor count)')
+    parser.add_argument('--pilot', help='run each job in this pilot binary')
     # Pass every other argument to pytest.
     args, pytest_args = parser.parse_known_args()
+
+    if args.pilot:
+        runner = [args.pilot, '--mode=pytest']
+        pytest_args += shlex.split(os.environ.get('PYTEST_OPTS', ''))
+        # Shown windows share one desktop and one keyboard, so pilots side by
+        # side would take the focus from each other. A single pilot also
+        # keeps -x, --pdb, and --lf usable.
+        show = os.environ.get('SOLVCON_TEST_SHOW_WINDOWS', '').upper()
+        if 1 == args.jobs or show in ('1', 'ON', 'YES', 'TRUE'):
+            return subprocess.call(runner + pytest_args)
+    else:
+        runner = [sys.executable, '-m', 'pytest']
 
     here = pathlib.Path(__file__).resolve()
     env = os.environ.copy()
@@ -50,7 +74,7 @@ def main():
 
     jobs = []
     for index in range(args.jobs):
-        cmd = [sys.executable, '-m', 'pytest', '-p', here.stem,
+        cmd = [*runner, '-p', here.stem,
                f'--job={index}/{args.jobs}', '-p', 'no:cacheprovider',
                *pytest_args]
         out = tempfile.TemporaryFile()
