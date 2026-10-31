@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 
+#include <solvcon/pilot/common/cursor.hpp>
 #include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
@@ -563,7 +564,7 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
             // Bracket the move gesture so its incremental steps undo as one.
             m_world->begin_operation();
             m_drag = EditDrag::Move;
-            setCursor(Qt::SizeAllCursor);
+            setCursor(shapeCursor(Qt::SizeAllCursor));
             update();
             event->accept();
             return;

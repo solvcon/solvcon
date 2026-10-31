@@ -41,7 +41,10 @@ class TerminalWidgetTC(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mgr = pilot.RManager.instance.setUp()
+        # The controller writes the banner. Build it here rather than rely on
+        # an earlier test in the same process; the build is idempotent.
+        from solvcon.pilot.base import _gui
+        cls.mgr = _gui.controller.build()
         # Pin a known variant so the syntax and output colors are
         # deterministic, and restore the shared default afterward. A theme
         # switch repolishes every widget, so pay for it once for the class

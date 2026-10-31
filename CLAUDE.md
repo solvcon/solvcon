@@ -127,7 +127,8 @@ when asked to set an IDE up.
 - The pytest targets run in `PYTEST_JOBS` processes (default: the processor
   count). `PYTEST_JOBS=1` runs them serially.
 - `make run_pilot_pytest` -- Python tests that require the pilot GUI;
-  accepts `PYTEST_OPTS` the same way.
+  accepts `PYTEST_OPTS` and `PYTEST_JOBS` the same way. It runs one pilot
+  when `SOLVCON_TEST_SHOW_WINDOWS=ON`.
 - The GUI tests build real windows but keep them off the screen, so a test run
   does not take over the desktop (`tests/conftest.py`). Export
   `SOLVCON_TEST_SHOW_WINDOWS=ON` to watch the windows instead, which hands
