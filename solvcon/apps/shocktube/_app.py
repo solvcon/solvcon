@@ -14,6 +14,8 @@ from . import _riemann
 from . import _shocktube
 from . import _window
 
+MARCH_LABEL = "CESE"
+
 
 class ShockTubeApp(base.PilotFeature):
     """
@@ -214,15 +216,23 @@ class ShockTubeApp(base.PilotFeature):
                                 dtype='float64')
             exact = (coord, self.exact_values(coord, time))
         self.window.plot.set_data((cfg["xmin"], cfg["xmax"]), exact, points)
+        means = self.exact_averages(points[0], time)[1]
+        self.window.plot.set_reference({name: value[::2]
+                                        for name, value in means.items()})
         self.window.plot.set_fronts(self.exact.positions(time),
                                     self.exact.x0)
         # A redraw of the same step, on a pause, adds no row.
         if len(self.xt_rows) == self.current_step:
             self.xt_times.append(time)
             self.xt_rows.append(points[1]['density'].copy())
+        self.window.xt.set_label(f"density, {MARCH_LABEL}")
         self.window.xt.set_history((cfg["xmin"], cfg["xmax"]), points[0],
                                    self.xt_times, self.xt_rows)
         self.window.set_title("Sod", time)
+        self.window.legend.set_entries([
+            ('line', "exact" if 'points' == self.window.exact_mode()
+             else "exact cell means"),
+            ('marker', MARCH_LABEL)])
         self.window.show_state(self.state, self.current_step,
                                cfg["max_steps"])
 
