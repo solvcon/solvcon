@@ -5,7 +5,10 @@
 import json
 import os
 import pathlib
+import shutil
 import subprocess
+import sys
+import sysconfig
 
 import pytest
 
@@ -26,8 +29,26 @@ CREDIT = "%s with %s Code" % ("Generated", "Claude")
 ROBOT = "\U0001f916"
 
 
+def _hook_command():
+    """The command that runs the hook, in a bare Python when one is installed.
+
+    The hook needs only the standard library. Inside the pilot,
+    python_command starts another pilot, which imports solvcon before the
+    hook and spends a third of a second on every call.
+    """
+    bindir = sysconfig.get_config_var("BINDIR") or ""
+    python = (shutil.which("python%d.%d" % sys.version_info[:2], path=bindir)
+              or shutil.which("python", path=bindir))
+    if python:
+        return [python, str(HOOK)]
+    return system.python_command(str(HOOK))
+
+
+HOOK_COMMAND = _hook_command()
+
+
 def invoke(stdin):
-    return subprocess.run(system.python_command(str(HOOK)), input=stdin,
+    return subprocess.run(HOOK_COMMAND, input=stdin,
                           capture_output=True, encoding="utf-8",
                           env=dict(os.environ, PYTHONUTF8="1"))
 
