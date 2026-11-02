@@ -38,6 +38,7 @@ class BarStructureTC(unittest.TestCase):
         self.assertIsNotNone(model.action("file.save_2d_canvas"))
         self.assertIn("Save 2D canvas",
                       [a.text() for a in model.menu("File").actions()])
+        self.assertIsNotNone(model.action("file.capture.main"))
 
         # Panels sits first in View and holds the dock toggles. Other tests
         # build their own panel features on the shared singleton, so a toggle

@@ -21,6 +21,7 @@ if _pcore.enable:
     from .. import painter as _painter
     from .. import track
     from .. import agent
+    from . import _capture
     from . import _theme
     from . import _ui_state
 
@@ -89,6 +90,7 @@ class _Controller(metaclass=_Singleton):
         self.agent = None
         self.theme_menu = None
         self.window_manager = None
+        self.capture = None
         self.ui_state = None
 
     def __getattr__(self, name):
@@ -162,6 +164,7 @@ class _Controller(metaclass=_Singleton):
         self.agent = agent.AgentPanel(mgr=self._rmgr)
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
         self.window_manager = panel.WindowManager(mgr=self._rmgr)
+        self.capture = _capture.ScreenCapture(mgr=self._rmgr)
         self.ui_state = _ui_state.UiState(mgr=self._rmgr)
         self.populate_menu()
         self._start_apps()
@@ -214,6 +217,7 @@ class _Controller(metaclass=_Singleton):
         self.agent.populate_menu()
         self.theme_menu.populate_menu()
         self.window_manager.populate_menu()
+        self.capture.populate_menu()
         self.agent.bind_auto_open()  # need to be the last to bind all commands
 
         close = _gui_common.build_action(
