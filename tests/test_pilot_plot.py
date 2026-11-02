@@ -518,4 +518,114 @@ class PilotPlotModelTC(unittest.TestCase):
                 model.view(width, height)
 
 
+@unittest.skipUnless(solvcon.HAS_PILOT, "Qt pilot is not built")
+class PilotPlotDecimatorTC(unittest.TestCase):
+    """Which samples of a series the pixel columns keep."""
+
+    COLUMNS = 50
+    PER_COLUMN = 40
+
+    def _abscissae(self):
+        """Return the column of each sample and its x over [0, 1].
+
+        The samples sit inside their columns, clear of the edges, where
+        rounding rather than the selection would decide the column.
+        """
+        column = np.repeat(np.arange(self.COLUMNS, dtype='int64'),
+                           self.PER_COLUMN)
+        offset = np.tile(np.linspace(0.05, 0.95, self.PER_COLUMN,
+                                     dtype='float64'), self.COLUMNS)
+        return column, (column + offset) / self.COLUMNS
+
+    def _select(self, xs, ys, xmin=0.0, xmax=1.0, **kw):
+        kept = pilot.RPlotDecimator().select(_series(xs, ys), xmin, xmax,
+                                             self.COLUMNS, **kw)
+        return kept.ndarray.tolist()
+
+    @staticmethod
+    def _m4(column, ys, drawable):
+        """Return the indices of the first, lowest, highest, and last
+        drawable sample of every column, in increasing order.
+        """
+        picked = set()
+        for it in np.unique(column[drawable]):
+            idx = np.nonzero(drawable & (column == it))[0]
+            picked.update((idx[0], idx[-1], idx[np.argmin(ys[idx])],
+                           idx[np.argmax(ys[idx])]))
+        return sorted(int(it) for it in picked)
+
+    def test_a_series_no_denser_than_four_per_column_is_kept_whole(self):
+        # Four per column is what the cut keeps anyway, so a sparser series
+        # loses nothing to it and is drawn point for point, as before.
+        xs = np.linspace(0.0, 1.0, 4 * self.COLUMNS, dtype='float64')
+        ys = np.random.default_rng(1).uniform(1.0, 2.0, len(xs))
+        self.assertEqual(list(range(len(xs))), self._select(xs, ys))
+        ys[[1, 2]] = [np.nan, -1.0]
+        self.assertEqual([0] + list(range(3, len(xs))),
+                         self._select(xs, ys, y_floor=0.0))
+
+    def test_each_column_keeps_its_first_lowest_highest_and_last(self):
+        # The lowest and highest keep the extent of a column, and the first
+        # and last join it to its neighbours where the whole series does.
+        column, xs = self._abscissae()
+        ys = np.random.default_rng(2).standard_normal(len(xs))
+        kept = self._select(xs, ys)
+        self.assertEqual(self._m4(column, ys, np.isfinite(ys)), kept)
+        self.assertLessEqual(len(kept), 4 * self.COLUMNS)
+
+    def test_a_one_sample_spike_survives(self):
+        # A lone spike is what a dense plot is often read for, and a stride
+        # or an average loses it.
+        _, xs = self._abscissae()
+        ys = np.zeros(len(xs), dtype='float64')
+        ys[777] = 5.0
+        kept = self._select(xs, ys)
+        self.assertIn(777, kept)
+        self.assertLessEqual(len(kept), 4 * self.COLUMNS)
+
+    def test_a_sample_without_a_place_never_stands_for_a_column(self):
+        # A non-finite sample, or one at or below the floor of a log axis,
+        # is not drawn, so it cannot be the extreme of its column either.
+        column, xs = self._abscissae()
+        ys = np.random.default_rng(3).uniform(1.0, 2.0, len(xs))
+        ys[::7] = np.nan
+        ys[3::11] = 0.0
+        drawable = np.isfinite(ys) & (ys > 1e-16)
+        self.assertEqual(self._m4(column, ys, drawable),
+                         self._select(xs, ys, y_floor=1e-16))
+
+    def test_off_the_view_only_the_samples_crossing_its_edges_are_kept(self):
+        # Beyond the view nothing shows but the segments crossing its edges,
+        # which need only the nearest sample outside each edge, in its
+        # place along the line.
+        xs = np.linspace(-1.0, 2.0, 30000, dtype='float64')
+        kept = np.array(self._select(xs, np.sin(40.0 * xs)), dtype='int64')
+        self.assertTrue(np.all(np.diff(kept) > 0))
+        outside = kept[(xs[kept] < 0.0) | (xs[kept] > 1.0)]
+        self.assertEqual([np.searchsorted(xs, 0.0) - 1,
+                          np.searchsorted(xs, 1.0, side='right')],
+                         outside.tolist())
+
+    def test_a_curve_that_doubles_back_is_kept_whole(self):
+        # Columns follow x, which a curve turning back on itself does not,
+        # so it is drawn point for point.
+        angle = np.linspace(0.0, 2.0 * np.pi, 1000, dtype='float64')
+        kept = self._select(0.5 + 0.4 * np.cos(angle),
+                            0.5 + 0.4 * np.sin(angle))
+        self.assertEqual(list(range(1000)), kept)
+
+    def test_a_range_that_places_no_column_keeps_the_series_whole(self):
+        xs = np.linspace(0.0, 1.0, 1000, dtype='float64')
+        ys = np.sin(xs)
+        for xmin, xmax in ((0.5, 0.5), (1.0, 0.0), (0.0, np.nan),
+                           (-np.inf, 1.0)):
+            self.assertEqual(1000, len(self._select(xs, ys, xmin, xmax)))
+
+    def test_the_column_count_is_validated(self):
+        series = _series([0.0, 1.0], [0.0, 1.0])
+        for columns in (0, -1):
+            with self.assertRaises(ValueError):
+                pilot.RPlotDecimator().select(series, 0.0, 1.0, columns)
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
