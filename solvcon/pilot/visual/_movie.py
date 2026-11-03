@@ -57,6 +57,7 @@ os.environ.setdefault('QT_FFMPEG_ENCODING_HW_DEVICE_TYPES', ',')
 __all__ = [
     'MovieRecorder',
     'default_movie_suffix',
+    'movie_suffixes',
 ]
 
 
@@ -81,6 +82,14 @@ def default_movie_suffix():
     animation format does; without one, the WebP Pillow always writes.
     """
     return '.mp4' if _can_write_mp4() else '.webp'
+
+
+def movie_suffixes():
+    """The movie suffixes this build can write, the default first."""
+    found = ['.mp4'] if _can_write_mp4() else []
+    if HAS_IMAGE:
+        found += ['.webp', '.gif']
+    return found
 
 
 class MovieRecorder(object):

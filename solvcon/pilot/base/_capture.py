@@ -9,10 +9,12 @@ Screenshots and movies of the running pilot.
 import itertools
 import os
 import re
+import time
 
+import numpy as np
 from PySide6.QtCore import (
     QCoreApplication, QEvent, QObject, QPoint, QRect, Qt, QTimer)
-from PySide6.QtGui import QCursor, QGuiApplication, QPainter
+from PySide6.QtGui import QCursor, QGuiApplication, QImage, QPainter
 from PySide6.QtWidgets import (
     QApplication, QDockWidget, QLabel, QRubberBand, QToolTip, QWidget)
 
@@ -26,6 +28,7 @@ __all__ = [
     'grab_with_popups',
     'settle_events',
     'to_logical_size',
+    'trim_edges',
 ]
 
 
@@ -74,30 +77,71 @@ def grab_with_popups(widget, region=None):
     return pixmap
 
 
+def trim_edges(pixmap):
+    """``pixmap`` with its plain edges cut off.
+
+    The bottom-left pixel gives the background color.
+    """
+    if pixmap.isNull():
+        return pixmap
+    image = pixmap.toImage().convertToFormat(QImage.Format_RGBA8888)
+    width, height = image.width(), image.height()
+    pixels = np.frombuffer(image.constBits(), dtype='uint8').reshape(
+        height, image.bytesPerLine())[:, :width * 4].reshape(height, width, 4)
+    plain = (pixels == pixels[-1, 0]).all(axis=2)
+    rows = np.flatnonzero(~plain.all(axis=1))
+    cols = np.flatnonzero(~plain.all(axis=0))
+    if not len(rows):
+        x0, y0, x1, y1 = 0, 0, 1, 1
+    else:
+        y0, y1 = int(rows[0]), int(rows[-1]) + 1
+        x0, x1 = int(cols[0]), int(cols[-1]) + 1
+    if (x0, y0, x1, y1) == (0, 0, width, height):
+        return pixmap
+    trimmed = pixmap.copy(x0, y0, x1 - x0, y1 - y0)
+    trimmed.setDevicePixelRatio(pixmap.devicePixelRatio())
+    return trimmed
+
+
 class WidgetCapture(object):
     """Save what widgets show as PNG files in one folder.
 
     :ivar folder: Directory the images are written to, made on first use.
+    :ivar logical: Whether to scale a grab down to the widget's own size.
+    :ivar trim: Whether to cut the plain edges off.
     """
 
-    def __init__(self, folder):
+    def __init__(self, folder, logical=False, trim=False):
         self.folder = folder
+        self.logical = logical
+        self.trim = trim
 
-    def next_name(self, pattern, suffix='.png', **fields):
+    def next_name(self, pattern, suffix='.png', taken=(), **fields):
         """The first name from ``pattern`` that names no file yet.
 
-        ``pattern`` formats ``fields`` and a counter ``n``.
-        """
-        def free(name):
-            return not os.path.exists(self.path(name, suffix))
+        ``pattern`` formats ``fields`` and a counter ``n``.  ``taken`` holds
+        paths reserved but not written.
 
-        if '{n' not in pattern:
-            name = pattern.format(**fields)
+        :raises ValueError: ``pattern`` does not format.
+        """
+        def fill(text, n):
+            try:
+                return text.format(n=n, **fields)
+            except (KeyError, IndexError, AttributeError, TypeError) as exc:
+                raise ValueError(f"the name pattern '{text}' does not "
+                                 f"format: {exc}") from exc
+
+        def free(name):
+            path = self.path(name, suffix)
+            return path not in taken and not os.path.exists(path)
+
+        name = fill(pattern, 1)
+        if name == fill(pattern, 2):
             if free(name):
                 return name
             pattern += '_{n}'
         for n in itertools.count(1):
-            name = pattern.format(n=n, **fields)
+            name = fill(pattern, n)
             if free(name):
                 return name
 
@@ -116,6 +160,10 @@ class WidgetCapture(object):
             pixmap = grab_with_popups(widget, region)
         else:
             pixmap = widget.grab()
+        if self.trim:
+            pixmap = trim_edges(pixmap)
+        if self.logical:
+            pixmap = to_logical_size(pixmap)
         os.makedirs(self.folder, exist_ok=True)
         if pixmap.isNull() or not pixmap.save(path, 'PNG'):
             raise RuntimeError(f"the widget gave no image for '{name}'")
@@ -133,6 +181,7 @@ class ScreenCapture(_gui_common.PilotFeature):
     A target is None or ``'main'``, ``'active'``, a dock title, or a widget.
 
     :ivar folder: Directory the files go to.
+    :ivar shots: The files written this session, oldest first.
     :ivar recording: The :class:`Recording` running, or None.
     """
 
@@ -144,7 +193,9 @@ class ScreenCapture(_gui_common.PilotFeature):
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self.folder = os.getcwd()
+        self.shots = []
         self.recording = None
+        self._pending = set()
         self._record_action = None
         self._picker = None
         self._region = None
@@ -179,28 +230,65 @@ class ScreenCapture(_gui_common.PilotFeature):
             checked=False)
         self._record_action.triggered.connect(self._on_record_triggered)
 
-    def shoot(self, target=None, region=None):
+    def console_handles(self):
+        """The console's capture helpers with their banner lines."""
+        handles = {
+            'capture': self.shoot,
+            'record': self.record,
+        }
+        entries = [
+            ('capture(target)', 'save a PNG of the window, a dock, or widget'),
+            ('record(target)', 'record a movie; stop() writes it'),
+        ]
+        return handles, entries
+
+    def shoot(self, target=None, name=None, *, region=None, delay=0,
+              folder=None, logical=False, trim=False):
         """Save a PNG of ``target`` and return its path.
 
-        ``region`` is a :class:`QRect` or ``(x, y, width, height)``.
+        ``name`` is a pattern over ``{target}``, ``{n}`` and ``{time}``.
+        ``region`` is a :class:`QRect` or ``(x, y, width, height)``.  With
+        ``delay`` seconds the file is written later.  ``logical`` scales a
+        high-DPI grab down to 1x and ``trim`` cuts the plain edges off.
         """
         widget, label = self._resolve(target)
-        capture = WidgetCapture(self.folder)
-        name = capture.next_name(self.PATTERN, target=label)
+        capture = WidgetCapture(self.folder if folder is None else folder,
+                                logical=logical, trim=trim)
+        name = capture.next_name(
+            self.PATTERN if name is None else name, taken=self._pending,
+            target=label, time=time.strftime('%Y%m%d_%H%M%S'))
         if region is not None:
             region = QRect(*region) if isinstance(region, tuple) else region
-        return capture.shot(widget, name, region)
+        if delay <= 0:
+            return self._write(capture, widget, name, region)
+        path = capture.path(name)
+        self._pending.add(path)
+        QTimer.singleShot(round(delay * 1000), lambda: self._write_later(
+            capture, widget, name, region, path))
+        return path
 
-    def record(self, target=None):
-        """Record a movie of ``target`` and return its :class:`Recording`."""
+    def record(self, target=None, name=None, *, every_ms=FRAME_MS,
+               suffix=None, folder=None):
+        """Record a movie of ``target`` and return its :class:`Recording`.
+
+        It takes a frame every ``every_ms``.  ``name`` is as in :meth:`shoot`
+        and ``suffix`` picks the format.
+        """
         if self.recording is not None:
             raise ValueError("a recording is running; stop it first")
+        if every_ms <= 0:
+            raise ValueError(f"every_ms must be positive, not {every_ms}")
+        suffix = suffix or visual.default_movie_suffix()
+        if suffix not in visual.movie_suffixes():
+            raise ValueError(f"this build cannot write '{suffix}'; it "
+                             f"writes {', '.join(visual.movie_suffixes())}")
         widget, label = self._resolve(target)
-        capture = WidgetCapture(self.folder)
-        suffix = visual.default_movie_suffix()
-        name = capture.next_name(self.PATTERN, suffix=suffix, target=label)
+        capture = WidgetCapture(self.folder if folder is None else folder)
+        name = capture.next_name(
+            self.PATTERN if name is None else name, suffix=suffix,
+            target=label, time=time.strftime('%Y%m%d_%H%M%S'))
         recording = self.recording = Recording(
-            self, widget, capture.path(name, suffix), self.FRAME_MS)
+            self, widget, capture.path(name, suffix), every_ms)
         self._sync_recording()
         recording.frame()
         return recording
@@ -255,7 +343,7 @@ class ScreenCapture(_gui_common.PilotFeature):
     def _resolve(self, target):
         """``(widget, file label)`` for ``target``."""
         if isinstance(target, QWidget):
-            return target, _slug(target.objectName()
+            return target, _slug(target.objectName() or target.windowTitle()
                                  or type(target).__name__)
         if target is None or target == self.MAIN:
             return self._mainWindow, self.MAIN
@@ -268,6 +356,20 @@ class ScreenCapture(_gui_common.PilotFeature):
             if dock.windowTitle() == target and not dock.isHidden():
                 return dock, _slug(target)
         raise ValueError(f"no window or open dock is called '{target}'")
+
+    def _write(self, capture, widget, name, region):
+        path = capture.shot(widget, name, region)
+        self.shots.append(path)
+        return path
+
+    def _write_later(self, capture, widget, name, region, path):
+        self._pending.discard(path)
+        try:
+            self._write(capture, widget, name, region)
+        except (ValueError, RuntimeError, OSError) as exc:
+            self._report(f"Capture: {exc}")
+        else:
+            self._report(f"Capture: saved {path}")
 
     def _on_record_triggered(self, checked):
         if not checked:
@@ -284,6 +386,7 @@ class ScreenCapture(_gui_common.PilotFeature):
     def _recorded(self, recording, nframe, error):
         self.recording = None
         if error is None:
+            self.shots.append(recording.path)
             self._report(f"Capture: wrote {nframe} frames to "
                          f"{recording.path}")
         else:
@@ -347,6 +450,17 @@ class Recording(object):
             movie.close()
         self._owner._recorded(self, nframe, None)
         return self.path
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.stop()
+        return False
+
+    def __repr__(self):
+        state = 'stopped' if self._movie is None else 'recording'
+        return f"<Recording {state} {self.path}>"
 
 
 class _Hint(QLabel):

@@ -210,6 +210,18 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIn('show_mesh(m)', banner)
         self.assertIn('load_mesh(name)', banner)
 
+    def test_extra_handles_join_the_curated_ones(self):
+        from solvcon import apputil
+        probe = object()
+        banner = apputil.install_pilot_namespace(
+            self.mgr, self.env,
+            extra=({'probe': probe}, [('probe()', 'a probe handle')]))
+        g = self.env.globals
+        self.assertIs(g['probe'], probe)
+        self.assertIs(g['mgr'], self.mgr)
+        self.assertIn('a probe handle', banner)
+        self.assertIn('show_mesh(m)', banner)
+
     @testing.requires_pilot
     def test_show_mesh_opens_a_viewer(self):
         from solvcon import apputil
