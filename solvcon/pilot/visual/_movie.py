@@ -45,6 +45,8 @@ try:
 except ImportError:
     HAS_VIDEO = False
 
+from .. import base
+
 # Hold the encoder to software: a GPU is the backend's first choice, and
 # the drivers fail an opaque external-library error only once every frame
 # is spent.  An empty pair turns the list off, where unsetting it reads as
@@ -90,7 +92,7 @@ class MovieRecorder(object):
     another shape is scaled to it, so resizing the window mid-run leaves an
     animation that still plays rather than one that changes size partway.
     That shape is the widget's own, not the screen's; see
-    :meth:`_to_logical_size`.
+    :func:`~solvcon.pilot.base.to_logical_size`.
 
     The output name picks the format.  An ``.mp4`` is the one a video
     player, a browser, and a slide deck all take, and the smallest of the
@@ -134,28 +136,11 @@ class MovieRecorder(object):
     def capture(self, widget):
         """Grab one frame of what ``widget`` shows and hold it."""
         path = os.path.join(self._folder.name, f"frame{self.nframe:05d}.png")
-        pixmap = self._to_logical_size(widget.grab())
+        pixmap = base.to_logical_size(widget.grab())
         if pixmap.isNull() or not pixmap.save(path):
             raise RuntimeError("the viewer gave no frame")
         self._frames.append(path)
         return path
-
-    @staticmethod
-    def _to_logical_size(pixmap):
-        """``pixmap`` at the size its widget is drawn, not its backing store.
-
-        A high-DPI grab comes back at the display's pixel count, so one
-        window would record at two sizes on two screens.  A null pixmap
-        reports a ratio of one and passes through, leaving the caller its
-        own grab to reject.
-        """
-        if pixmap.devicePixelRatio() <= 1:
-            return pixmap
-        pixmap = pixmap.scaled(pixmap.deviceIndependentSize().toSize(),
-                               Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-        # Or the PNG claims a resolution the frame no longer has.
-        pixmap.setDevicePixelRatio(1)
-        return pixmap
 
     def write(self, path):
         """Assemble the held frames into the movie at ``path``; returns how

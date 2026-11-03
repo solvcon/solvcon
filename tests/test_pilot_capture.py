@@ -33,6 +33,22 @@ except ImportError:
 
 
 @testing.requires_pilot
+class LogicalSizeTC(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_a_high_dpi_grab_comes_down_to_the_widget_size(self):
+        pixmap = QPixmap(320, 180)
+        pixmap.fill(Qt.GlobalColor.darkGreen)
+        pixmap.setDevicePixelRatio(2.0)
+        come_down = _capture.to_logical_size(pixmap)
+        self.assertEqual(QSize(160, 90), come_down.size())
+        self.assertEqual(1.0, come_down.devicePixelRatio())
+
+
+@testing.requires_pilot
 @unittest.skipIf("Windows" == platform.system(),
                  "offscreen grabbing is unreliable on Windows CI")
 class WidgetCaptureTC(unittest.TestCase):

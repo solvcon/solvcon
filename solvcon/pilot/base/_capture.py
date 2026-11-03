@@ -25,6 +25,7 @@ __all__ = [
     'WidgetCapture',
     'grab_with_popups',
     'settle_events',
+    'to_logical_size',
 ]
 
 
@@ -32,6 +33,22 @@ def settle_events(rounds=3):
     """Deliver the posted events so a grab shows what they change."""
     for _ in range(rounds):
         QCoreApplication.sendPostedEvents(None, 0)
+
+
+def to_logical_size(pixmap):
+    """``pixmap`` at the size its widget is drawn, not its backing store.
+
+    A high-DPI grab comes back at the display's pixel count, so one window
+    would save at two sizes on two screens.  A null pixmap reports a ratio of
+    one and passes through, leaving the caller its own grab to reject.
+    """
+    if pixmap.devicePixelRatio() <= 1:
+        return pixmap
+    pixmap = pixmap.scaled(pixmap.deviceIndependentSize().toSize(),
+                           Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    # Or the PNG claims a resolution the frame no longer has.
+    pixmap.setDevicePixelRatio(1)
+    return pixmap
 
 
 def grab_with_popups(widget, region=None):
