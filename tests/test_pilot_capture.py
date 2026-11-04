@@ -171,6 +171,14 @@ class ScreenCaptureTC(unittest.TestCase):
         self.assertEqual(path, env.globals['path'])
         self.assertTrue(os.path.isfile(path))
 
+    def test_a_bad_name_pattern_is_reported(self):
+        reports = []
+        self.capture.reported.connect(lambda _, ok: reports.append(ok))
+        for pattern in ('{nope}', '{target.nope}', '{n[0]}'):
+            self.capture.pattern = pattern
+            self.assertIsNone(self.capture.shoot_reporting())
+        self.assertEqual([False, False, False], reports)
+
     def test_a_region_keeps_only_that_part(self):
         label = QLabel("region")
         label.resize(200, 100)
@@ -192,6 +200,11 @@ class ScreenCaptureTC(unittest.TestCase):
         self.capture.record(_Blank("blank"))
         self.assertIsNone(self.capture.recording)
         self.assertIsNone(self.capture.stop_recording())
+
+        reports = []
+        self.capture.reported.connect(lambda _, ok: reports.append(ok))
+        self.capture.record_reporting(_Blank("blank"))
+        self.assertEqual([False], reports)
 
     def test_a_with_block_writes_the_movie(self):
         label = QLabel("frames")

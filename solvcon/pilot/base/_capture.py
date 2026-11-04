@@ -13,7 +13,7 @@ import time
 
 import numpy as np
 from PySide6.QtCore import (
-    QCoreApplication, QEvent, QObject, QPoint, QRect, Qt, QTimer)
+    QCoreApplication, QEvent, QObject, QPoint, QRect, Qt, QTimer, Signal)
 from PySide6.QtGui import QCursor, QGuiApplication, QImage, QPainter
 from PySide6.QtWidgets import (
     QApplication, QDockWidget, QLabel, QRubberBand, QToolTip, QWidget)
@@ -181,18 +181,41 @@ class ScreenCapture(_gui_common.PilotFeature):
     A target is None or ``'main'``, ``'active'``, a dock title, or a widget.
 
     :ivar folder: Directory the files go to.
+    :ivar pattern: Name pattern over ``{target}``, ``{n}`` and ``{time}``.
+    :ivar logical: Whether to scale a high-DPI grab down to 1x.
+    :ivar trim: Whether to cut the plain edges off.
+    :ivar delay: Seconds a shot from the GUI waits.
+    :ivar movie_suffix: Format of a movie, or None for the build's default.
+    :ivar frame_ms: Milliseconds between the frames a timer records.
     :ivar shots: The files written this session, oldest first.
     :ivar recording: The :class:`Recording` running, or None.
     """
 
+    #: A file was written: its path, a poster pixmap or None, and a detail.
+    saved = Signal(str, object, str)
+    #: A message for the user, and whether it reports success.
+    reported = Signal(str, bool)
+    #: The running :class:`Recording` changed, to it or to None.
+    recording_changed = Signal(object)
+
     MAIN = 'main'
     ACTIVE = 'active'
+    PICK = 'pick'
+    REGION = 'region'
     PATTERN = '{target}_{n:02}'
     FRAME_MS = 80
+    FRAME_MS_RANGE = (20, 2000)
+    DELAY_RANGE = (0.0, 10.0)
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self.folder = os.getcwd()
+        self.pattern = self.PATTERN
+        self.logical = False
+        self.trim = False
+        self.delay = 0.0
+        self.movie_suffix = None
+        self.frame_ms = self.FRAME_MS
         self.shots = []
         self.recording = None
         self._pending = set()
@@ -208,12 +231,12 @@ class ScreenCapture(_gui_common.PilotFeature):
         self.add_action(
             "File/Capture", "Main window",
             "Save a PNG of the whole pilot window",
-            lambda: self._shoot_reporting(self.MAIN),
+            lambda: self.shoot_reporting(self.MAIN),
             id="file.capture.main", weight=10)
         self.add_action(
             "File/Capture", "Active sub-window",
             "Save a PNG of the active sub-window",
-            lambda: self._shoot_reporting(self.ACTIVE),
+            lambda: self.shoot_reporting(self.ACTIVE),
             id="file.capture.subwindow", weight=20)
         self.add_action(
             "File/Capture", "Drag a region...",
@@ -243,19 +266,29 @@ class ScreenCapture(_gui_common.PilotFeature):
         return handles, entries
 
     def shoot(self, target=None, name=None, *, region=None, delay=0,
-              folder=None, logical=False, trim=False):
-        """Save a PNG of ``target`` and return its path.
+              folder=None, logical=None, trim=None):
+        """Save a PNG of ``target``.
 
-        ``name`` is a pattern over ``{target}``, ``{n}`` and ``{time}``.
-        ``region`` is a :class:`QRect` or ``(x, y, width, height)``.  With
-        ``delay`` seconds the file is written later.  ``logical`` scales a
-        high-DPI grab down to 1x and ``trim`` cuts the plain edges off.
+        :param target: The target, as the class describes it.
+        :param name: Name pattern over ``{target}``, ``{n}`` and ``{time}``.
+            Defaults to :attr:`pattern`.
+        :param region: The part to keep, a :class:`QRect` or
+            ``(x, y, width, height)``.
+        :param delay: Seconds to wait before writing the file.
+        :param folder: Directory of the file.  Defaults to :attr:`folder`.
+        :param logical: Whether to scale a high-DPI grab down to 1x.  Defaults
+            to :attr:`logical`.
+        :param trim: Whether to cut the plain edges off.  Defaults to
+            :attr:`trim`.
+        :return: The path of the file.
         """
         widget, label = self._resolve(target)
-        capture = WidgetCapture(self.folder if folder is None else folder,
-                                logical=logical, trim=trim)
+        capture = WidgetCapture(
+            self.folder if folder is None else os.path.abspath(folder),
+            logical=self.logical if logical is None else logical,
+            trim=self.trim if trim is None else trim)
         name = capture.next_name(
-            self.PATTERN if name is None else name, taken=self._pending,
+            self.pattern if name is None else name, taken=self._pending,
             target=label, time=time.strftime('%Y%m%d_%H%M%S'))
         if region is not None:
             region = QRect(*region) if isinstance(region, tuple) else region
@@ -267,25 +300,34 @@ class ScreenCapture(_gui_common.PilotFeature):
             capture, widget, name, region, path))
         return path
 
-    def record(self, target=None, name=None, *, every_ms=FRAME_MS,
-               suffix=None, folder=None):
-        """Record a movie of ``target`` and return its :class:`Recording`.
+    def record(self, target=None, name=None, *, every_ms=None, suffix=None,
+               folder=None):
+        """Record a movie of ``target``.
 
-        It takes a frame every ``every_ms``.  ``name`` is as in :meth:`shoot`
-        and ``suffix`` picks the format.
+        :param target: The target, as the class describes it.
+        :param name: Name pattern over ``{target}``, ``{n}`` and ``{time}``.
+            Defaults to :attr:`pattern`.
+        :param every_ms: Milliseconds between the frames.  Defaults to
+            :attr:`frame_ms`.
+        :param suffix: Format of the movie.  Defaults to :attr:`movie_suffix`.
+        :param folder: Directory of the movie.  Defaults to :attr:`folder`.
+        :return: The running recording.
+        :rtype: Recording
         """
         if self.recording is not None:
             raise ValueError("a recording is running; stop it first")
+        every_ms = self.frame_ms if every_ms is None else every_ms
         if every_ms <= 0:
             raise ValueError(f"every_ms must be positive, not {every_ms}")
-        suffix = suffix or visual.default_movie_suffix()
+        suffix = suffix or self.movie_suffix or visual.default_movie_suffix()
         if suffix not in visual.movie_suffixes():
             raise ValueError(f"this build cannot write '{suffix}'; it "
                              f"writes {', '.join(visual.movie_suffixes())}")
         widget, label = self._resolve(target)
-        capture = WidgetCapture(self.folder if folder is None else folder)
+        capture = WidgetCapture(
+            self.folder if folder is None else os.path.abspath(folder))
         name = capture.next_name(
-            self.PATTERN if name is None else name, suffix=suffix,
+            self.pattern if name is None else name, suffix=suffix,
             target=label, time=time.strftime('%Y%m%d_%H%M%S'))
         recording = self.recording = Recording(
             self, widget, capture.path(name, suffix), every_ms)
@@ -316,29 +358,53 @@ class ScreenCapture(_gui_common.PilotFeature):
                                          parent=self)
         self._region.start()
 
+    def shoot_reporting(self, target=None, region=None):
+        """:meth:`shoot` after :attr:`delay` and report instead of raising."""
+        if target == self.PICK:
+            self.pick()
+            return None
+        if target == self.REGION:
+            self.pick_region()
+            return None
+        try:
+            path = self.shoot(target, region=region, delay=self.delay)
+        except (ValueError, RuntimeError, OSError) as exc:
+            self._report(f"Capture: {exc}", ok=False)
+            return None
+        if path in self._pending:
+            self._report(f"Capture: saving {os.path.basename(path)} in "
+                         f"{self.delay:g} s", ok=True)
+        else:
+            self._report(f"Capture: saved {path}", ok=True)
+        return path
+
+    def record_reporting(self, target=None):
+        """:meth:`record` and report instead of raising."""
+        try:
+            recording = self.record(target)
+        except (ValueError, RuntimeError, OSError) as exc:
+            self._report(f"Capture: {exc}", ok=False)
+        else:
+            # A first frame that fails has already ended it and reported why.
+            if recording is self.recording:
+                self._report(f"Capture: recording {recording.path}", ok=True)
+        self._sync_recording()
+
     def _picking(self):
         return any(p is not None and p.active
                    for p in (self._picker, self._region))
 
-    def _shoot_reporting(self, target, region=None):
-        try:
-            path = self.shoot(target, region=region)
-        except (ValueError, RuntimeError, OSError) as exc:
-            self._report(f"Capture: {exc}")
-        else:
-            self._report(f"Capture: saved {path}")
-
     def _on_picked(self, widget):
         if widget is None:
-            self._report("Capture: pick cancelled")
+            self._report("Capture: pick cancelled", ok=True)
         else:
-            self._shoot_reporting(widget)
+            self.shoot_reporting(widget)
 
     def _on_region(self, rect):
         if rect is None:
-            self._report("Capture: region cancelled")
+            self._report("Capture: region cancelled", ok=True)
         else:
-            self._shoot_reporting(self.MAIN, region=rect)
+            self.shoot_reporting(self.MAIN, region=rect)
 
     def _resolve(self, target):
         """``(widget, file label)`` for ``target``."""
@@ -359,7 +425,7 @@ class ScreenCapture(_gui_common.PilotFeature):
 
     def _write(self, capture, widget, name, region):
         path = capture.shot(widget, name, region)
-        self.shots.append(path)
+        self._add_file(path)
         return path
 
     def _write_later(self, capture, widget, name, region, path):
@@ -367,51 +433,55 @@ class ScreenCapture(_gui_common.PilotFeature):
         try:
             self._write(capture, widget, name, region)
         except (ValueError, RuntimeError, OSError) as exc:
-            self._report(f"Capture: {exc}")
+            self._report(f"Capture: {exc}", ok=False)
         else:
-            self._report(f"Capture: saved {path}")
+            self._report(f"Capture: saved {path}", ok=True)
+
+    def _add_file(self, path, poster=None, detail=""):
+        self.shots.append(path)
+        self.saved.emit(path, poster, detail)
 
     def _on_record_triggered(self, checked):
-        if not checked:
-            self.stop_recording()
-            return
-        try:
-            recording = self.record(self.MAIN)
-        except (ValueError, RuntimeError, OSError) as exc:
-            self._report(f"Capture: {exc}")
+        if checked:
+            self.record_reporting(self.MAIN)
         else:
-            self._report(f"Capture: recording {recording.path}")
-        self._sync_recording()
+            self.stop_recording()
 
     def _recorded(self, recording, nframe, error):
         self.recording = None
         if error is None:
-            self.shots.append(recording.path)
+            self._add_file(recording.path, recording.poster,
+                           f"{nframe} frames")
             self._report(f"Capture: wrote {nframe} frames to "
-                         f"{recording.path}")
+                         f"{recording.path}", ok=True)
         else:
-            self._report(f"Capture: wrote no movie: {error}")
+            self._report(f"Capture: wrote no movie: {error}", ok=False)
         self._sync_recording()
 
     def _sync_recording(self):
         if self._record_action is not None:
             self._record_action.setChecked(self.recording is not None)
+        self.recording_changed.emit(self.recording)
 
-    def _report(self, message):
+    def _report(self, message, ok):
         self._pycon.writeToHistory(message + "\n")
+        self.reported.emit(message, ok)
 
 
 class Recording(object):
     """A running movie of one widget; :meth:`stop` writes it.
 
     :ivar path: Where the movie is written.
+    :ivar poster: The first frame.
     """
 
     def __init__(self, owner, widget, path, every_ms):
         self._owner = owner
         self._widget = widget
         self.path = path
+        self.poster = to_logical_size(widget.grab())
         self._movie = visual.MovieRecorder(frame_ms=every_ms)
+        self._started = time.monotonic()
         self._timer = QTimer()
         self._timer.setInterval(every_ms)
         self._timer.timeout.connect(self.frame)
@@ -421,6 +491,11 @@ class Recording(object):
     def nframe(self):
         """Frames held so far."""
         return 0 if self._movie is None else self._movie.nframe
+
+    @property
+    def elapsed(self):
+        """Seconds since the recording started."""
+        return time.monotonic() - self._started
 
     def frame(self):
         """Hold one frame; stop if the widget is gone."""
