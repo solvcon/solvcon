@@ -16,7 +16,7 @@ from .. import _pilot_core as _pcore
 # import the feature modules in builds without it, so they are ungated.
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_base_app': ['ConfigTableModel', 'SolverConfig'],
-    '_capture': ['Recording', 'ScreenCapture'],
+    '_capture': ['Recording', 'ScreenCapture', 'to_logical_size'],
     '_gui': ['controller', 'launch', 'register_app'],
     '_gui_common': ['PilotFeature', 'SubWindowCloseFilter',
                     'apply_label_mode', 'label_switch_and_mode'],

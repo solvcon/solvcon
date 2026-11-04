@@ -28,8 +28,8 @@ from solvcon import testing
 try:
     from solvcon import pilot
     from solvcon.pilot.visual import _movie
-    from PySide6.QtCore import QEventLoop, QSize, Qt, QTimer, QUrl
-    from PySide6.QtGui import QImage, QPixmap
+    from PySide6.QtCore import QEventLoop, QSize, QTimer, QUrl
+    from PySide6.QtGui import QImage
     from PySide6.QtWidgets import QLabel
     from PIL import Image
 except ImportError:
@@ -100,19 +100,6 @@ class MovieRecorderTC(unittest.TestCase):
     def _capture(self, nframe):
         for _ in range(nframe):
             self.recorder.capture(self.viewer)
-
-    def test_a_high_dpi_grab_comes_down_to_the_widget_size(self):
-        # A grab off a high-DPI screen holds as many pixels as the display
-        # does, so the same window recorded on one screen and then another
-        # would give two movies of two sizes.
-        pixmap = QPixmap(320, 180)
-        pixmap.fill(Qt.GlobalColor.darkGreen)
-        pixmap.setDevicePixelRatio(2.0)
-        come_down = _movie.MovieRecorder._to_logical_size(pixmap)
-        self.assertEqual(QSize(160, 90), come_down.size())
-        # The ratio goes with the pixels, or the PNG still claims the
-        # resolution the grab had.
-        self.assertEqual(1.0, come_down.devicePixelRatio())
 
     def test_capture_grabs_the_widget_whole(self):
         path = self.recorder.capture(self.viewer)

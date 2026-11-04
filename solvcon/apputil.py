@@ -374,16 +374,25 @@ def format_banner(entries):
     return "\n".join(lines) + "\n"
 
 
-def install_pilot_namespace(mgr, appenv):
+def install_pilot_namespace(mgr, appenv, extra=None):
     """
     Seed the console namespace from the pilot manager and keep it fresh.
 
     The dynamic handles (``viewer``, ``mesh``) are refreshed before each
     command so they track the focused viewer.
 
+    :param mgr: The pilot manager.
+    :param appenv: The :class:`AppEnvironment` to seed.
+    :param extra:
+        A ``(handles, entries)`` pair, in the form
+        :func:`build_pilot_namespace` returns, added to the namespace and the
+        banner.
     :return: The banner text listing the curated handles.
     """
     handles, entries = build_pilot_namespace(mgr)
+    if extra is not None:
+        handles.update(extra[0])
+        entries.extend(extra[1])
     appenv.seed(**handles)
     appenv.add_namespace_refresher(
         lambda namespace: _refresh_pilot_namespace(mgr, namespace))

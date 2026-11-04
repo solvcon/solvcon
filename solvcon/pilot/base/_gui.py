@@ -179,7 +179,8 @@ class _Controller(metaclass=_Singleton):
         the same handles-in-scope banner the two-pane console prints.
         """
         appenv = apputil.get_current_appenv()
-        banner = apputil.install_pilot_namespace(self._rmgr, appenv)
+        banner = apputil.install_pilot_namespace(
+            self._rmgr, appenv, extra=self.capture.console_handles())
         self._rmgr.pycon.writeToHistory(banner)
         self._rmgr.pyterm.writeToHistory(banner)
 

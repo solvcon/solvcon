@@ -10,7 +10,7 @@ __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_colorizer': ['ColorBar', 'FieldColorizer', 'colormap'],
     '_mesh': ['GmshFileDialog', 'MeshDrawer', 'MeshStyleStatus',
               'SampleMesh', 'SampleMeshDialog', 'SampleMeshFeature'],
-    '_movie': ['MovieRecorder', 'default_movie_suffix'],
+    '_movie': ['MovieRecorder', 'default_movie_suffix', 'movie_suffixes'],
     '_plot': ['LinePlotWidget', 'plot_array'],
     '_viewer': ['DomainViewer'],
 })
