@@ -91,6 +91,7 @@ class _Controller(metaclass=_Singleton):
         self.theme_menu = None
         self.window_manager = None
         self.capture = None
+        self.capture_widget = None
         self.ui_state = None
 
     def __getattr__(self, name):
@@ -165,6 +166,8 @@ class _Controller(metaclass=_Singleton):
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
         self.window_manager = panel.WindowManager(mgr=self._rmgr)
         self.capture = _capture.ScreenCapture(mgr=self._rmgr)
+        self.capture_widget = panel.CaptureWidget(
+            mgr=self._rmgr, capture=self.capture)
         self.ui_state = _ui_state.UiState(mgr=self._rmgr)
         self.populate_menu()
         self._start_apps()
@@ -219,6 +222,7 @@ class _Controller(metaclass=_Singleton):
         self.theme_menu.populate_menu()
         self.window_manager.populate_menu()
         self.capture.populate_menu()
+        self.capture_widget.populate_menu()
         self.agent.bind_auto_open()  # need to be the last to bind all commands
 
         close = _gui_common.build_action(
