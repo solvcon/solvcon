@@ -101,8 +101,15 @@ class Turn:
         Exhausting a multi-step budget records a marker so the transcript does
         not look like the model went silent; a one-shot budget of one records
         nothing, because a single step is the whole turn.
+
+        A session with no backend ends here rather than in each driver, so a
+        prompt typed with nothing selected is recorded and answered the same
+        way whoever is pumping the turn.
         """
         if self.done:
+            return None
+        if self._session.backend is None:
+            self._finish(StopReason.NO_BACKEND, None)
             return None
         if self._steps >= self._budget:
             note = ("step budget of %d reached; turn ended with work still "
@@ -178,20 +185,11 @@ def run_turn(session, prompt, budget=2, scene=None, token=None):
     is recorded and ``None`` comes back.
     """
     turn = Turn(session, prompt, budget=budget, scene=scene, token=token)
-    if session.backend is None:
-        turn.stop(StopReason.NO_BACKEND)
-        return None
     recorded = None
     while True:
         request = turn.next_request()
         if request is None:
             return recorded
-        try:
-            response = request.send_to(session.backend)
-        except Exception as exc:
-            response = _backend.BackendResponse(
-                error="%s: %s" % (type(exc).__name__, exc),
-                outcome=_backend.TransportOutcome.TRANSPORT)
-        recorded = turn.feed(response) or recorded
+        recorded = turn.feed(request.send_safely(session.backend)) or recorded
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

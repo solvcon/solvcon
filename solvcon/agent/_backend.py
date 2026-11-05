@@ -356,6 +356,22 @@ class TurnRequest:
         return backend.send(self.prompt, self.scene_context,
                             self.tool_surface, self.history)
 
+    def send_safely(self, backend):
+        """:meth:`send_to` with a raising backend folded into a transport
+        outcome.
+
+        Neither driver has anywhere to put the exception: headless it would
+        escape to the caller, and under a GUI it would be raised on a worker
+        thread.  Both want the failure as the reply their loop already knows
+        how to stop on.
+        """
+        try:
+            return self.send_to(backend)
+        except Exception as exc:
+            return BackendResponse(
+                error="%s: %s" % (type(exc).__name__, exc),
+                outcome=TransportOutcome.TRANSPORT)
+
 
 class TransportOutcome(enum.Enum):
     """How the exchange that carried a request ended.
