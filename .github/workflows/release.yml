@@ -62,8 +62,13 @@ jobs:
           make bundle-prepare
           make bundle-precheck
 
+      # rcc embeds each resource's modification time, which is the checkout
+      # time for a source and the build time for a generated shader; it uses
+      # SOURCE_DATE_EPOCH instead when set, so two builds of a commit match.
       - name: build
-        run: make bundle RELEASE_OUTPUT=dist
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          make bundle RELEASE_OUTPUT=dist
 
       - name: package
         run: |
