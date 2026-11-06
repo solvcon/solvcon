@@ -16,9 +16,6 @@ on:
       ref:
         description: 'Branch, tag, or commit to build (default: the run ref)'
         default: ''
-      version:
-        description: 'Version that names the artifacts (default: short hash)'
-        default: ''
 
 concurrency:
   group: release-${{ github.ref }}
@@ -26,6 +23,11 @@ concurrency:
 
 permissions:
   contents: read
+
+env:
+  # The file name of the DMG in every release, whatever the version. Every
+  # step below names the DMG through this variable only.
+  RELEASE_DMG: pilot.dmg
 
 jobs:
 
@@ -45,11 +47,6 @@ jobs:
 
       fail-fast: false
 
-    env:
-      # A tag push names the artifacts after the tag; a manual run takes the
-      # version input and leaves the short hash as the fallback.
-      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
-
     steps:
 
       - uses: actions/checkout@v6
@@ -68,13 +65,11 @@ jobs:
       - name: build
         run: |
           export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
-          make bundle RELEASE_OUTPUT=dist
+          make bundle RELEASE_OUTPUT=dist RELEASE_DMG="$RELEASE_DMG"
 
       - name: package
         run: |
-          name="solvcon-pilot-${VERSION:-$(git rev-parse --short HEAD)}-macos-$(uname -m).dmg"
-          mv dist/pilot.dmg "dist/$name"
-          (cd dist && shasum -a 256 "$name" > "$name.sha256")
+          (cd dist && shasum -a 256 "$RELEASE_DMG" > "$RELEASE_DMG.sha256")
           ls -lh dist
 
       - uses: actions/upload-artifact@v7
@@ -125,19 +120,15 @@ jobs:
 
       - name: unbox test
         run: |
-          (cd dist && shasum -a 256 -c ./*.sha256)
-          for dmg in dist/*.dmg; do
-            make bundle-test RELEASE_ARTIFACT="$dmg"
-          done
+          (cd dist && shasum -a 256 -c "$RELEASE_DMG.sha256")
+          make bundle-test RELEASE_ARTIFACT="dist/$RELEASE_DMG"
 
       # Run the GUI tests in the app even when the verification above failed,
       # so each check reports on its own.
       - name: gui test
         if: success() || failure()
         run: |
-          for dmg in dist/*.dmg; do
-            make bundle-guitest RELEASE_ARTIFACT="$dmg"
-          done
+          make bundle-guitest RELEASE_ARTIFACT="dist/$RELEASE_DMG"
 
   publish:
 
@@ -166,7 +157,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/* \
+          gh release create "${{ github.ref_name }}" \
+            "dist/$RELEASE_DMG" "dist/$RELEASE_DMG.sha256" \
             --repo "${{ github.repository }}" \
             --draft --verify-tag --generate-notes \
             --title "${{ github.ref_name }}"

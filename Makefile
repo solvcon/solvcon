@@ -70,7 +70,8 @@ CMAKE_ARGS ?=
 VERBOSE ?=
 FORCE_CLANG_FORMAT ?=
 RELEASE_OUTPUT ?= $(SOLVCON_ROOT)/build
-RELEASE_ARTIFACT ?= $(RELEASE_OUTPUT)/pilot.dmg
+RELEASE_DMG ?= pilot.dmg
+RELEASE_ARTIFACT ?= $(RELEASE_OUTPUT)/$(RELEASE_DMG)
 RELEASE_ARGS ?=
 
 # Let CMake find vcpkg-provided OpenBLAS/LAPACK headers, import libraries, and
@@ -251,7 +252,8 @@ bundle-precheck:
 .PHONY: bundle
 bundle:
 	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh all \
-		--output "$(RELEASE_OUTPUT)" $(RELEASE_ARGS)
+		--output "$(RELEASE_OUTPUT)" --dmg-name "$(RELEASE_DMG)" \
+		$(RELEASE_ARGS)
 
 .PHONY: bundle-test
 bundle-test:

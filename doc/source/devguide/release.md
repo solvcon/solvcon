@@ -39,17 +39,13 @@ maintainers until someone publishes it.
 The tag patterns are `v[0-9]+.[0-9]+.[0-9]+` and `v[0-9]+.[0-9]+.[0-9]+-*`. A
 tag of any other shape starts nothing.
 
-A manual run takes two optional inputs:
-
-- `ref`: the branch, tag, or commit to build. Empty builds the branch the run
-  is started from.
-- `version`: the version in the artifact name. Empty uses the short commit
-  hash.
+A manual run takes one optional input, `ref`: the branch, tag, or commit to
+build. Empty builds the branch the run is started from.
 
 To start a manual run from the command line:
 
 ```sh
-gh workflow run release.yml --ref <branch> -f ref=<commit> -f version=<name>
+gh workflow run release.yml --ref <branch> -f ref=<commit>
 ```
 
 GitHub offers a manual run only for a workflow that exists on the default
@@ -65,15 +61,17 @@ between them would otherwise test a different commit than the one built.
 | Job | Step | What it runs |
 |---|---|---|
 | `build` | `setup` | `make bundle-prepare` and `make bundle-precheck` |
-| `build` | `build` | `make bundle`: builds the pilot and makes `dist/pilot.dmg` |
-| `build` | `package` | names the DMG and writes its SHA-256 checksum |
+| `build` | `build` | `make bundle`: builds the pilot and makes the DMG in `dist/` |
+| `build` | `package` | writes the SHA-256 checksum of the DMG |
 | `unbox_test` | `unbox test` | checks the checksum and runs `make bundle-test` |
 | `unbox_test` | `gui test` | `make bundle-guitest`: runs `tests/gui` in the app |
 | `publish` | `draft release` | drafts the GitHub release (tag pushes only) |
 
-The DMG is named `solvcon-pilot-<version>-macos-<arch>.dmg`, for example
-`solvcon-pilot-v1.2.3-macos-arm64.dmg`. The version is the tag for a tag push,
-and the `version` input or the short commit hash for a manual run.
+The DMG has the same file name in every release, `pilot.dmg`, and the release
+tag tells the versions apart. The workflow sets the name once, in the
+`RELEASE_DMG` variable at its top, and every step names the DMG through it. A
+second platform would need a name of its own, because the `publish` job puts
+the files of every platform into one directory.
 
 `make bundle-prepare` downloads pinned, checksum-verified builds of Python, Qt,
 and the Python packages into `build/bundle-deps` (see
@@ -101,16 +99,17 @@ Run the targets from the repository root on an Apple Silicon Mac:
 make bundle-prepare
 make bundle-precheck
 SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" make bundle RELEASE_OUTPUT=dist
-make bundle-test RELEASE_ARTIFACT=dist/pilot.dmg
-make bundle-guitest RELEASE_ARTIFACT=dist/pilot.dmg
+make bundle-test RELEASE_OUTPUT=dist
+make bundle-guitest RELEASE_OUTPUT=dist
 ```
 
 `make bundle-prepare` deletes `build/bundle-deps` and downloads everything
 anew, so run it once and skip it while `make bundle-precheck` passes.
 
-`RELEASE_OUTPUT` is the directory `make bundle` writes `pilot.dmg` into
-(default: `build`). `RELEASE_ARTIFACT` is the DMG that `make bundle-test` and
-`make bundle-guitest` check (default: `$(RELEASE_OUTPUT)/pilot.dmg`).
+`RELEASE_OUTPUT` is the directory `make bundle` writes the DMG into (default:
+`build`), and `RELEASE_DMG` is its file name (default: `pilot.dmg`).
+`RELEASE_ARTIFACT` is the DMG that `make bundle-test` and `make bundle-guitest`
+check (default: `$(RELEASE_OUTPUT)/$(RELEASE_DMG)`).
 `SOURCE_DATE_EPOCH` matters only to compare builds; see Reproducibility below.
 
 `make bundle-guitest` installs the pytest version in `GUITEST_PYTEST` (default:
