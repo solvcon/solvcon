@@ -100,14 +100,17 @@ jobs:
 
     steps:
 
-      # The test needs the Makefile and the bundler only. Cone mode matches
-      # directories, not files, hence off.
+      # The tests need the Makefile, the bundler, and the GUI tests only.
+      # Leaving solvcon/ out keeps the GUI tests on the bundled package. Cone
+      # mode matches directories, not files, hence off.
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref }}
           sparse-checkout: |
             Makefile
             contrib/bundle/bundle-with-aqt.sh
+            tests/conftest.py
+            tests/gui/
           sparse-checkout-cone-mode: false
 
       - uses: actions/download-artifact@v8
@@ -120,6 +123,15 @@ jobs:
           (cd dist && shasum -a 256 -c ./*.sha256)
           for dmg in dist/*.dmg; do
             make bundle-test RELEASE_ARTIFACT="$dmg"
+          done
+
+      # Run the GUI tests in the app even when the verification above failed,
+      # so each check reports on its own.
+      - name: gui test
+        if: success() || failure()
+        run: |
+          for dmg in dist/*.dmg; do
+            make bundle-guitest RELEASE_ARTIFACT="$dmg"
           done
 
   publish:

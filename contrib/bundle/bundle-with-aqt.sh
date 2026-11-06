@@ -14,6 +14,7 @@
 #                                                   [--skip-check]
 #                                                   [--output DIR]
 #   ./contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
+#   ./contrib/bundle/bundle-with-aqt.sh guitest path/to/pilot.dmg
 #
 # Legacy usage without a subcommand still runs the bundle step:
 #   ./contrib/bundle/bundle-with-aqt.sh [--skip-build] [--skip-check]
@@ -47,12 +48,14 @@ Usage:
   contrib/bundle/bundle-with-aqt.sh check
   contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--output DIR]
   contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
+  contrib/bundle/bundle-with-aqt.sh guitest path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--output DIR]
 
 Subcommands:
   check    Check macOS bundle release dependencies. Does not build or install.
   bundle   Check dependencies, then build/package with aqt dependencies.
   verify   Verify a generated release DMG artifact.
+  guitest  Run tests/gui in the Python of the app in a release DMG artifact.
   all      Run check, bundle, and verify.
 EOF
 }
@@ -369,10 +372,61 @@ verify_dmg() {
     note "Release artifact verification passed"
 }
 
+GUITEST_PYTEST=${GUITEST_PYTEST:-pytest==9.1.1}
+GUITEST_ROOT=""
+GUITEST_MNT=""
+cleanup_guitest() {
+    if [[ -n "$GUITEST_MNT" ]]; then
+        hdiutil detach -quiet "$GUITEST_MNT" >/dev/null 2>&1 \
+            || hdiutil detach -force -quiet "$GUITEST_MNT" >/dev/null 2>&1 \
+            || true
+    fi
+    [[ -z "$GUITEST_ROOT" ]] || rm -rf "$GUITEST_ROOT"
+}
+
+# Run tests/gui in the Python of the app in the DMG. pytest is not part of the
+# release, so it is installed outside the app and reaches it through PYTHONPATH
+# only. The cleared environment and a scratch working directory keep the tests
+# on the bundled solvcon instead of the checkout.
+guitest_dmg() {
+    local dmg="$1" tests="$BUNDLE_REPO_ROOT/tests" app bin pyver
+    require_macos
+    [[ -f "$dmg" ]] || fail "release artifact not found: $dmg"
+
+    GUITEST_ROOT=$(mktemp -d -t solvcon-guitest)
+    GUITEST_MNT="$GUITEST_ROOT/mnt"
+    mkdir "$GUITEST_MNT" "$GUITEST_ROOT/home"
+
+    note "Mounting DMG"
+    hdiutil attach -nobrowse -readonly -mountpoint "$GUITEST_MNT" "$dmg" >/dev/null
+    app=$(find "$GUITEST_MNT" -maxdepth 2 -name '*.app' -type d -print -quit)
+    [[ -n "$app" ]] || fail "no .app found in $dmg"
+    bin="$app/Contents/MacOS/$(basename "$app" .app)"
+
+    # Resolve pytest for the bundled Python, not the host's python3.
+    pyver=$(basename "$(find "$app/Contents/lib" -maxdepth 1 -name 'python3.*' -print -quit)")
+    note "Installing $GUITEST_PYTEST for Python ${pyver#python}"
+    python3 -m pip install --quiet --disable-pip-version-check \
+        --target "$GUITEST_ROOT/site" --only-binary=:all: \
+        --python-version "${pyver#python}" "$GUITEST_PYTEST"
+
+    note "Running tests/gui in the app"
+    (
+        cd "$GUITEST_ROOT"
+        env -i HOME="$GUITEST_ROOT/home" USER="${USER:-nobody}" \
+            PATH=/usr/bin:/bin TERM="${TERM:-xterm}" PYTHONNOUSERSITE=1 \
+            PYTHONPATH="$GUITEST_ROOT/site" PYTHONDONTWRITEBYTECODE=1 \
+            "$bin" --mode=python -m pytest -v -p no:cacheprovider \
+            --rootdir="$tests" "$tests/gui"
+    )
+
+    note "GUI tests in the release artifact passed"
+}
+
 COMMAND=bundle
 if [[ $# -gt 0 ]]; then
     case "$1" in
-        check|bundle|verify|all)
+        check|bundle|verify|guitest|all)
             COMMAND="$1"
             shift
             ;;
@@ -388,7 +442,7 @@ case "$COMMAND" in
     check)
         [[ $# -eq 0 ]] || { usage >&2; exit 2; }
         ;;
-    verify)
+    verify|guitest)
         [[ $# -eq 1 ]] || { usage >&2; exit 2; }
         VERIFY_ARTIFACT="$1"
         shift
@@ -443,6 +497,7 @@ cleanup() {
         rmdir "$DMG_MOUNT" 2>/dev/null || true
     fi
     cleanup_verify
+    cleanup_guitest
 }
 trap cleanup EXIT
 
@@ -453,6 +508,10 @@ case "$COMMAND" in
         ;;
     verify)
         verify_dmg "$VERIFY_ARTIFACT"
+        exit 0
+        ;;
+    guitest)
+        guitest_dmg "$VERIFY_ARTIFACT"
         exit 0
         ;;
 esac

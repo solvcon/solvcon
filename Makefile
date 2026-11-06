@@ -258,6 +258,11 @@ bundle-test:
 	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh verify \
 		"$(RELEASE_ARTIFACT)"
 
+.PHONY: bundle-guitest
+bundle-guitest:
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh guitest \
+		"$(RELEASE_ARTIFACT)"
+
 .PHONY: standalone_buffer_setup
 standalone_buffer_setup:
 	$(MAKE) -C contrib/standalone_buffer copy
