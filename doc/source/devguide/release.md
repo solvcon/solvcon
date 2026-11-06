@@ -39,13 +39,16 @@ maintainers until someone publishes it.
 The tag patterns are `v[0-9]+.[0-9]+.[0-9]+` and `v[0-9]+.[0-9]+.[0-9]+-*`. A
 tag of any other shape starts nothing.
 
-A manual run takes one optional input, `ref`: the branch, tag, or commit to
-build. Empty builds the branch the run is started from.
+A manual run takes two optional inputs:
+
+- `ref`: the branch, tag, or commit to build. Empty builds the branch the run
+  is started from.
+- `version`: the version in the DMG's name. Empty uses the short commit hash.
 
 To start a manual run from the command line:
 
 ```sh
-gh workflow run release.yml --ref <branch> -f ref=<commit>
+gh workflow run release.yml --ref <branch> -f ref=<commit> -f version=<name>
 ```
 
 GitHub offers a manual run only for a workflow that exists on the default
@@ -67,11 +70,12 @@ between them would otherwise test a different commit than the one built.
 | `unbox_test` | `gui test` | `make bundle-guitest`: runs `tests/gui` in the app |
 | `publish` | `draft release` | drafts the GitHub release (tag pushes only) |
 
-The DMG has the same file name in every release, `pilot.dmg`, and the release
-tag tells the versions apart. The workflow sets the name once, in the
-`RELEASE_DMG` variable at its top, and every step names the DMG through it. A
-second platform would need a name of its own, because the `publish` job puts
-the files of every platform into one directory.
+The DMG is named `pilot-<version>.dmg`, for example `pilot-v1.2.3.dmg`. The
+version is the tag for a tag push, and the `version` input or the short commit
+hash for a manual run. The first step of the `build` job sets the name once,
+and every later step and job names the DMG through `RELEASE_DMG`. A second
+platform would need a name of its own, because the `publish` job puts the
+files of every platform into one directory.
 
 `make bundle-prepare` downloads pinned, checksum-verified builds of Python, Qt,
 and the Python packages into `build/bundle-deps` (see

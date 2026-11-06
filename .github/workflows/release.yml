@@ -16,6 +16,9 @@ on:
       ref:
         description: 'Branch, tag, or commit to build (default: the run ref)'
         default: ''
+      version:
+        description: 'Version that names the DMG (default: short hash)'
+        default: ''
 
 concurrency:
   group: release-${{ github.ref }}
@@ -23,11 +26,6 @@ concurrency:
 
 permissions:
   contents: read
-
-env:
-  # The file name of the DMG in every release, whatever the version. Every
-  # step below names the DMG through this variable only.
-  RELEASE_DMG: pilot.dmg
 
 jobs:
 
@@ -47,12 +45,29 @@ jobs:
 
       fail-fast: false
 
+    outputs:
+      release_dmg: ${{ steps.name.outputs.release_dmg }}
+
+    env:
+      # A tag push names the DMG after the tag; a manual run takes the version
+      # input and leaves the short hash as the fallback.
+      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+
     steps:
 
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 1
+
+      # The DMG's file name is set here only. The later steps read it from
+      # RELEASE_DMG, and the later jobs from the release_dmg output.
+      - name: name
+        id: name
+        run: |
+          name="pilot-${VERSION:-$(git rev-parse --short HEAD)}.dmg"
+          echo "RELEASE_DMG=$name" >> "$GITHUB_ENV"
+          echo "release_dmg=$name" >> "$GITHUB_OUTPUT"
 
       - name: setup
         run: |
@@ -90,6 +105,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 30
+
+    env:
+      RELEASE_DMG: ${{ needs.build.outputs.release_dmg }}
 
     strategy:
       matrix:
@@ -134,13 +152,16 @@ jobs:
 
     # Only a tag push publishes, and only as a draft, so a maintainer reviews
     # the notes and the assets before the release becomes public.
-    needs: [unbox_test]
+    needs: [build, unbox_test]
 
     if: github.ref_type == 'tag'
 
     runs-on: ubuntu-24.04
 
     timeout-minutes: 10
+
+    env:
+      RELEASE_DMG: ${{ needs.build.outputs.release_dmg }}
 
     permissions:
       contents: write
