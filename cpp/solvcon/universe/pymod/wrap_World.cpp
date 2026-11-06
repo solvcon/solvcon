@@ -12,6 +12,60 @@ namespace solvcon
 namespace python
 {
 
+class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapShapePointRefPad
+    : public WrapBase<WrapShapePointRefPad, ShapePointRefPad>
+{
+
+public:
+
+    using base_type = WrapBase<WrapShapePointRefPad, ShapePointRefPad>;
+    using wrapped_type = typename base_type::wrapped_type;
+
+    friend root_base_type;
+
+protected:
+
+    WrapShapePointRefPad(pybind11::module & mod, char const * pyname, char const * pydoc);
+
+}; /* end class WrapShapePointRefPad */
+
+WrapShapePointRefPad::WrapShapePointRefPad(pybind11::module & mod, char const * pyname, char const * pydoc)
+    : base_type(mod, pyname, pydoc)
+{
+    namespace py = pybind11;
+
+    (*this)
+        .def(py::init<>())
+        .def(py::init<size_t>(), py::arg("nelem"))
+        .def(
+            py::init<SimpleArray<uint32_t> const &, SimpleArray<uint8_t> const &>(),
+            py::arg("index"),
+            py::arg("type"))
+        //
+        ;
+
+    (*this)
+        .def("__len__", &wrapped_type::size)
+        .def(
+            "append",
+            py::overload_cast<uint32_t, PointType>(&wrapped_type::append),
+            py::arg("index"),
+            py::arg("type"))
+        .def("clear", &wrapped_type::clear)
+        .def(
+            "get_at",
+            [](wrapped_type const & self, size_t i)
+            {
+                ShapePointRef const ref = self.get_at(i);
+                return std::make_tuple(ref.index, ref.type);
+            },
+            py::arg("i"))
+        .def_property_readonly("index", &wrapped_type::index)
+        .def_property_readonly("type", &wrapped_type::type)
+        //
+        ;
+}
+
 template <typename T>
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapWorld
     : public WrapBase<WrapWorld<T>, World<T>, std::shared_ptr<World<T>>>
@@ -125,6 +179,16 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
             py::arg("angle"),
             py::arg("cx"),
             py::arg("cy"))
+        .def(
+            "move_shape_points",
+            &wrapped_type::move_shape_points,
+            py::arg("shape_id"),
+            py::arg("refs"),
+            py::arg("dx"),
+            py::arg("dy"),
+            "Move control points of a shape by (dx, dy). refs is a "
+            "ShapePointRefPad; each entry names a segment or curve index of "
+            "the shape and the PointType of the control point on it.")
         .def(
             "shape_is_live",
             &wrapped_type::shape_is_live,
@@ -480,6 +544,17 @@ WrapWorld<T> & WrapWorld<T>::wrap_shape()
 
 void wrap_World(pybind11::module & mod)
 {
+    namespace py = pybind11;
+
+    py::enum_<PointType>(mod, "PointType")
+        .value("SEGMENT_P0", PointType::SEGMENT_P0)
+        .value("SEGMENT_P1", PointType::SEGMENT_P1)
+        .value("B3CURVE_P0", PointType::B3CURVE_P0)
+        .value("B3CURVE_P1", PointType::B3CURVE_P1)
+        .value("B3CURVE_P2", PointType::B3CURVE_P2)
+        .value("B3CURVE_P3", PointType::B3CURVE_P3);
+
+    WrapShapePointRefPad::commit(mod, "ShapePointRefPad", "ShapePointRefPad");
     WrapWorld<float>::commit(mod, "WorldFp32", "WorldFp32");
     WrapWorld<double>::commit(mod, "WorldFp64", "WorldFp64");
 }

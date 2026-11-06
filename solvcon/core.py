@@ -158,6 +158,8 @@ list_of_universe = [
     'CurvePadFp64',
     'WorldFp32',
     'WorldFp64',
+    'PointType',
+    'ShapePointRefPad',
     'PolygonPadFp32',
     'PolygonPadFp64',
     'Polygon3dFp32',
