@@ -16,9 +16,6 @@ on:
       ref:
         description: 'Branch, tag, or commit to build (default: the run ref)'
         default: ''
-      version:
-        description: 'Version that names the DMG (default: short hash)'
-        default: ''
 
 concurrency:
   group: release-${{ github.ref }}
@@ -48,24 +45,28 @@ jobs:
     outputs:
       release_dmg: ${{ steps.name.outputs.release_dmg }}
 
-    env:
-      # A tag push names the DMG after the tag; a manual run takes the version
-      # input and leaves the short hash as the fallback.
-      VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
-
     steps:
 
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || github.ref }}
-          fetch-depth: 1
+          # git describe needs the tags and the history between them.
+          fetch-depth: 0
 
-      # The DMG's file name is set here only. The later steps read it from
-      # RELEASE_DMG, and the later jobs from the release_dmg output.
+      # The version is the pushed tag, or for a manual run what git describe
+      # derives from the nearest tag: <tag>-<commits since>-g<hash> for a
+      # commit that is not tagged. The DMG's file name is set here only. The
+      # later steps read it from RELEASE_DMG, and the later jobs from the
+      # release_dmg output.
       - name: name
         id: name
         run: |
-          name="pilot-${VERSION:-$(git rev-parse --short HEAD)}.dmg"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="$(git describe --tags --always)"
+          fi
+          name="pilot-$version.dmg"
           echo "RELEASE_DMG=$name" >> "$GITHUB_ENV"
           echo "release_dmg=$name" >> "$GITHUB_OUTPUT"
 

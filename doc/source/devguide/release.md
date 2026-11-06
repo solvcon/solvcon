@@ -39,16 +39,13 @@ maintainers until someone publishes it.
 The tag patterns are `v[0-9]+.[0-9]+.[0-9]+` and `v[0-9]+.[0-9]+.[0-9]+-*`. A
 tag of any other shape starts nothing.
 
-A manual run takes two optional inputs:
-
-- `ref`: the branch, tag, or commit to build. Empty builds the branch the run
-  is started from.
-- `version`: the version in the DMG's name. Empty uses the short commit hash.
+A manual run takes one optional input, `ref`: the branch, tag, or commit to
+build. Empty builds the branch the run is started from.
 
 To start a manual run from the command line:
 
 ```sh
-gh workflow run release.yml --ref <branch> -f ref=<commit> -f version=<name>
+gh workflow run release.yml --ref <branch> -f ref=<commit>
 ```
 
 GitHub offers a manual run only for a workflow that exists on the default
@@ -71,8 +68,10 @@ between them would otherwise test a different commit than the one built.
 | `publish` | `draft release` | drafts the GitHub release (tag pushes only) |
 
 The DMG is named `pilot-<version>.dmg`, for example `pilot-v1.2.3.dmg`. The
-version is the tag for a tag push, and the `version` input or the short commit
-hash for a manual run. The first step of the `build` job sets the name once,
+version is the git tag. A tag push uses the pushed tag. A manual run uses
+`git describe --tags --always` on the commit it builds: the tag of a tagged
+commit, `<tag>-<commits since>-g<hash>` for a later commit, or the short hash
+when no tag precedes it. The first step of the `build` job sets the name once,
 and every later step and job names the DMG through `RELEASE_DMG`. A second
 platform would need a name of its own, because the `publish` job puts the
 files of every platform into one directory.
