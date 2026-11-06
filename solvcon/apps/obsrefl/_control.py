@@ -113,6 +113,7 @@ class RunController(object):
         self._colorizer = None
         self._viewer.close()
         self._panel.set_paused(False)
+        self._panel.set_configuration_error("")
         self._draw_frame()
 
     def _build(self, record=False):
@@ -129,7 +130,11 @@ class RunController(object):
                 "Adjust Mach, gamma, or the deflection angle.")
             return False
         session = ReflectionSession(**params)
-        self._panel.set_configuration_error("")
+        if session.shock.reflected_shock_hits_top():
+            self._panel.set_analytic_warning(
+                "The reflected shock reaches the top inlet.")
+        else:
+            self._panel.set_configuration_error("")
         self._timer.stop()
         self._finish_movie()
         self._cell_type = params['cell_type']
