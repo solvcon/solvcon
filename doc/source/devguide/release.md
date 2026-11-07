@@ -20,8 +20,8 @@ It is the only release artifact so far.
    ```
 
 3. Wait for the `release` workflow to finish. A tag push runs every stage and
-   then drafts a release named after the tag, with the DMG and its SHA-256
-   checksum attached and notes generated from the merged pull requests.
+   then drafts a release named after the tag, with `pilot-<tag>.dmg` and its
+   SHA-256 checksum attached and notes generated from the merged pull requests.
 4. Review the draft on the Releases page: the notes, the assets, and the
    workflow run. Publish it when it is right, or delete it.
 
@@ -61,20 +61,18 @@ between them would otherwise test a different commit than the one built.
 | Job | Step | What it runs |
 |---|---|---|
 | `build` | `setup` | `make bundle-prepare` and `make bundle-precheck` |
-| `build` | `build` | `make bundle`: builds the pilot and makes the DMG in `dist/` |
-| `build` | `package` | writes the SHA-256 checksum of the DMG |
+| `build` | `build` | `make bundle`: builds the pilot and makes `dist/pilot.dmg` |
+| `build` | `package` | writes the SHA-256 checksum of `dist/pilot.dmg` |
 | `unbox_test` | `unbox test` | checks the checksum and runs `make bundle-test` |
 | `unbox_test` | `gui test` | `make bundle-guitest`: runs `tests/gui` in the app |
+| `publish` | `name` | renames the DMG to `pilot-<tag>.dmg` (tag pushes only) |
 | `publish` | `draft release` | drafts the GitHub release (tag pushes only) |
 
-The DMG is named `pilot-<version>.dmg`, for example `pilot-v1.2.3.dmg`. The
-version is the git tag. A tag push uses the pushed tag. A manual run uses
-`git describe --tags --always` on the commit it builds: the tag of a tagged
-commit, `<tag>-<commits since>-g<hash>` for a later commit, or the short hash
-when no tag precedes it. The first step of the `build` job sets the name once,
-and every later step and job names the DMG through `RELEASE_DMG`. A second
-platform would need a name of its own, because the `publish` job puts the
-files of every platform into one directory.
+Every step before `publish` calls the DMG `pilot.dmg`, the default name of
+the `make bundle*` targets, and a manual run uploads it under that name. The
+`publish` job renames it to `pilot-<tag>.dmg`, for example `pilot-v1.2.3.dmg`,
+and writes the checksum of the renamed file, so only the release assets carry
+the version.
 
 `make bundle-prepare` downloads pinned, checksum-verified builds of Python, Qt,
 and the Python packages into `build/bundle-deps` (see
@@ -102,17 +100,16 @@ Run the targets from the repository root on an Apple Silicon Mac:
 make bundle-prepare
 make bundle-precheck
 SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" make bundle RELEASE_OUTPUT=dist
-make bundle-test RELEASE_OUTPUT=dist
-make bundle-guitest RELEASE_OUTPUT=dist
+make bundle-test RELEASE_ARTIFACT=dist/pilot.dmg
+make bundle-guitest RELEASE_ARTIFACT=dist/pilot.dmg
 ```
 
 `make bundle-prepare` deletes `build/bundle-deps` and downloads everything
 anew, so run it once and skip it while `make bundle-precheck` passes.
 
-`RELEASE_OUTPUT` is the directory `make bundle` writes the DMG into (default:
-`build`), and `RELEASE_DMG` is its file name (default: `pilot.dmg`).
-`RELEASE_ARTIFACT` is the DMG that `make bundle-test` and `make bundle-guitest`
-check (default: `$(RELEASE_OUTPUT)/$(RELEASE_DMG)`).
+`RELEASE_OUTPUT` is the directory `make bundle` writes `pilot.dmg` into
+(default: `build`). `RELEASE_ARTIFACT` is the DMG that `make bundle-test` and
+`make bundle-guitest` check (default: `$(RELEASE_OUTPUT)/pilot.dmg`).
 `SOURCE_DATE_EPOCH` matters only to compare builds; see Reproducibility below.
 
 `make bundle-guitest` installs the pytest version in `GUITEST_PYTEST` (default:

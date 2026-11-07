@@ -13,7 +13,6 @@
 #   ./contrib/bundle/bundle-with-aqt.sh bundle [--skip-build]
 #                                                   [--skip-check]
 #                                                   [--output DIR]
-#                                                   [--dmg-name NAME]
 #   ./contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
 #   ./contrib/bundle/bundle-with-aqt.sh guitest path/to/pilot.dmg
 #
@@ -23,9 +22,7 @@
 #
 #   --skip-build   Skip `make pilot` and use the existing build output.
 #   --skip-check   Skip the bundle/DMG verification phase.
-#   --output DIR   Write the DMG into DIR (default: build/).
-#   --dmg-name NAME
-#                  Name the DMG NAME (default: pilot.dmg).
+#   --output DIR   Write pilot.dmg into DIR (default: build/).
 
 set -euo pipefail
 
@@ -49,10 +46,10 @@ usage() {
     cat <<'EOF'
 Usage:
   contrib/bundle/bundle-with-aqt.sh check
-  contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--output DIR] [--dmg-name NAME]
+  contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--output DIR]
   contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh guitest path/to/pilot.dmg
-  contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--output DIR] [--dmg-name NAME]
+  contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--output DIR]
 
 Subcommands:
   check    Check macOS bundle release dependencies. Does not build or install.
@@ -455,7 +452,6 @@ esac
 SKIP_BUILD=0
 SKIP_CHECK=0
 OUTPUT_DIR="$BUNDLE_REPO_ROOT/build"
-DMG_NAME=pilot.dmg
 
 if [[ "$COMMAND" == "bundle" || "$COMMAND" == "all" ]]; then
     while [[ $# -gt 0 ]]; do
@@ -465,11 +461,6 @@ if [[ "$COMMAND" == "bundle" || "$COMMAND" == "all" ]]; then
             --output)
                 [[ $# -ge 2 ]] || { echo "Missing argument for --output" >&2; usage >&2; exit 2; }
                 OUTPUT_DIR="$2"
-                shift 2
-                ;;
-            --dmg-name)
-                [[ $# -ge 2 ]] || { echo "Missing argument for --dmg-name" >&2; usage >&2; exit 2; }
-                DMG_NAME="$2"
                 shift 2
                 ;;
             *) echo "Unknown option: $1" >&2 ; usage >&2 ; exit 1 ;;
@@ -1085,7 +1076,7 @@ ok "Bundle complete: $APP"
 
 T_STEP=$SECONDS
 mkdir -p "$OUTPUT_DIR"
-DMG="$OUTPUT_DIR/$DMG_NAME"
+DMG="$OUTPUT_DIR/pilot.dmg"
 note "Creating $DMG from $APP"
 hdiutil create -volname "solvcon Pilot" \
     -srcfolder "$APP" \
