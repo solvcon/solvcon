@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 4.0.1)
 
 set(SOLVCON_BUFFER_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/buffer.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/BufferAccess.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferBase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferDevice.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferStorage.hpp
@@ -21,6 +22,7 @@ set(SOLVCON_BUFFER_HEADERS
     CACHE FILEPATH "" FORCE)
 
 set(SOLVCON_BUFFER_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/BufferAccess.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/BufferExpander.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ConcreteBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/SimpleArray.cpp
