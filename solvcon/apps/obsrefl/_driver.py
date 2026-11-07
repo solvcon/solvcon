@@ -290,4 +290,13 @@ class ObliqueShock(object):
         return [(msh.x0, msh.y1), (xhit, msh.y0),
                 (xend, msh.y0 + (xend - xhit) * slope)]
 
+    def reflected_shock_hits_top(self):
+        """Return whether the reflected shock crosses the top inlet.
+
+        Reaching the upper-right corner leaves no conflicting inlet
+        segment downstream of the shock.
+        """
+        path = self.shock_path()
+        return len(path) == 3 and path[-1][0] < self.mesher.x1
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

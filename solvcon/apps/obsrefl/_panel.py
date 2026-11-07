@@ -203,10 +203,23 @@ class FreeStreamBox(FoldBox):
 
     def set_configuration_error(self, message):
         """Show a configuration error, or clear it with an empty message."""
+        self._set_configuration_message("Invalid configuration", message,
+                                        error=True)
+
+    def set_analytic_warning(self, message):
+        """Warn about the analytic solution without marking inputs invalid."""
+        self._set_configuration_message(
+            "Three-zone analytic solution does not apply", message,
+            error=False)
+
+    def _set_configuration_message(self, title, message, *, error):
+        label = self._configuration_error.findChild(
+            QLabel, "configurationErrorTitle")
+        label.setText(title)
         self._error_message.setText(message)
         self._configuration_error.setVisible(bool(message))
         style = ""
-        if message:
+        if error and message:
             style = Rules.sheet(self, "error_outline")
         self._gamma_outline.setStyleSheet(style)
         self._mach_outline.setStyleSheet(style)
@@ -223,6 +236,7 @@ class FreeStreamBox(FoldBox):
 
         title = QLabel("Invalid configuration")
         title.setObjectName("configurationErrorTitle")
+        title.setWordWrap(True)
         detail = QLabel()
         detail.setObjectName("configurationErrorDetail")
         detail.setWordWrap(True)
@@ -826,6 +840,12 @@ class SolutionPanel(QScrollArea):
     def set_configuration_error(self, message):
         """Show a configuration error, or clear it with an empty message."""
         self._freestream.set_configuration_error(message)
+        if message:
+            self.ensureWidgetVisible(self._freestream._configuration_error)
+
+    def set_analytic_warning(self, message):
+        """Show an analytic warning in the existing configuration banner."""
+        self._freestream.set_analytic_warning(message)
         if message:
             self.ensureWidgetVisible(self._freestream._configuration_error)
 
