@@ -10,9 +10,24 @@
 
 #include <solvcon/math/math.hpp>
 #include <solvcon/buffer/buffer.hpp>
+#include <solvcon/device/cuda/fft.hpp>
+
+#include <cstdint>
 
 namespace solvcon
 {
+
+/**
+ * Computing backend for the Fourier transforms. The backend is selected as
+ * a template argument so that an unsupported value fails at compile time.
+ *
+ * @ingroup group_numerics
+ */
+enum class FourierBackend : std::uint8_t
+{
+    cpu,
+    cuda
+}; /* end enum class FourierBackend */
 
 namespace detail
 {
@@ -70,7 +85,10 @@ void fft_radix_2(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
  * Bluestein algorithm otherwise. ifft() computes the inverse by
  * conjugating the input, reusing fft(), and scaling by 1/N. dft()
  * evaluates the direct O(N^2) sum. The forward transform uses the
- * twiddle factor exp(-2 * pi * i * k / N).
+ * twiddle factor exp(-2 * pi * i * k / N). fft() and ifft() take the
+ * computing backend as a FourierBackend template argument defaulting to
+ * the CPU; the CUDA backend runs through device::cuda::fft() and throws
+ * at runtime when CUDA is unavailable.
  *
  * @ingroup group_numerics
  */
@@ -84,23 +102,31 @@ public:
     FourierTransform & operator=(const FourierTransform & other) = delete;
     FourierTransform & operator=(FourierTransform && other) = delete;
 
-    template <template <typename> class T1, typename T2>
+    template <FourierBackend Backend = FourierBackend::cpu, template <typename> class T1, typename T2>
     // FIXME: NOLINTNEXTLINE(misc-no-recursion)
     static void fft(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
     {
-        const size_t N = in.size();
-
-        if ((N & (N - 1)) == 0)
+        static_assert(FourierBackend::cpu == Backend || FourierBackend::cuda == Backend,
+                      "unsupported FourierBackend");
+        if constexpr (FourierBackend::cuda == Backend)
         {
-            detail::fft_radix_2<T1, T2>(in, out);
+            device::cuda::fft(in, out);
         }
         else
         {
-            detail::fft_bluestein<T1, T2>(in, out);
+            const size_t N = in.size();
+            if ((N & (N - 1)) == 0)
+            {
+                detail::fft_radix_2<T1, T2>(in, out);
+            }
+            else
+            {
+                detail::fft_bluestein<T1, T2>(in, out);
+            }
         }
     }
 
-    template <template <typename> class T1, typename T2>
+    template <FourierBackend Backend = FourierBackend::cpu, template <typename> class T1, typename T2>
     // FIXME: NOLINTNEXTLINE(misc-no-recursion)
     static void ifft(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
     {
@@ -112,7 +138,7 @@ public:
             in_conj[i] = in[i].conj();
         }
 
-        fft<T1, T2>(in_conj, out);
+        fft<Backend, T1, T2>(in_conj, out);
 
         for (size_t i = 0; i < N; ++i)
         {
@@ -178,7 +204,7 @@ void fft_bluestein(SimpleArray<T1<T2>> const & in, SimpleArray<T1<T2>> & out)
         A[i] *= B[i];
     }
 
-    FourierTransform::ifft<T1, T2>(A, a);
+    FourierTransform::ifft(A, a);
 
     for (size_t i = 0; i < N; ++i)
     {
