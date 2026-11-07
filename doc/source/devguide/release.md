@@ -20,8 +20,9 @@ It is the only release artifact so far.
    ```
 
 3. Wait for the `release` workflow to finish. A tag push runs every stage and
-   then drafts a release named after the tag, with `pilot-<tag>.dmg` and its
-   SHA-256 checksum attached and notes generated from the merged pull requests.
+   then drafts a release named after the tag, with `pilot-<tag>-<platform>.dmg`
+   and its SHA-256 checksum attached and notes generated from the merged pull
+   requests.
 4. Review the draft on the Releases page: the notes, the assets, and the
    workflow run. Publish it when it is right, or delete it.
 
@@ -65,14 +66,17 @@ between them would otherwise test a different commit than the one built.
 | `build` | `package` | writes the SHA-256 checksum of `dist/pilot.dmg` |
 | `unbox_test` | `unbox test` | checks the checksum and runs `make bundle-test` |
 | `unbox_test` | `gui test` | `make bundle-guitest`: runs `tests/gui` in the app |
-| `publish` | `name` | renames the DMG to `pilot-<tag>.dmg` (tag pushes only) |
+| `publish` | `name` | renames each DMG to `pilot-<tag>-<platform>.dmg` (tag pushes only) |
 | `publish` | `draft release` | drafts the GitHub release (tag pushes only) |
 
 Every step before `publish` calls the DMG `pilot.dmg`, the default name of
-the `make bundle*` targets, and a manual run uploads it under that name. The
-`publish` job renames it to `pilot-<tag>.dmg`, for example `pilot-v1.2.3.dmg`,
-and writes the checksum of the renamed file, so only the release assets carry
-the version.
+the `make bundle*` targets. The workflow uploads it in an artifact named
+`release-<platform>`, where `<platform>` is the OS and the architecture the DMG
+runs on, such as `macos-arm64`; the `platform` key of the job matrix sets it.
+The `publish` job renames each DMG to `pilot-<tag>-<platform>.dmg`, for example
+`pilot-v1.2.3-macos-arm64.dmg`, and writes the checksum of the renamed file, so
+only the release assets carry the version. A new platform adds a matrix entry
+with its own `platform`.
 
 `make bundle-prepare` downloads pinned, checksum-verified builds of Python, Qt,
 and the Python packages into `build/bundle-deps` (see

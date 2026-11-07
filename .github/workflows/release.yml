@@ -36,9 +36,12 @@ jobs:
 
     strategy:
       matrix:
-        # The aqt bundler supports Apple Silicon only.
+        # The aqt bundler supports Apple Silicon only. platform is the OS and
+        # the architecture the DMG runs on; it names the artifact and, at
+        # publish, the release asset.
         include:
           - os: macos-26
+            platform: macos-arm64
 
       fail-fast: false
 
@@ -71,7 +74,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: release-${{ matrix.os }}
+          name: release-${{ matrix.platform }}
           path: dist/
           if-no-files-found: error
 
@@ -92,6 +95,7 @@ jobs:
       matrix:
         include:
           - os: macos-26
+            platform: macos-arm64
 
       fail-fast: false
 
@@ -112,7 +116,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: release-${{ matrix.os }}
+          name: release-${{ matrix.platform }}
           path: dist/
 
       - name: unbox test
@@ -144,28 +148,31 @@ jobs:
 
     steps:
 
+      # Each artifact lands in dist/release-<platform>/, so the pilot.dmg of
+      # every platform stays apart.
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist/
-          merge-multiple: true
 
-      # Name the DMG after the tag only for the release assets, and write the
-      # checksum of the renamed file.
+      # Name each DMG after the tag and its platform only for the release
+      # assets, and write the checksum of the renamed file.
       - name: name
         run: |
-          (cd dist && shasum -a 256 -c pilot.dmg.sha256)
-          mv dist/pilot.dmg "dist/pilot-$GITHUB_REF_NAME.dmg"
-          (cd dist && shasum -a 256 "pilot-$GITHUB_REF_NAME.dmg" \
-            > "pilot-$GITHUB_REF_NAME.dmg.sha256")
+          mkdir assets
+          for dir in dist/release-*; do
+            (cd "$dir" && shasum -a 256 -c pilot.dmg.sha256)
+            name="pilot-$GITHUB_REF_NAME-${dir#dist/release-}.dmg"
+            mv "$dir/pilot.dmg" "assets/$name"
+            (cd assets && shasum -a 256 "$name" > "$name.sha256")
+          done
+          ls -l assets
 
       - name: draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            "dist/pilot-$GITHUB_REF_NAME.dmg" \
-            "dist/pilot-$GITHUB_REF_NAME.dmg.sha256" \
+          gh release create "${{ github.ref_name }}" assets/* \
             --repo "${{ github.repository }}" \
             --draft --verify-tag --generate-notes \
             --title "${{ github.ref_name }}"
