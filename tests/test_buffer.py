@@ -2688,6 +2688,25 @@ class SimpleArrayCalculatorsTC(unittest.TestCase):
         sarr = sarr.abs()
         self.assertEqual(sarr.sum(), True)
 
+    def test_abs_strided(self):
+        base = np.array([-1, -99, -2, -99, -3], dtype='float64')
+        array = solvcon.SimpleArrayFloat64(array=base[::2])
+        result = array.abs()
+        self.assertEqual(result.tolist(), [1, 2, 3])
+
+    def test_abs_ghost_multidimensional(self):
+        source = np.array(
+            [[-1, -99, -2], [-3, -99, -4]],
+            dtype='float64')[:, ::2]
+        array = solvcon.SimpleArrayFloat64(array=source)
+        array.nghost = 1
+
+        result = array.abs()
+
+        self.assertEqual(source.tolist(), [[-1, -2], [-3, -4]])
+        self.assertEqual(result.tolist(), [[1, 2], [3, 4]])
+        self.assertEqual(result.nghost, 1)
+
     SCAN_DTYPES = (
         'int8', 'int16', 'int32', 'int64',
         'uint8', 'uint16', 'uint32', 'uint64',
