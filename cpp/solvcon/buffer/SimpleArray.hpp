@@ -805,10 +805,13 @@ public:
         if constexpr (std::is_signed_v<std::remove_cv_t<value_type>> ||
                       std::is_same_v<std::remove_cv_t<value_type>, Float16>)
         {
-            for (size_t i = 0; i < athis->size(); ++i)
+            IndexRange const range(*athis);
+            auto idx = range.first();
+            do
             {
-                ret.data(i) = static_cast<value_type>(solvcon::abs(athis->data(i)));
-            }
+                ret.at(idx) = static_cast<value_type>(
+                    solvcon::abs(athis->at(idx)));
+            } while (range.next(idx));
         }
         return ret;
     }
