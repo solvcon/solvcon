@@ -50,7 +50,7 @@ tar -xzf "$tmp/$PYTHON_ARCHIVE" --strip-components=1 -C "$SDK_PREFIX"
 
 "$TOOLS_PREFIX/bin/python3" -I -m pip --isolated install \
     'pip-system-certs==5.3' 'aqtinstall==3.3.0' 'py7zr==1.1.0' \
-    'cmake==4.4.3' 'pybind11==3.0.1'
+    'cmake==4.4.3' 'pybind11==3.0.1' 'uv==0.6.10'
 
 # qtbase supplies Core, Gui, Widgets, plugins, and deployment tools. Svg is a
 # separate base archive, while ShaderTools is an extra module.
@@ -66,11 +66,16 @@ for component in Core Gui Widgets Svg ShaderTools; do
     }
 done
 
-"$TOOLS_PREFIX/bin/python3" -I -m pip --isolated \
-    --python "$SDK_PREFIX/bin/python3" install --only-binary=:all: \
-    "PySide6-Essentials==$QT_VERSION" "shiboken6==$QT_VERSION" \
-    'numpy==2.5.3' 'matplotlib==3.11.2' 'jsonschema==4.26.0' \
-    zstandard lz4
+# The SDK packages are pinned by uv.lock next to this script.
+UV_PROJECT_ENVIRONMENT="$SDK_PREFIX" "$TOOLS_PREFIX/bin/uv" sync \
+    --project "$SCRIPT_DIR" --python "$SDK_PREFIX/bin/python3" \
+    --locked --no-build
+pyside_version=$("$SDK_PREFIX/bin/python3" -I -c \
+    'import importlib.metadata as m; print(m.version("PySide6-Essentials"))')
+[[ "$pyside_version" == "$QT_VERSION" ]] || {
+    echo "uv.lock pins PySide6-Essentials $pyside_version, not $QT_VERSION" >&2
+    exit 1
+}
 
 PYSIDE_DIR=$("$SDK_PREFIX/bin/python3" -I -c \
     'import os, PySide6; print(os.path.dirname(PySide6.__file__))')
