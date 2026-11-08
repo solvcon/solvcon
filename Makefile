@@ -273,6 +273,16 @@ bundle-unbox-test:
 	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh unbox \
 		"$(RELEASE_ARTIFACT)"
 
+.PHONY: bundle-info
+bundle-info:
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh info \
+		"$(RELEASE_ARTIFACT)"
+
+.PHONY: bundle-manifest
+bundle-manifest:
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh manifest \
+		"$(RELEASE_ARTIFACT)"
+
 .PHONY: standalone_buffer_setup
 standalone_buffer_setup:
 	$(MAKE) -C contrib/standalone_buffer copy

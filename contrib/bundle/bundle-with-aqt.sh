@@ -16,6 +16,8 @@
 #                                                   [--output DIR]
 #   ./contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
 #   ./contrib/bundle/bundle-with-aqt.sh unbox path/to/pilot.dmg
+#   ./contrib/bundle/bundle-with-aqt.sh info path/to/pilot.dmg
+#   ./contrib/bundle/bundle-with-aqt.sh manifest path/to/pilot.dmg
 #
 # Legacy usage without a subcommand still runs the bundle step:
 #   ./contrib/bundle/bundle-with-aqt.sh [--skip-build] [--skip-check]
@@ -58,6 +60,8 @@ Usage:
   contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--version V] [--output DIR]
   contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh unbox path/to/pilot.dmg
+  contrib/bundle/bundle-with-aqt.sh info path/to/pilot.dmg
+  contrib/bundle/bundle-with-aqt.sh manifest path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--version V] [--output DIR]
 
 Subcommands:
@@ -65,6 +69,8 @@ Subcommands:
   bundle    Check dependencies, then clean build/package with aqt dependencies.
   verify    Verify a generated release DMG artifact.
   unbox     Run tests/gui inside the app of a release DMG.
+  info      Write <dmg>.build-info.md with the build host and bundled versions.
+  manifest  Write <dmg>.manifest.txt with the SHA-256 of every file in the app.
   all       Run check, bundle, and verify.
 EOF
 }
@@ -473,10 +479,78 @@ assert here.startswith(app + os.sep), 'solvcon is not the bundled one'" \
     ok "Unboxing test passed: $dmg"
 }
 
+# Write <dmg>.build-info.md. The host half describes the machine that runs
+# this, so run it on the build host, right after the bundle step.
+info_dmg() {
+    local dmg="$1" out bin plist libcxx
+    open_release_dmg "$dmg"
+    out="${dmg%.dmg}.build-info.md"
+    bin="$RELEASE_APP/Contents/MacOS/$(basename "$RELEASE_APP" .app)"
+    plist="$RELEASE_APP/Contents/Info.plist"
+    libcxx=$(echo '#include <version>' | clang++ -std=c++23 -x c++ -dM -E - \
+        | awk '$2 == "_LIBCPP_VERSION" {print $3}')
+
+    {
+        echo "## Install"
+        echo
+        echo "The app is ad-hoc signed and not notarized, so macOS blocks it when it"
+        echo "is downloaded. Clear the quarantine flag before opening the DMG:"
+        echo
+        echo '```'
+        echo "xattr -d com.apple.quarantine $(basename "$dmg")"
+        echo '```'
+        echo
+        echo "## Build information"
+        echo
+        echo "| Item | Value |"
+        echo "|---|---|"
+        echo "| Version | $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist") |"
+        echo "| Commit | $(git -C "$BUNDLE_REPO_ROOT" rev-parse HEAD) |"
+        echo "| Platform | $RELEASE_PLATFORM |"
+        echo "| Bundle identifier | $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist") |"
+        echo "| Minimum macOS | $(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$plist") |"
+        echo "| Build host macOS | $(sw_vers -productVersion) ($(sw_vers -buildVersion)) |"
+        echo "| Xcode | $(xcodebuild -version 2>/dev/null | tr '\n' ' ' | sed 's/ *$//') |"
+        echo "| Compiler | $(clang --version | head -n 1) |"
+        echo "| macOS SDK | $(xcrun --sdk macosx --show-sdk-version) |"
+        echo "| libc++ | ${libcxx:-unknown} |"
+        echo "| CMake | $("$TOOLS_PREFIX/bin/cmake" --version 2>/dev/null | head -n 1 || echo unknown) |"
+        echo "| pybind11 | $("$TOOLS_PREFIX/bin/python3" -m pybind11 --version 2>/dev/null || echo unknown) |"
+        run_app_python "$bin" "import platform, numpy, matplotlib, PySide6
+from PySide6 import QtCore
+for name, value in [('Python', platform.python_version()),
+                    ('Qt', QtCore.qVersion()),
+                    ('PySide6', PySide6.__version__),
+                    ('NumPy', numpy.__version__),
+                    ('Matplotlib', matplotlib.__version__)]:
+    print('INFO | %s | %s |' % (name, value))" | sed -n 's/^INFO //p'
+        echo "| SHA-256 | $(shasum -a 256 "$dmg" | cut -d' ' -f1) |"
+    } > "$out"
+    cat "$out"
+    ok "Build information written: $out"
+}
+
+# Write <dmg>.manifest.txt: the SHA-256 of every file and the target of every
+# symlink in the app, sorted by path. Two builds of one commit with the same
+# toolchain give the same manifest.
+manifest_dmg() {
+    local dmg="$1" out
+    open_release_dmg "$dmg"
+    out="${dmg%.dmg}.manifest.txt"
+    (
+        cd "$RELEASE_APP"
+        {
+            find . -type f -print0 | xargs -0 shasum -a 256
+            find . -type l -exec stat -f 'link  %N -> %Y' {} +
+        } | LC_ALL=C sort -k2
+    ) > "$out"
+    ok "$(wc -l < "$out" | tr -d ' ') entries written: $out"
+}
+
 COMMAND=bundle
 if [[ $# -gt 0 ]]; then
     case "$1" in
-        check|bundle|verify|unbox|all)
+        check|bundle|verify|unbox|info|manifest|all)
             COMMAND="$1"
             shift
             ;;
@@ -492,7 +566,7 @@ case "$COMMAND" in
     check)
         [[ $# -eq 0 ]] || { usage >&2; exit 2; }
         ;;
-    verify|unbox)
+    verify|unbox|info|manifest)
         [[ $# -eq 1 ]] || { usage >&2; exit 2; }
         VERIFY_ARTIFACT="$1"
         shift
@@ -575,6 +649,14 @@ case "$COMMAND" in
         ;;
     unbox)
         unbox_dmg "$VERIFY_ARTIFACT"
+        exit 0
+        ;;
+    info)
+        info_dmg "$VERIFY_ARTIFACT"
+        exit 0
+        ;;
+    manifest)
+        manifest_dmg "$VERIFY_ARTIFACT"
         exit 0
         ;;
 esac
