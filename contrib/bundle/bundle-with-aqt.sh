@@ -12,6 +12,7 @@
 #   ./contrib/bundle/bundle-with-aqt.sh check
 #   ./contrib/bundle/bundle-with-aqt.sh bundle [--skip-build]
 #                                                   [--skip-check]
+#                                                   [--version VERSION]
 #                                                   [--output DIR]
 #   ./contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
 #
@@ -21,7 +22,9 @@
 #
 #   --skip-build   Skip `make pilot` and use the existing build output.
 #   --skip-check   Skip the bundle/DMG verification phase.
-#   --output DIR   Write pilot.dmg into DIR (default: build/).
+#   --version V    Embed V and write pilot-V-macos-arm64.dmg (default: git
+#                  describe --tags --always --dirty).
+#   --output DIR   Write the DMG into DIR (default: build/).
 
 set -euo pipefail
 
@@ -30,6 +33,8 @@ BUNDLE_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$BUNDLE_REPO_ROOT"
 
 MIN_LOADS=${MIN_LOADS:-50}
+RELEASE_PLATFORM=macos-arm64
+MACOS_DEPLOYMENT_TARGET=26.0
 SDK_ROOT="$BUNDLE_REPO_ROOT/build/bundle-deps/sdk"
 PREFIX=""
 TOOLS_PREFIX="$BUNDLE_REPO_ROOT/build/bundle-deps/tools"
@@ -45,15 +50,15 @@ usage() {
     cat <<'EOF'
 Usage:
   contrib/bundle/bundle-with-aqt.sh check
-  contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--output DIR]
+  contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--version V] [--output DIR]
   contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
-  contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--output DIR]
+  contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--version V] [--output DIR]
 
 Subcommands:
-  check    Check macOS bundle release dependencies. Does not build or install.
-  bundle   Check dependencies, then build/package with aqt dependencies.
-  verify   Verify a generated release DMG artifact.
-  all      Run check, bundle, and verify.
+  check     Check macOS bundle release dependencies. Does not build or install.
+  bundle    Check dependencies, then clean build/package with aqt dependencies.
+  verify    Verify a generated release DMG artifact.
+  all       Run check, bundle, and verify.
 EOF
 }
 
@@ -312,30 +317,74 @@ cleanup_verify() {
     [[ -z "${VERIFY_MARKER:-}" ]] || rm -f "$VERIFY_MARKER"
 }
 
-verify_dmg() {
-    local dmg="$1" mnt tmp trace marker app bin copied_app
+# Mount the release DMG at $1 read-only and set RELEASE_APP to its .app. The
+# EXIT trap detaches it and removes the scratch directory VERIFY_TMP.
+open_release_dmg() {
+    local dmg="$1"
     require_macos
     [[ -f "$dmg" ]] || fail "release artifact not found: $dmg"
+    VERIFY_MNT=$(mktemp -d -t solvcon-release-dmg)
+    VERIFY_TMP=$(mktemp -d -t solvcon-release-app)
+    mkdir -p "$VERIFY_TMP/home"
+    note "Mounting $dmg"
+    hdiutil attach -nobrowse -readonly -mountpoint "$VERIFY_MNT" "$dmg" >/dev/null
+    RELEASE_APP=$(find "$VERIFY_MNT" -maxdepth 2 -name '*.app' -type d -print -quit)
+    [[ -n "$RELEASE_APP" ]] || fail "no .app found in $dmg"
+}
+
+# Print the version a release DMG name carries, or nothing for another name.
+release_version_of() {
+    local name
+    name=$(basename "$1")
+    if [[ "$name" =~ ^pilot-(.+)-${RELEASE_PLATFORM}\.dmg$ ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+    fi
+}
+
+# Run the Python code $2 in the bundled interpreter of the app binary $1 under
+# a clean environment. Extra NAME=VALUE pairs after $2 join the environment.
+run_app_python() {
+    local bin="$1" code="$2"
+    shift 2
+    (
+        cd "$VERIFY_TMP"
+        env -i HOME="$VERIFY_TMP/home" USER="${USER:-nobody}" \
+            PATH=/usr/bin:/bin TERM="${TERM:-xterm}" PYTHONNOUSERSITE=1 \
+            PYTHONDONTWRITEBYTECODE=1 "$@" "$bin" --mode=python -c "$code"
+    )
+}
+
+# Check that the Info.plist and solvcon.__version__ of the app $1 report the
+# version $2.
+verify_version() {
+    local app="$1" expected="$2" bin plist_ver py_ver
+    bin="$app/Contents/MacOS/$(basename "$app" .app)"
+    plist_ver=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/Contents/Info.plist")
+    [[ "$plist_ver" == "$expected" ]] || \
+        fail "Info.plist CFBundleVersion is '$plist_ver', expected '$expected'"
+    py_ver=$(run_app_python "$bin" \
+        "import solvcon; print('SOLVCON_VERSION=' + solvcon.__version__)" \
+        | sed -n 's/^SOLVCON_VERSION=//p')
+    [[ "$py_ver" == "$expected" ]] || \
+        fail "solvcon.__version__ is '$py_ver', expected '$expected'"
+    ok "Info.plist and solvcon.__version__ report $expected"
+}
+
+verify_dmg() {
+    local dmg="$1" tmp trace marker app bin copied_app expected
 
     note "Release artifact"
     ls -lh "$dmg"
     shasum -a 256 "$dmg"
     hdiutil imageinfo "$dmg" >/dev/null
 
-    VERIFY_MNT=$(mktemp -d -t solvcon-release-dmg)
-    VERIFY_TMP=$(mktemp -d -t solvcon-release-app)
+    open_release_dmg "$dmg"
     VERIFY_TRACE=$(mktemp -t solvcon-release-dyld)
     VERIFY_MARKER=$(mktemp -t solvcon-release-marker)
-    mnt="$VERIFY_MNT"
     tmp="$VERIFY_TMP"
     trace="$VERIFY_TRACE"
     marker="$VERIFY_MARKER"
-    mkdir -p "$tmp/home"
-
-    note "Mounting DMG"
-    hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg" >/dev/null
-    app=$(find "$mnt" -maxdepth 2 -name '*.app' -type d -print -quit)
-    [[ -n "$app" ]] || fail "no .app found in $dmg"
+    app="$RELEASE_APP"
     bin="$app/Contents/MacOS/$(basename "$app" .app)"
 
     note "Checking mounted app structure"
@@ -365,6 +414,12 @@ verify_dmg() {
 
     note "Smoke launch from mounted DMG"
     smoke_launch_verify "$bin" "$trace"
+
+    expected=$(release_version_of "$dmg")
+    if [[ -n "$expected" ]]; then
+        note "Checking the embedded version"
+        verify_version "$app" "$expected"
+    fi
 
     note "Release artifact verification passed"
 }
@@ -397,6 +452,7 @@ esac
 
 SKIP_BUILD=0
 SKIP_CHECK=0
+VERSION=""
 OUTPUT_DIR="$BUNDLE_REPO_ROOT/build"
 
 if [[ "$COMMAND" == "bundle" || "$COMMAND" == "all" ]]; then
@@ -404,6 +460,11 @@ if [[ "$COMMAND" == "bundle" || "$COMMAND" == "all" ]]; then
         case "$1" in
             --skip-build) SKIP_BUILD=1    ; shift ;;
             --skip-check) SKIP_CHECK=1    ; shift ;;
+            --version)
+                [[ $# -ge 2 ]] || { echo "Missing argument for --version" >&2; usage >&2; exit 2; }
+                VERSION="$2"
+                shift 2
+                ;;
             --output)
                 [[ $# -ge 2 ]] || { echo "Missing argument for --output" >&2; usage >&2; exit 2; }
                 OUTPUT_DIR="$2"
@@ -418,6 +479,14 @@ elif [[ $# -gt 0 ]]; then
 fi
 
 if [[ "$COMMAND" == "bundle" || "$COMMAND" == "all" ]]; then
+    if [[ -z "$VERSION" ]]; then
+        VERSION=$(git -C "$BUNDLE_REPO_ROOT" describe --tags --always --dirty)
+    fi
+    # The version becomes a file name and an Info.plist value.
+    [[ "$VERSION" =~ ^[A-Za-z0-9._+-]+$ ]] || {
+        echo "Invalid version '$VERSION'" >&2
+        exit 2
+    }
     check_deps
 fi
 
@@ -471,9 +540,18 @@ PY_DYLIB="$PREFIX/lib/libpython${PY_VER}.dylib"
 BUNDLED_LIB="$APP/Contents/lib/python${PY_VER}"
 BUNDLED_SITE="$BUNDLED_LIB/site-packages"
 
+note "Version    : $VERSION"
 note "Build path : $BUILD_PATH"
 note "App bundle : $APP"
 note "Python     : $PY_DYLIB"
+
+# Two builds of one commit must bundle the same files. Date the build by the
+# commit rather than the clock, keep the checkout path out of the binaries,
+# and zero the timestamps ld64 and ar record.
+SOURCE_DATE_EPOCH=$(git -C "$BUNDLE_REPO_ROOT" log -1 --format=%ct)
+export SOURCE_DATE_EPOCH
+export ZERO_AR_DATE=1
+PREFIX_MAP_FLAGS="-ffile-prefix-map=$BUNDLE_REPO_ROOT=."
 
 # ---------------------------------------------------------------------------
 # Step 1: Build pilot
@@ -481,17 +559,17 @@ note "Python     : $PY_DYLIB"
 
 T_STEP=$SECONDS
 if [[ $SKIP_BUILD -eq 0 ]]; then
-    # macdeployqt cannot redeploy on top of an existing .app: it
-    # short-circuits but its later codesign pass still walks paths the
-    # (skipped) deploy step would have populated, failing nested signing.
-    # `make pilot` only re-links the binary; remove the .app so the
-    # build produces a virgin one each run.
-    rm -rf "$APP"
+    # A release builds from an empty tree, so nothing left by an earlier
+    # build reaches the bundle. It also matters to macdeployqt, which cannot
+    # redeploy on top of an existing .app: it short-circuits but its later
+    # codesign pass still walks paths the (skipped) deploy step would have
+    # populated, failing nested signing.
+    rm -rf "$BUILD_PATH"
     note "make pilot CMAKE_BUILD_TYPE=Release BUILD_PATH=$BUILD_PATH"
     PYBIND11_CMAKE_DIR=$("$TOOLS_PREFIX/bin/python3" -m pybind11 --cmakedir)
     env -u CMAKE_PREFIX_PATH make -W CMakeLists.txt pilot \
         CMAKE_BUILD_TYPE=Release BUILD_PATH="$BUILD_PATH" \
-        CMAKE_ARGS="${CMAKE_ARGS:-} --fresh -DCMAKE_PREFIX_PATH=\"$PREFIX\" -DQt6_DIR=\"$PREFIX/lib/cmake/Qt6\" -DPYTHON_EXECUTABLE=\"$PREFIX/bin/python3\" -Dpybind11_DIR=\"$PYBIND11_CMAKE_DIR\""
+        CMAKE_ARGS="${CMAKE_ARGS:-} --fresh -DCMAKE_PREFIX_PATH=\"$PREFIX\" -DQt6_DIR=\"$PREFIX/lib/cmake/Qt6\" -DPYTHON_EXECUTABLE=\"$PREFIX/bin/python3\" -Dpybind11_DIR=\"$PYBIND11_CMAKE_DIR\" -DSOLVCON_VERSION=\"$VERSION\" -DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_DEPLOYMENT_TARGET -DCMAKE_C_FLAGS=\"$PREFIX_MAP_FLAGS\" -DCMAKE_CXX_FLAGS=\"$PREFIX_MAP_FLAGS\""
 fi
 
 [[ -f "$BINARY" ]] || fail "pilot binary not found at $BINARY"
@@ -594,8 +672,9 @@ note "Copying solvcon package into bundled site-packages"
 # Copy the solvcon Python package. Skip _solvcon*.so because the binary code is
 # statically linked into pilot via PYBIND11_EMBEDDED_MODULE.
 rsync -a --exclude '__pycache__' --exclude '_solvcon*.so' \
-    "$BUNDLE_REPO_ROOT/solvcon" "$BUNDLED_SITE/"
-echo "    solvcon -> $BUNDLED_SITE/solvcon"
+    --exclude '_version.py' "$BUNDLE_REPO_ROOT/solvcon" "$BUNDLED_SITE/"
+printf 'version = "%s"\n' "$VERSION" > "$BUNDLED_SITE/solvcon/_version.py"
+echo "    solvcon -> $BUNDLED_SITE/solvcon (version $VERSION)"
 echo "    [Step 5 (Bundle solvcon): $((SECONDS - T_STEP))s]"
 
 # ---------------------------------------------------------------------------
@@ -1017,12 +1096,17 @@ ok "Bundle complete: $APP"
 
 T_STEP=$SECONDS
 mkdir -p "$OUTPUT_DIR"
-DMG="$OUTPUT_DIR/pilot.dmg"
+DMG="$OUTPUT_DIR/pilot-$VERSION-$RELEASE_PLATFORM.dmg"
+# Code signatures do not seal timestamps, so date every file by the commit
+# after signing. The DMG then carries no build-time clock.
+TOUCH_STAMP=$(date -u -r "$SOURCE_DATE_EPOCH" +%Y%m%d%H%M.%S)
+find "$APP" -exec env TZ=UTC touch -h -t "$TOUCH_STAMP" {} +
 note "Creating $DMG from $APP"
-hdiutil create -volname "solvcon Pilot" \
+hdiutil create -volname "solvcon Pilot $VERSION" \
     -srcfolder "$APP" \
     -ov -format UDZO \
     "$DMG"
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$DMG")" > "$(basename "$DMG").sha256")
 SIZE=$(du -sh "$DMG" | cut -f1)
 echo "    [Step 8 (Package DMG): $((SECONDS - T_STEP))s]"
 

@@ -70,7 +70,14 @@ CMAKE_ARGS ?=
 VERBOSE ?=
 FORCE_CLANG_FORMAT ?=
 RELEASE_OUTPUT ?= $(SOLVCON_ROOT)/build
-RELEASE_ARTIFACT ?= $(RELEASE_OUTPUT)/pilot.dmg
+# A release passes its tag; any other build is named by git describe. Expand
+# it once here rather than on every use.
+ifndef RELEASE_VERSION
+RELEASE_VERSION := $(shell git describe --tags --always --dirty 2>/dev/null)
+endif
+RELEASE_PLATFORM = macos-arm64
+RELEASE_ARTIFACT ?= \
+	$(RELEASE_OUTPUT)/pilot-$(RELEASE_VERSION)-$(RELEASE_PLATFORM).dmg
 RELEASE_ARGS ?=
 
 # Let CMake find vcpkg-provided OpenBLAS/LAPACK headers, import libraries, and
@@ -253,7 +260,8 @@ bundle-precheck:
 .PHONY: bundle
 bundle:
 	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh all \
-		--output "$(RELEASE_OUTPUT)" $(RELEASE_ARGS)
+		--version "$(RELEASE_VERSION)" --output "$(RELEASE_OUTPUT)" \
+		$(RELEASE_ARGS)
 
 .PHONY: bundle-test
 bundle-test:
