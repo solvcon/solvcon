@@ -283,6 +283,11 @@ bundle-manifest:
 	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh manifest \
 		"$(RELEASE_ARTIFACT)"
 
+.PHONY: bundle-check-tag
+bundle-check-tag:
+	$(SOLVCON_ROOT)/contrib/bundle/bundle-with-aqt.sh checktag \
+		"$(RELEASE_VERSION)"
+
 .PHONY: standalone_buffer_setup
 standalone_buffer_setup:
 	$(MAKE) -C contrib/standalone_buffer copy

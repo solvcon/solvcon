@@ -18,6 +18,7 @@
 #   ./contrib/bundle/bundle-with-aqt.sh unbox path/to/pilot.dmg
 #   ./contrib/bundle/bundle-with-aqt.sh info path/to/pilot.dmg
 #   ./contrib/bundle/bundle-with-aqt.sh manifest path/to/pilot.dmg
+#   ./contrib/bundle/bundle-with-aqt.sh checktag vX.Y.Z
 #
 # Legacy usage without a subcommand still runs the bundle step:
 #   ./contrib/bundle/bundle-with-aqt.sh [--skip-build] [--skip-check]
@@ -62,6 +63,7 @@ Usage:
   contrib/bundle/bundle-with-aqt.sh unbox path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh info path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh manifest path/to/pilot.dmg
+  contrib/bundle/bundle-with-aqt.sh checktag vX.Y.Z
   contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--version V] [--output DIR]
 
 Subcommands:
@@ -71,6 +73,7 @@ Subcommands:
   unbox     Run tests/gui inside the app of a release DMG.
   info      Write <dmg>.build-info.md with the build host and bundled versions.
   manifest  Write <dmg>.manifest.txt with the SHA-256 of every file in the app.
+  checktag  Check a release tag is an annotated vX.Y.Z at HEAD and on master.
   all       Run check, bundle, and verify.
 EOF
 }
@@ -547,10 +550,31 @@ manifest_dmg() {
     ok "$(wc -l < "$out" | tr -d ' ') entries written: $out"
 }
 
+# A release tag is an annotated vX.Y.Z on the checked-out commit, and that
+# commit is on master of RELEASE_REMOTE (default: origin).
+check_release_tag() {
+    local tag="$1" remote="${RELEASE_REMOTE:-origin}"
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
+        fail "release tag '$tag' is not vX.Y.Z"
+    # actions/checkout stores a pushed tag as a lightweight one, so fetch the
+    # tag object itself before looking at it.
+    git -C "$BUNDLE_REPO_ROOT" fetch --quiet --force "$remote" \
+        "refs/tags/$tag:refs/tags/$tag"
+    git -C "$BUNDLE_REPO_ROOT" fetch --quiet "$remote" master
+    [[ "$(git -C "$BUNDLE_REPO_ROOT" cat-file -t "$tag")" == tag ]] || \
+        fail "release tag '$tag' is not annotated"
+    [[ "$(git -C "$BUNDLE_REPO_ROOT" rev-parse "$tag^{commit}")" == \
+        "$(git -C "$BUNDLE_REPO_ROOT" rev-parse HEAD)" ]] || \
+        fail "release tag '$tag' does not point to the checked-out commit"
+    git -C "$BUNDLE_REPO_ROOT" merge-base --is-ancestor "$tag" FETCH_HEAD || \
+        fail "release tag '$tag' is not on $remote master"
+    ok "release tag $tag is annotated, checked out, and on $remote master"
+}
+
 COMMAND=bundle
 if [[ $# -gt 0 ]]; then
     case "$1" in
-        check|bundle|verify|unbox|info|manifest|all)
+        check|bundle|verify|unbox|info|manifest|checktag|all)
             COMMAND="$1"
             shift
             ;;
@@ -566,7 +590,7 @@ case "$COMMAND" in
     check)
         [[ $# -eq 0 ]] || { usage >&2; exit 2; }
         ;;
-    verify|unbox|info|manifest)
+    verify|unbox|info|manifest|checktag)
         [[ $# -eq 1 ]] || { usage >&2; exit 2; }
         VERIFY_ARTIFACT="$1"
         shift
@@ -657,6 +681,10 @@ case "$COMMAND" in
         ;;
     manifest)
         manifest_dmg "$VERIFY_ARTIFACT"
+        exit 0
+        ;;
+    checktag)
+        check_release_tag "$VERIFY_ARTIFACT"
         exit 0
         ;;
 esac
