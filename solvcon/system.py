@@ -105,7 +105,11 @@ def _run_pytest(extra_args=None):
     else:
         env_opts = os.environ.get('PYTEST_OPTS', '')
         opts = shlex.split(env_opts) if env_opts else ['-v', '-x']
-    return pytest.main(opts + [testpath])
+    # A bundled pilot ships no tests next to the package, so the caller names
+    # the tests to run.
+    if os.path.isdir(testpath):
+        opts.append(testpath)
+    return pytest.main(opts)
 
 
 def setup_process(argv):

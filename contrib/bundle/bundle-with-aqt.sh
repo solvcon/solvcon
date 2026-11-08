@@ -15,6 +15,7 @@
 #                                                   [--version VERSION]
 #                                                   [--output DIR]
 #   ./contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
+#   ./contrib/bundle/bundle-with-aqt.sh unbox path/to/pilot.dmg
 #
 # Legacy usage without a subcommand still runs the bundle step:
 #   ./contrib/bundle/bundle-with-aqt.sh [--skip-build] [--skip-check]
@@ -35,6 +36,10 @@ cd "$BUNDLE_REPO_ROOT"
 MIN_LOADS=${MIN_LOADS:-50}
 RELEASE_PLATFORM=macos-arm64
 MACOS_DEPLOYMENT_TARGET=26.0
+# The unboxing test brings pytest from outside the app. Install it without
+# dependencies, so its own packaging does not shadow the bundled copy.
+UNBOX_PYTEST_REQS=('pytest==9.2.0' 'pluggy==1.7.0' 'iniconfig==2.3.1'
+    'pygments==2.21.0')
 SDK_ROOT="$BUNDLE_REPO_ROOT/build/bundle-deps/sdk"
 PREFIX=""
 TOOLS_PREFIX="$BUNDLE_REPO_ROOT/build/bundle-deps/tools"
@@ -52,12 +57,14 @@ Usage:
   contrib/bundle/bundle-with-aqt.sh check
   contrib/bundle/bundle-with-aqt.sh bundle [--skip-build] [--skip-check] [--version V] [--output DIR]
   contrib/bundle/bundle-with-aqt.sh verify path/to/pilot.dmg
+  contrib/bundle/bundle-with-aqt.sh unbox path/to/pilot.dmg
   contrib/bundle/bundle-with-aqt.sh all [--skip-build] [--skip-check] [--version V] [--output DIR]
 
 Subcommands:
   check     Check macOS bundle release dependencies. Does not build or install.
   bundle    Check dependencies, then clean build/package with aqt dependencies.
   verify    Verify a generated release DMG artifact.
+  unbox     Run tests/gui inside the app of a release DMG.
   all       Run check, bundle, and verify.
 EOF
 }
@@ -424,10 +431,52 @@ verify_dmg() {
     note "Release artifact verification passed"
 }
 
+# The unboxing test: run tests/gui in the bundled interpreter, Qt, and solvcon
+# of a writable copy of the app, with pytest brought in from outside it.
+unbox_dmg() {
+    local dmg="$1" app bin site
+    local -a extra_env
+    open_release_dmg "$dmg"
+
+    note "Copying the app out of the DMG"
+    cp -R "$RELEASE_APP" "$VERIFY_TMP/"
+    app="$VERIFY_TMP/$(basename "$RELEASE_APP")"
+    bin="$app/Contents/MacOS/$(basename "$app" .app)"
+
+    note "Installing pytest outside the app"
+    site="$VERIFY_TMP/pytest-site"
+    "$TOOLS_PREFIX/bin/python3" -I -m pip --isolated install --quiet --disable-pip-version-check \
+        --no-deps --target "$site" "${UNBOX_PYTEST_REQS[@]}"
+    rsync -a --exclude '__pycache__' "$BUNDLE_REPO_ROOT/tests" "$VERIFY_TMP/"
+
+    extra_env=(PYTHONPATH="$site")
+    if [[ -n "${SOLVCON_TEST_SHOW_WINDOWS:-}" ]]; then
+        extra_env+=(SOLVCON_TEST_SHOW_WINDOWS="$SOLVCON_TEST_SHOW_WINDOWS")
+    fi
+
+    note "Checking the tests import the bundled solvcon"
+    run_app_python "$bin" "import os, solvcon
+here = os.path.realpath(solvcon.__file__)
+app = os.path.realpath('$app')
+print('solvcon:', here)
+assert here.startswith(app + os.sep), 'solvcon is not the bundled one'" \
+        "${extra_env[@]}"
+
+    note "Running tests/gui in the packed environment"
+    (
+        cd "$VERIFY_TMP"
+        env -i HOME="$VERIFY_TMP/home" USER="${USER:-nobody}" \
+            PATH=/usr/bin:/bin TERM="${TERM:-xterm}" PYTHONNOUSERSITE=1 \
+            PYTHONDONTWRITEBYTECODE=1 "${extra_env[@]}" \
+            "$bin" --mode=pytest -p no:cacheprovider -v tests/gui
+    )
+    ok "Unboxing test passed: $dmg"
+}
+
 COMMAND=bundle
 if [[ $# -gt 0 ]]; then
     case "$1" in
-        check|bundle|verify|all)
+        check|bundle|verify|unbox|all)
             COMMAND="$1"
             shift
             ;;
@@ -443,7 +492,7 @@ case "$COMMAND" in
     check)
         [[ $# -eq 0 ]] || { usage >&2; exit 2; }
         ;;
-    verify)
+    verify|unbox)
         [[ $# -eq 1 ]] || { usage >&2; exit 2; }
         VERIFY_ARTIFACT="$1"
         shift
@@ -522,6 +571,10 @@ case "$COMMAND" in
         ;;
     verify)
         verify_dmg "$VERIFY_ARTIFACT"
+        exit 0
+        ;;
+    unbox)
+        unbox_dmg "$VERIFY_ARTIFACT"
         exit 0
         ;;
 esac
