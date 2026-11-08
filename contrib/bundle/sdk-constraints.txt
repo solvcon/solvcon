@@ -1,0 +1,25 @@
+# Exact versions of every package installed into the bundle SDK, including the
+# transitive dependencies, so two releases of one commit bundle the same files.
+attrs==26.1.0
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.68.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+kiwisolver==1.5.1
+lz4==4.4.5
+matplotlib==3.11.2
+numpy==2.5.3
+packaging==26.3
+pillow==13.0.0
+PySide6-Essentials==6.11.1
+python-dateutil==3.0.0
+pyparsing==3.3.3
+referencing==0.37.0
+rpds-py==2026.9.1
+shiboken6==6.11.1
+six==1.17.0
+tzdata==2026.6
+zstandard==0.25.0
+
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

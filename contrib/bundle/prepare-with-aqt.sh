@@ -68,9 +68,10 @@ done
 
 "$TOOLS_PREFIX/bin/python3" -I -m pip --isolated \
     --python "$SDK_PREFIX/bin/python3" install --only-binary=:all: \
+    --constraint "$SCRIPT_DIR/sdk-constraints.txt" \
     "PySide6-Essentials==$QT_VERSION" "shiboken6==$QT_VERSION" \
     'numpy==2.5.3' 'matplotlib==3.11.2' 'jsonschema==4.26.0' \
-    zstandard lz4
+    'zstandard==0.25.0' 'lz4==4.4.5'
 
 PYSIDE_DIR=$("$SDK_PREFIX/bin/python3" -I -c \
     'import os, PySide6; print(os.path.dirname(PySide6.__file__))')
