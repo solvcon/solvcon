@@ -27,3 +27,4 @@ CMakeUserPresets.json
 *.obj
 *.pdb
 *.env
+solvcon/_version.py

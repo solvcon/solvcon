@@ -108,7 +108,46 @@ set_target_properties(
     MACOSX_BUNDLE TRUE
 )
 
+# A release passes the git tag (v0.2.0) or a git describe string
+# (v0.1.0-12-gabc1234). The bundle reports the full string as its build
+# version and the leading X.Y.Z as its short version, which macOS requires to
+# be numeric.
+set(SOLVCON_VERSION "" CACHE STRING "version embedded in the pilot bundle")
+if(SOLVCON_VERSION)
+    set(PILOT_BUNDLE_VERSION "${SOLVCON_VERSION}")
+else()
+    set(PILOT_BUNDLE_VERSION "0.0.0+dev")
+endif()
+if(PILOT_BUNDLE_VERSION MATCHES "^v?([0-9]+\\.[0-9]+\\.[0-9]+)")
+    set(PILOT_SHORT_VERSION "${CMAKE_MATCH_1}")
+else()
+    set(PILOT_SHORT_VERSION "0.0.0")
+endif()
+message(STATUS "pilot bundle version: ${PILOT_BUNDLE_VERSION}")
+
 if(APPLE)
+    # Without an explicit deployment target clang targets the SDK version.
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(SOLVCON_MACOS_MIN_VERSION "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    else()
+        execute_process(
+            COMMAND xcrun --sdk macosx --show-sdk-version
+            OUTPUT_VARIABLE SOLVCON_MACOS_MIN_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    endif()
+
+    set_target_properties(
+        pilot PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in
+        MACOSX_BUNDLE_GUI_IDENTIFIER net.solvcon.pilot
+        MACOSX_BUNDLE_BUNDLE_NAME "solvcon Pilot"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PILOT_BUNDLE_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PILOT_SHORT_VERSION}"
+        MACOSX_BUNDLE_COPYRIGHT
+            "Copyright (c) 2019, solvcon team. BSD 3-Clause License"
+    )
+
     find_library(APPLE_FWK_QUARTZ_CORE QuartzCore REQUIRED)
 
     target_link_libraries(

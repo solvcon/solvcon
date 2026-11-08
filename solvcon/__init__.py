@@ -10,6 +10,12 @@ solvcon: the description of the package is intentionally left blank
 # Use flake8 http://flake8.pycqa.org/en/latest/user/error-codes.html
 
 
+# The release bundle writes _version.py; a source tree has none.
+try:
+    from ._version import version as __version__
+except ImportError:
+    __version__ = '0.0.0+dev'
+
 from . import core
 from .core import *  # noqa: F401, F403
 from . import apputil  # noqa: F401
