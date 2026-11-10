@@ -79,6 +79,8 @@ class ObsreflAppTC(_AppFixture, unittest.TestCase):
         self.assertEqual("Oblique shock reflection", action.text())
         self.assertEqual("oblique shock reflection",
                          feature._dock.windowTitle())
+        self.assertEqual("Oblique shock reflection",
+                         feature._viewer._subwin.windowTitle())
         with mock.patch.object(type(feature), '_pycon',
                                new_callable=mock.PropertyMock) as pycon:
             feature._report("recording a movie")

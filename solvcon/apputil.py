@@ -308,10 +308,11 @@ def build_pilot_namespace(mgr):
     is a name-to-object dict to seed the namespace and ``entries`` is an
     ordered list of ``(name, description)`` for the banner.
     """
-    def show_mesh(m):
-        """Open a mesh in a fresh 3D viewer and return the viewer."""
+    def show_mesh(m, title=None):
+        """Open a mesh in a fresh 3D viewer named title and return the
+        viewer.  Without a title the viewer takes the default title."""
         from .pilot import visual
-        return visual.MeshDrawer(mgr).show(m)
+        return visual.MeshDrawer(mgr).show(m, title=title)
 
     def viewers():
         """List the open 3D viewers."""
@@ -325,7 +326,8 @@ def build_pilot_namespace(mgr):
         """Build a built-in sample mesh, show it in a fresh 3D viewer, and
         return the viewer.  Call sample_meshes() for the available names."""
         from .pilot import visual
-        return show_mesh(visual.SampleMesh().make(name))
+        return show_mesh(visual.SampleMesh().make(name),
+                         title=visual.SampleMesh.title(name))
 
     def sample_meshes():
         """List the names of the built-in sample meshes."""

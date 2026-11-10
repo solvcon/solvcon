@@ -235,6 +235,10 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertEqual(viewer.boundaries, list(range(mh.nbcs)))
         self.assertEqual(self.env.globals['viewers'](), [viewer])
         self.assertEqual(self.env.globals['meshes'](), [mh])
+        # An empty title asks the viewer for its default one.
+        self.assertEqual(viewer.windowTitle, "")
+        viewer = self.env.globals['show_mesh'](mh, title="my mesh")
+        self.assertEqual(viewer.windowTitle, "my mesh")
 
     def test_refresher_tracks_the_current_viewer(self):
         from solvcon import apputil
@@ -265,6 +269,7 @@ class PilotNamespaceTC(unittest.TestCase):
         # A real StaticMesh is built and opened in a fresh viewer.
         self.assertEqual(viewer.mesh.ndim, 3)
         self.assertTrue(viewer.axis)
+        self.assertEqual(viewer.windowTitle, "Sample: tetrahedron")
         self.assertEqual(self.env.globals['viewers'](), [viewer])
 
     @testing.requires_pilot

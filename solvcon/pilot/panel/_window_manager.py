@@ -193,7 +193,8 @@ class WindowManager(base.PilotFeature):
     def _append_item(self, index, subwin, is_active):
         """Append one checkable action that activates ``subwin``."""
         title = subwin.windowTitle() or "window"
-        act = QtGui.QAction("%s" % (title), self._menu)
+        # Qt reads a bare "&" in an action text as a shortcut mark.
+        act = QtGui.QAction(title.replace("&", "&&"), self._menu)
         act.setObjectName(self.ITEM_ID)
         act.setStatusTip("Bring '%s' to the foreground" % title)
         act.setCheckable(True)

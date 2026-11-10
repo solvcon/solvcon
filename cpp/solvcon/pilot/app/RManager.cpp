@@ -239,11 +239,21 @@ RDomainWidget * RManager::add3DWidget()
         // plain container widget, which composites correctly and lets several
         // viewers coexist.
         auto * host = new QWidget;
-        host->setWindowTitle("Domain viewer");
         auto * layout = new QVBoxLayout(host);
         layout->setContentsMargins(0, 0, 0, 0);
         viewer = new RDomainWidget(/*parent*/ host);
         layout->addWidget(viewer);
+        // The sub-window shows the title of the host, so the host follows the
+        // title set on the viewer. An empty title gives the default title.
+        QObject::connect(
+            viewer,
+            &QWidget::windowTitleChanged,
+            host,
+            [host](QString const & title)
+            {
+                host->setWindowTitle(title.isEmpty() ? QStringLiteral("Domain viewer") : title);
+            });
+        host->setWindowTitle(QStringLiteral("Domain viewer"));
         // Associate the Escape reset shortcut with this viewer; a
         // Qt::WidgetShortcut fires only while a widget it was added to has
         // focus. The hidden RHI primer is created elsewhere and never reaches

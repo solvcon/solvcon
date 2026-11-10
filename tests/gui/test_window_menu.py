@@ -79,6 +79,15 @@ class WindowMenuTC(unittest.TestCase):
         self.assertTrue(items[0].text().endswith("2D canvas"))
         self.assertTrue(items[1].text().endswith("Domain viewer"))
 
+    def test_ampersand_in_a_title_is_shown(self):
+        # Qt reads a bare "&" in an action text as a shortcut mark and
+        # drops it, so the menu has to escape it.
+        self.mgr.add3DWidget().windowTitle = "R&D.msh"
+        self._show()
+        items = self._items()
+        self.assertEqual(items[0].text(), "R&&D.msh")
+        self.assertIn("'R&D.msh'", items[0].statusTip())
+
     def test_active_window_is_checked(self):
         self.mgr.add2DWidget()
         self.mgr.add3DWidget()
