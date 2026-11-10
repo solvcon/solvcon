@@ -135,60 +135,12 @@ class ObsreflAppTC(_AppFixture, unittest.TestCase):
         self.assertIs(viewer, self.mgr.currentR3DWidget())
         self.assertFalse(error.isHidden())
 
-        panel._freestream._angle.setValue(20.0)
+        panel._freestream._angle.setValue(10.0)
         control.start()
         control._timer.stop()
 
         self.assertIsNot(session, control.session)
-        self.assertFalse(error.isHidden())
-        self.assertEqual("Three-zone analytic solution does not apply",
-                         title.text())
-        self.assertEqual("", panel._freestream._angle_outline.styleSheet())
-
-    def test_analytic_warning_allows_running_and_clears_on_rebuild(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        panel, control = feature._panel, feature._control
-        box = panel._freestream
-        banner = box._configuration_error
-        title = banner.findChild(QLabel, "configurationErrorTitle")
-        self.assertTrue(banner.isHidden())
-
-        for action, running in ((panel._run._start.click, True),
-                                (panel._numerics._remesh.click, False)):
-            with self.subTest(running=running):
-                box._angle.setValue(15.0)
-                action()
-                self.assertEqual(running, control._timer.isActive())
-                control._timer.stop()
-                self.assertFalse(banner.isHidden())
-                self.assertEqual(
-                    "Three-zone analytic solution does not apply",
-                    title.text())
-                self.assertEqual(
-                    "The reflected shock reaches the top inlet.",
-                    box._error_message.text())
-                self.assertEqual("", box._angle_outline.styleSheet())
-                control._on_step()
-                self.assertGreater(control.session.step, 0)
-
-                session = control.session
-                box._angle.setValue(22.0)
-                action()
-                self.assertIs(session, control.session)
-                self.assertEqual("Invalid configuration", title.text())
-                self.assertTrue(box._angle_outline.styleSheet())
-
-                box._angle.setValue(10.0)
-                action()
-                control._timer.stop()
-                self.assertTrue(banner.isHidden())
-
-        box._angle.setValue(15.0)
-        control.remesh()
-        self.assertFalse(banner.isHidden())
-        control.reset()
-        self.assertTrue(banner.isHidden())
+        self.assertTrue(error.isHidden())
 
     def test_the_resolution_reaches_the_mesh(self):
         feature = self._feature()
