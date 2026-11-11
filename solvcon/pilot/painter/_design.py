@@ -31,8 +31,8 @@ def _lands_finite(obb, delta):
     the geometry that follows them.
     """
     dx, dy = delta
-    return all(math.isfinite(x + dx) and math.isfinite(y + dy)
-               for x, y in zip(obb[0::2], obb[1::2]))
+    return all(math.isfinite(corner.x + dx) and math.isfinite(corner.y + dy)
+               for corner in obb.corners())
 
 
 class _Field(QtWidgets.QFrame):
@@ -291,7 +291,8 @@ class DesignPage(PaletteStyled):
         if world is None:
             return None
         return (shape, world.shape_type_of(shape),
-                tuple(world.shape_obb(shape)))
+                tuple((corner.x, corner.y)
+                      for corner in world.shape_obb(shape).corners()))
 
     def _selection(self):
         """The active canvas, its world, and its live selection.
@@ -321,7 +322,8 @@ class DesignPage(PaletteStyled):
             self._icon_name = kind if kind in _icons.ICONS else None
             self._name.setText(f"{kind.title()} {shape}")
             self._badge.setVisible(True)
-            metrics = Parts.obb_metrics(world.shape_obb(shape))
+            obb = world.shape_obb(shape)
+            metrics = (obb.center.x, obb.center.y, obb.width, obb.height)
             for (letter, _editable), value in zip(self._POSITION, metrics):
                 self.fields[letter].setEnabled(True)
                 self.fields[letter].set_value(value)
@@ -344,11 +346,10 @@ class DesignPage(PaletteStyled):
         if world is None:
             return
         obb = world.shape_obb(shape)
-        center_x, center_y = Parts.obb_metrics(obb)[:2]
         if "X" == axis:
-            delta = (value - center_x, 0.0)
+            delta = (value - obb.center.x, 0.0)
         else:
-            delta = (0.0, value - center_y)
+            delta = (0.0, value - obb.center.y)
         # The step between two finite coordinates can overflow, and so can a
         # wide shape's far corner once a finite step lands on it, so the box
         # is checked where it would end up rather than the step alone.

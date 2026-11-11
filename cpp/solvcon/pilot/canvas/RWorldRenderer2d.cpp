@@ -384,14 +384,11 @@ QStringList advanced_shape_label(WorldFp64 const & world, int32_t id)
     case ShapeType::RECTANGLE:
     case ShapeType::SQUARE:
     {
-        auto const obb = world.shape_obb(id); // TL, TR, BR, BL as xy pairs
-        double const x0 = obb[0], y0 = obb[1];
-        double const x1 = obb[2], y1 = obb[3];
-        double const x2 = obb[4], y2 = obb[5];
-        double const w = segment_length(x0, y0, x1, y1);
-        double const h = segment_length(x1, y1, x2, y2);
-        lines << format_point(x0, y0) + QStringLiteral(" .. ") + format_point(x2, y2);
-        lines << QStringLiteral("w=%1 h=%2").arg(format_measure(w), format_measure(h));
+        auto const obb = world.shape_obb(id);
+        auto const tl = obb.corner(0);
+        auto const br = obb.corner(2);
+        lines << format_point(tl.x(), tl.y()) + QStringLiteral(" .. ") + format_point(br.x(), br.y());
+        lines << QStringLiteral("w=%1 h=%2").arg(format_measure(obb.width()), format_measure(obb.height()));
         break;
     }
     case ShapeType::CIRCLE:
@@ -407,12 +404,9 @@ QStringList advanced_shape_label(WorldFp64 const & world, int32_t id)
     case ShapeType::ELLIPSE:
     {
         auto const obb = world.shape_obb(id);
-        double const cx = 0.25 * (obb[0] + obb[2] + obb[4] + obb[6]);
-        double const cy = 0.25 * (obb[1] + obb[3] + obb[5] + obb[7]);
-        double const rx = 0.5 * segment_length(obb[0], obb[1], obb[2], obb[3]);
-        double const ry = 0.5 * segment_length(obb[2], obb[3], obb[4], obb[5]);
-        lines << QStringLiteral("c=%1").arg(format_point(cx, cy));
-        lines << QStringLiteral("rx=%1 ry=%2").arg(format_measure(rx), format_measure(ry));
+        auto const center = obb.center();
+        lines << QStringLiteral("c=%1").arg(format_point(center.x(), center.y()));
+        lines << QStringLiteral("rx=%1 ry=%2").arg(format_measure(obb.half_width()), format_measure(obb.half_height()));
         break;
     }
     case ShapeType::BEZIER:

@@ -16,10 +16,15 @@
 // https://doi.org/10.1145/971697.602266
 
 #include <solvcon/base.hpp>
+#include <solvcon/universe/coord.hpp>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <format>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -115,6 +120,195 @@ public:
         m_max_z = std::max(m_max_z, other.m_max_z);
     }
 }; /* end class BoundBox3d */
+
+/**
+ * Oriented bounding box of a planar shape: a rectangle that turns with the
+ * shape, so its sides keep the shape's own width and height under rotation.
+ *
+ * The box is held as a center, a unit x axis in the xy plane, and half
+ * extents along that axis and its normal. Corners are derived on demand, so
+ * the box stays an exact rectangle however often it rotates. The world is
+ * planar: rotation is about z and the box has no extent in z.
+ *
+ * Corners are ordered top-left, top-right, bottom-right, bottom-left in the
+ * box's own frame.
+ *
+ * @tparam T Floating-point coordinate type.
+ *
+ * @ingroup group_geometry
+ */
+template <typename T>
+class OrientedBoundBox3d
+    : public NumberBase<int32_t, T>
+{
+
+public:
+
+    using value_type = T;
+    using point_type = Point3d<T>;
+    using point_pad_type = PointPad<T>;
+    using bbox_type = BoundBox3d<T>;
+
+    static constexpr size_t NCORNER = 4;
+
+    OrientedBoundBox3d() = default;
+
+    /// Axis-aligned box over an axis-aligned bounding box. Halved before
+    /// combined, so a box near the edge of the value range stays finite.
+    explicit OrientedBoundBox3d(bbox_type const & aabb)
+        : m_cx(aabb.min_x() / 2 + aabb.max_x() / 2)
+        , m_cy(aabb.min_y() / 2 + aabb.max_y() / 2)
+        , m_cz(aabb.min_z() / 2 + aabb.max_z() / 2)
+        , m_hw(aabb.max_x() / 2 - aabb.min_x() / 2)
+        , m_hh(aabb.max_y() / 2 - aabb.min_y() / 2)
+    {
+    }
+
+    /// The axis (ux, uy) is normalized; it must have a direction, and the
+    /// half extents must not be negative.
+    OrientedBoundBox3d(point_type const & center, value_type ux, value_type uy, value_type half_width, value_type half_height)
+        : m_cx(center.x())
+        , m_cy(center.y())
+        , m_cz(center.z())
+        , m_hw(half_width)
+        , m_hh(half_height)
+    {
+        if (!(half_width >= 0) || !(half_height >= 0))
+        {
+            throw std::invalid_argument(
+                std::format("OrientedBoundBox3d: half extents ({}, {}) must not be negative", half_width, half_height));
+        }
+        set_axis(ux, uy);
+    }
+
+    template <typename U>
+    explicit OrientedBoundBox3d(OrientedBoundBox3d<U> const & other)
+        : m_cx(static_cast<T>(other.center().x()))
+        , m_cy(static_cast<T>(other.center().y()))
+        , m_cz(static_cast<T>(other.center().z()))
+        , m_ux(static_cast<T>(other.ux()))
+        , m_uy(static_cast<T>(other.uy()))
+        , m_hw(static_cast<T>(other.half_width()))
+        , m_hh(static_cast<T>(other.half_height()))
+    {
+    }
+
+    point_type center() const { return point_type(m_cx, m_cy, m_cz); }
+    value_type ux() const { return m_ux; }
+    value_type uy() const { return m_uy; }
+    value_type half_width() const { return m_hw; }
+    value_type half_height() const { return m_hh; }
+    value_type width() const { return 2 * m_hw; }
+    value_type height() const { return 2 * m_hh; }
+
+    point_type corner(size_t i) const
+    {
+        if (i >= NCORNER)
+        {
+            throw std::out_of_range(std::format("OrientedBoundBox3d::corner: i = {} >= {}", i, NCORNER));
+        }
+        // Signs along the box's x axis u and y axis v = (-uy, ux).
+        static constexpr std::array<value_type, NCORNER> sa{-1, 1, 1, -1};
+        static constexpr std::array<value_type, NCORNER> sb{1, 1, -1, -1};
+        value_type const a = sa[i] * m_hw;
+        value_type const b = sb[i] * m_hh;
+        return point_type(m_cx + a * m_ux - b * m_uy, m_cy + a * m_uy + b * m_ux, m_cz);
+    }
+
+    std::shared_ptr<point_pad_type> corners() const
+    {
+        auto out = point_pad_type::construct(/* ndim */ 3);
+        for (size_t i = 0; i < NCORNER; ++i)
+        {
+            out->append(corner(i));
+        }
+        return out;
+    }
+
+    bbox_type aabb() const
+    {
+        value_type const ex = std::abs(m_ux) * m_hw + std::abs(m_uy) * m_hh;
+        value_type const ey = std::abs(m_uy) * m_hw + std::abs(m_ux) * m_hh;
+        return bbox_type(m_cx - ex, m_cy - ey, m_cz, m_cx + ex, m_cy + ey, m_cz);
+    }
+
+    void translate(value_type dx, value_type dy)
+    {
+        m_cx += dx;
+        m_cy += dy;
+    }
+
+    /// Rotate by angle (radians) about the pivot (cx, cy).
+    void rotate(value_type angle, value_type cx, value_type cy)
+    {
+        value_type const c = std::cos(angle);
+        value_type const s = std::sin(angle);
+        value_type const ox = m_cx - cx;
+        value_type const oy = m_cy - cy;
+        m_cx = cx + c * ox - s * oy;
+        m_cy = cy + s * ox + c * oy;
+        // Renormalized, so repeated rotations do not drift the axis length.
+        set_axis(c * m_ux - s * m_uy, s * m_ux + c * m_uy);
+    }
+
+    /**
+     * Fit the box to a point set, keeping its axis. `visit` is called once
+     * with a callable `take(x, y)` and feeds it every point. A box fed no
+     * points is left as it was.
+     */
+    template <typename Visit>
+    void refit(Visit && visit)
+    {
+        value_type const vx = -m_uy;
+        value_type const vy = m_ux;
+        value_type amin = std::numeric_limits<value_type>::max(), amax = std::numeric_limits<value_type>::lowest();
+        value_type bmin = amin, bmax = amax;
+        auto take = [&](value_type x, value_type y)
+        {
+            value_type const a = x * m_ux + y * m_uy, b = x * vx + y * vy;
+            amin = std::min(amin, a);
+            amax = std::max(amax, a);
+            bmin = std::min(bmin, b);
+            bmax = std::max(bmax, b);
+        };
+        std::forward<Visit>(visit)(take);
+        if (amin > amax)
+        {
+            return;
+        }
+
+        value_type const am = amin / 2 + amax / 2;
+        value_type const bm = bmin / 2 + bmax / 2;
+        m_cx = am * m_ux + bm * vx;
+        m_cy = am * m_uy + bm * vy;
+        m_hw = amax / 2 - amin / 2;
+        m_hh = bmax / 2 - bmin / 2;
+    }
+
+private:
+
+    void set_axis(value_type ux, value_type uy)
+    {
+        value_type const len = std::hypot(ux, uy);
+        if (!(len > 0) || !std::isfinite(len))
+        {
+            throw std::invalid_argument(std::format("OrientedBoundBox3d: axis ({}, {}) has no direction", ux, uy));
+        }
+        m_ux = ux / len;
+        m_uy = uy / len;
+    }
+
+    value_type m_cx = 0;
+    value_type m_cy = 0;
+    value_type m_cz = 0;
+    value_type m_ux = 1; ///< Unit x axis; the y axis is (-uy, ux).
+    value_type m_uy = 0;
+    value_type m_hw = 0; ///< Half width, along the x axis.
+    value_type m_hh = 0; ///< Half height, along the y axis.
+}; /* end class OrientedBoundBox3d */
+
+using OrientedBoundBox3dFp32 = OrientedBoundBox3d<float>;
+using OrientedBoundBox3dFp64 = OrientedBoundBox3d<double>;
 
 /**
  * Value operations traits for the R-tree.

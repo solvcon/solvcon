@@ -140,6 +140,8 @@ list_of_universe = [
     'interpolate_bernstein',
     'BoundBox3dFp32',
     'BoundBox3dFp64',
+    'OrientedBoundBox3dFp32',
+    'OrientedBoundBox3dFp64',
     'Point3dFp32',
     'Point3dFp64',
     'Segment3dFp32',

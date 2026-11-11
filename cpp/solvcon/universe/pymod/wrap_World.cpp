@@ -201,22 +201,8 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
                 return std::vector<value_type>(bb.begin(), bb.end());
             },
             py::arg("shape_id"))
-        .def(
-            "shape_handle",
-            [](wrapped_type const & self, int32_t shape_id)
-            {
-                auto const h = self.shape_handle(shape_id);
-                return std::vector<value_type>(h.begin(), h.end());
-            },
-            py::arg("shape_id"))
-        .def(
-            "shape_obb",
-            [](wrapped_type const & self, int32_t shape_id)
-            {
-                auto const obb = self.shape_obb(shape_id);
-                return std::vector<value_type>(obb.begin(), obb.end());
-            },
-            py::arg("shape_id"))
+        .def("shape_handle", &wrapped_type::shape_handle, py::arg("shape_id"))
+        .def("shape_obb", &wrapped_type::shape_obb, py::arg("shape_id"))
         .def(
             "shape_rings",
             [](wrapped_type const & self, int32_t shape_id)

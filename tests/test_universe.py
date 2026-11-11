@@ -765,12 +765,127 @@ class WorldShapeAccessorTC(unittest.TestCase):
     def test_accessors_run(self):
         self.assertTrue(self.w.shape_is_live(self.sid))
         self.assertEqual(len(self.w.shape_bbox(self.sid)), 4)
-        self.assertEqual(len(self.w.shape_handle(self.sid)), 2)
-        self.assertEqual(len(self.w.shape_obb(self.sid)), 8)
+        self.assertIsInstance(self.w.shape_handle(self.sid),
+                              solvcon.Point3dFp64)
+        self.assertIsInstance(self.w.shape_obb(self.sid),
+                              solvcon.OrientedBoundBox3dFp64)
+
+    def test_obb_corners_are_world_points(self):
+        # Corners run top-left, top-right, bottom-right, bottom-left, and the
+        # handle sits on the top-left one.
+        obb = self.w.shape_obb(self.sid)
+        corners = [(p.x, p.y, p.z) for p in obb.corners()]
+        self.assertEqual(corners,
+                         [(-2, 1, 0), (2, 1, 0), (2, -1, 0), (-2, -1, 0)])
+        handle = self.w.shape_handle(self.sid)
+        self.assertEqual((handle.x, handle.y, handle.z), (-2, 1, 0))
 
     def test_dead_shape_not_live(self):
         self.w.remove_shape(self.sid)
         self.assertFalse(self.w.shape_is_live(self.sid))
+
+
+class OrientedBoundBox3dTB:
+    """OrientedBoundBox3d: a box that turns with the shape it wraps."""
+
+    def _box(self):
+        # 4 wide and 2 tall, centered on (1, 2).
+        return self.Obb(self.BoundBox(-1, 1, 0, 3, 3, 0))
+
+    @staticmethod
+    def _corners(obb):
+        return [(p.x, p.y) for p in obb.corners()]
+
+    def test_seeded_from_an_axis_aligned_box(self):
+        obb = self._box()
+        self.assertEqual(self._corners(obb),
+                         [(-1, 3), (3, 3), (3, 1), (-1, 1)])
+        self.assertEqual((obb.center.x, obb.center.y), (1, 2))
+        self.assertEqual((obb.ux, obb.uy), (1, 0))
+        self.assertEqual((obb.width, obb.height), (4, 2))
+        self.assertEqual((obb.half_width, obb.half_height), (2, 1))
+        corner = obb.corner(0)
+        self.assertEqual((corner.x, corner.y), (-1, 3))
+        with self.assertRaises(IndexError):
+            obb.corner(4)
+
+    def test_translate_moves_the_center_only(self):
+        obb = self._box()
+        obb.translate(2, -1)
+        self.assertEqual((obb.center.x, obb.center.y), (3, 1))
+        self.assertEqual((obb.ux, obb.uy), (1, 0))
+        self.assertEqual((obb.width, obb.height), (4, 2))
+        self.assertEqual(self._corners(obb)[0], (1, 2))
+
+    def test_rotate_turns_about_the_pivot(self):
+        obb = self._box()
+        obb.rotate(math.pi / 2, 1, 0)
+        expected = [(obb.center.x, -1), (obb.center.y, 0),
+                    (obb.ux, 0), (obb.uy, 1)]
+        # The top-left corner (-1, 3) turns a quarter about (1, 0).
+        corner = obb.corner(0)
+        expected += [(corner.x, -2), (corner.y, -2)]
+        for got, want in expected:
+            self.assertAlmostEqual(got, want, places=self.places)
+        self.assertEqual((obb.width, obb.height), (4, 2))
+
+    def test_a_full_turn_in_small_steps_comes_back(self):
+        # Each step rotates the axis and renormalizes it, so the box does not
+        # drift off a rectangle however many steps it takes.
+        obb = self._box()
+        for _ in range(360):
+            obb.rotate(math.pi / 180, 0, 0)
+        self.assertAlmostEqual(math.hypot(obb.ux, obb.uy), 1,
+                               places=self.places)
+        self.assertEqual((obb.width, obb.height), (4, 2))
+        for got, want in zip(self._corners(obb), self._corners(self._box())):
+            self.assertAlmostEqual(got[0], want[0], places=self.places)
+            self.assertAlmostEqual(got[1], want[1], places=self.places)
+
+    def test_constructor_normalizes_the_axis(self):
+        obb = self.Obb(self.Point(1, 2, 0), 3, 4, 2, 1)
+        self.assertAlmostEqual(obb.ux, 0.6, places=self.places)
+        self.assertAlmostEqual(obb.uy, 0.8, places=self.places)
+        self.assertEqual((obb.width, obb.height), (4, 2))
+        with self.assertRaises(ValueError):
+            self.Obb(self.Point(0, 0, 0), 0, 0, 1, 1)
+        with self.assertRaises(ValueError):
+            self.Obb(self.Point(0, 0, 0), 1, 0, -1, 1)
+
+    def test_aabb_spans_a_turned_box(self):
+        obb = self._box()
+        obb.rotate(math.pi / 6, 1, 2)
+        box = obb.aabb()
+        xs, ys = zip(*self._corners(obb))
+        for got, want in ((box.min_x, min(xs)), (box.max_x, max(xs)),
+                          (box.min_y, min(ys)), (box.max_y, max(ys))):
+            self.assertAlmostEqual(got, want, places=self.places)
+
+    def test_a_world_hands_out_a_copy(self):
+        w = self.World()
+        sid = w.add_rectangle(-1, 1, 3, 3)
+        obb = w.shape_obb(sid)
+        self.assertIsInstance(obb, self.Obb)
+        obb.translate(5, 5)
+        self.assertEqual(w.shape_obb(sid).center.x, 1)
+
+
+class OrientedBoundBox3dFp32TC(OrientedBoundBox3dTB, unittest.TestCase):
+
+    Obb = solvcon.OrientedBoundBox3dFp32
+    BoundBox = solvcon.BoundBox3dFp32
+    Point = solvcon.Point3dFp32
+    World = solvcon.WorldFp32
+    places = 3
+
+
+class OrientedBoundBox3dFp64TC(OrientedBoundBox3dTB, unittest.TestCase):
+
+    Obb = solvcon.OrientedBoundBox3dFp64
+    BoundBox = solvcon.BoundBox3dFp64
+    Point = solvcon.Point3dFp64
+    World = solvcon.WorldFp64
+    places = 9
 
 
 class WorldLineTC(unittest.TestCase):
@@ -1215,13 +1330,29 @@ class WorldMovePointsTC(unittest.TestCase):
     def test_oriented_box_keeps_its_rotation(self):
         def angle():
             obb = self.w.shape_obb(self.sid)
-            return math.atan2(obb[3] - obb[1], obb[2] - obb[0])
+            return math.atan2(obb.uy, obb.ux)
 
         self.w.rotate_shape(self.sid, math.pi / 6, 0, 0)
         before = angle()
         self.w.move_shape_points(self.sid, _refs((0, PT.B3CURVE_P1)), -2, 3)
         self.assertAlmostEqual(angle(), before)
         self.assertAlmostEqual(angle(), math.pi / 6)
+
+    def test_a_collapsed_box_keeps_its_rotation(self):
+        # A turned line squeezed to a point has no width left to read its
+        # axis from, yet its box still knows the turn once the line regrows.
+        w = solvcon.WorldFp64()
+        sid = w.add_line(0, 0, 2, 0)
+        w.rotate_shape(sid, math.pi / 2, 0, 0)
+        end = _refs((0, PT.SEGMENT_P1))
+        seg = w.segment(0)
+        w.move_shape_points(sid, end, -seg.x1, -seg.y1)
+        self.assertEqual(w.shape_obb(sid).width, 0)
+        w.move_shape_points(sid, end, 0, 3)
+        obb = w.shape_obb(sid)
+        self.assertAlmostEqual(math.atan2(obb.uy, obb.ux), math.pi / 2)
+        self.assertAlmostEqual(obb.width, 3)
+        self.assertAlmostEqual(obb.height, 0)
 
     def test_a_dead_shape_raises(self):
         self.w.remove_shape(self.sid)
