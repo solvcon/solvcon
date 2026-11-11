@@ -352,10 +352,10 @@ class LayersPage(PaletteStyled):
         Both come from the shape's own oriented box, because the serialized
         box is axis-aligned and reads wider than a rotated shape really is.
         """
-        width, height = Parts.obb_metrics(world.shape_obb(shape["id"]))[2:]
+        obb = world.shape_obb(shape["id"])
         if "circle" == shape["type"]:
-            return f"r {0.5 * width:g}"
-        return f"{width:g} x {height:g}"
+            return f"r {obb.half_width:g}"
+        return f"{obb.width:g} x {obb.height:g}"
 
     def _icon_of(self, name, selected):
         """The icon for the shape type ``name``, or ``None`` for a type the
