@@ -221,6 +221,18 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 py::arg("h"))
             .def_property_readonly("mesh", &wrapped_type::mesh)
             .def("updateMesh", &wrapped_type::updateMesh, py::arg("mesh"))
+            .def_property(
+                "windowTitle",
+                [](wrapped_type const & self)
+                {
+                    return self.windowTitle().toStdString();
+                },
+                [](wrapped_type & self, std::string const & title)
+                {
+                    self.setWindowTitle(QString::fromStdString(title));
+                },
+                "Title of the sub-window showing the viewer; an empty string "
+                "gives the default title.")
             .def(
                 "addObject",
                 &wrapped_type::addObject,

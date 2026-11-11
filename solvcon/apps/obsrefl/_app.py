@@ -36,6 +36,9 @@ class ObsreflApp(base.PilotFeature):
     controller between them starts, pauses, steps, and ends the march.
     """
 
+    #: The text of the menu entry and the title of the domain viewer.
+    NAME = "Oblique shock reflection"
+
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         # Fired after a run sets the viewer mesh, so the inspector can refresh.
@@ -44,13 +47,13 @@ class ObsreflApp(base.PilotFeature):
         self._dock = None
         self._panel = None
         self._control = None
-        self._viewer = visual.DomainViewer(self._mgr)
+        self._viewer = visual.DomainViewer(self._mgr, title=self.NAME)
         self._viewer.mesh_updated = self._notify_viewer_updated
         self._lineplots = LinePlotViewer(self._mgr)
 
     def populate_menu(self):
         self._action = self.add_action(
-            "View/Panels", "Oblique shock reflection",
+            "View/Panels", self.NAME,
             "Toggle the oblique shock reflection panel",
             None, id="panel.obsrefl", weight=15, checkable=True)
         self._action.toggled.connect(self._on_toggled)

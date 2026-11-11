@@ -52,6 +52,24 @@ class DomainViewerTC(unittest.TestCase):
         self.viewer.open()
         self.assertIs(subwin, self.viewer._subwin)
 
+    def test_an_untitled_viewer_takes_the_default_title(self):
+        for title in (None, ""):
+            viewer = visual.DomainViewer(self.mgr, title=title)
+            viewer.open()
+            self.addCleanup(viewer.close)
+            self.assertEqual("Domain viewer", viewer._subwin.windowTitle())
+
+    def test_the_title_outlives_a_close(self):
+        viewer = visual.DomainViewer(self.mgr, title="My domain")
+        self.addCleanup(viewer.close)
+        for _ in range(2):
+            viewer.open()
+            self.assertEqual("My domain", viewer._subwin.windowTitle())
+            viewer.update_mesh(self._mesh())
+            self.assertEqual("My domain", viewer._subwin.windowTitle())
+            viewer.close()
+            QApplication.processEvents()
+
     def test_a_close_from_qt_reaches_the_owner(self):
         self.viewer.open()
         self.viewer._subwin.close()

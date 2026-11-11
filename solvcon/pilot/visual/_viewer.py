@@ -33,14 +33,18 @@ class DomainViewer(object):
 
     The spatial domain is defined by a mesh
     (:class:`~solvcon.core.StaticMesh`). The viewer colors it with field data.
+
+    :param title: The sub-window title, kept across a close and reopen.
+        None or an empty string gives the default title.
     """
 
     #: Lift the path overlay off the z = 0 field plane so it is not
     #: z-fought away by the colored triangles.
     PATH_LIFT = 0.01
 
-    def __init__(self, mgr):
+    def __init__(self, mgr, title=None):
         self._mgr = mgr
+        self._title = title or ""
         # Owner-supplied callbacks: `closed` fires when the sub-window
         # closes from any source, `mesh_updated` after the mesh is set.
         self.closed = None
@@ -70,6 +74,7 @@ class DomainViewer(object):
         if self._viewer is not None:
             return
         self._viewer = self._mgr.add3DWidget()
+        self._viewer.windowTitle = self._title
         self._viewer.showAxis(True)
         # Delete the sub-window on close and watch for that close, so a
         # close from any source reaches `closed` before Qt frees the widget.
