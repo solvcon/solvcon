@@ -137,7 +137,7 @@ class ObsreflAppTC(_AppFixture, unittest.TestCase):
         self.assertIs(viewer, self.mgr.currentR3DWidget())
         self.assertFalse(error.isHidden())
 
-        panel._freestream._angle.setValue(20.0)
+        panel._freestream._angle.setValue(10.0)
         control.start()
         control._timer.stop()
 
