@@ -1,0 +1,24 @@
+# The Python packages installed into the SDK prefix by prepare-with-aqt.sh,
+# pinned by uv.lock.  PySide6-Essentials and shiboken6 must match QT_VERSION
+# in prepare-with-aqt.sh.  After editing, run `uv lock` in this directory and
+# commit uv.lock.
+
+[project]
+name = "solvcon-bundle"
+version = "0"
+requires-python = "==3.14.*"
+dependencies = [
+    "PySide6-Essentials==6.11.1",
+    "shiboken6==6.11.1",
+    "numpy==2.5.3",
+    "matplotlib==3.11.2",
+    "jsonschema==4.26.0",
+    "zstandard",
+    "lz4",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
