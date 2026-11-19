@@ -11,9 +11,31 @@ The dialog is built from whatever a backend advertises through
 from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QComboBox, QLabel,
                                QLineEdit, QFormLayout, QVBoxLayout)
 
+from ...agent import BackendRegistry
+from ...config import Config
+
 __all__ = [  # noqa: F822
     'AgentBackendSettingsDialog',
+    'edit_backend_settings',
 ]
+
+
+def edit_backend_settings(backend, parent=None):
+    """Let the user configure ``backend``, and keep what they accept.
+
+    The settings live on the registry's backend instance, so an edit holds
+    for every later turn, and the accepted values go to the configuration
+    file.  Returns why the file was not written, or None.
+    """
+    if not AgentBackendSettingsDialog(backend, parent=parent).exec():
+        return None
+    config = Config.instance()
+    BackendRegistry.save_settings(config)
+    try:
+        config.save()
+    except OSError as exc:
+        return "agent settings not saved to %s: %s\n" % (config.path, exc)
+    return None
 
 
 class AgentBackendSettingsDialog(QDialog):

@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
 from ...agent import AgentBackend, AgentSession, BackendRegistry, op_of
 from ...config import Config
 from . import _agent_control
-from ._agent_settings import AgentBackendSettingsDialog
+from ._agent_settings import edit_backend_settings
 from .. import base
 
 __all__ = [  # noqa: F822
@@ -261,25 +261,13 @@ class AgentPanel(base.PilotFeature):
         self._dock.visibilityChanged.connect(self._action.setChecked)
 
     def _on_settings_requested(self):
-        """Configure the selected backend.  The settings live on the registry's
-        backend instance, so an edit holds for every later turn, and the
-        accepted values go to the configuration file so they also outlive the
-        session."""
+        """Configure the selected backend and save what the user accepts."""
         backend = self._panel.selected_backend()
         if backend is None:
             return
-        dialog = AgentBackendSettingsDialog(backend, parent=self._panel)
-        if not dialog.exec():
-            return
-        BackendRegistry.save_settings(self._config)
-        try:
-            self._config.save()
-        except OSError as exc:
-            # The edit still holds for this session; only the file is lost, and
-            # saying so beats a silent no-op the user finds out about later.
-            self._panel.append_message(
-                "agent", "settings not saved to %s: %s"
-                % (self._config.path, exc))
+        error = edit_backend_settings(backend, parent=self._panel)
+        if error:
+            self._panel.append_message("agent", error.rstrip("\n"))
 
     def _on_submitted(self, prompt):
         """Start one turn on the active canvas without blocking the GUI."""
