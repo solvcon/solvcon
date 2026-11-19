@@ -38,6 +38,7 @@ __all__ = [
     'push_code',
     'reset_console',
     'run_worker',
+    'stdin_at_eof',
     'stop_code',
     'build_pilot_namespace',
     'format_banner',
@@ -83,15 +84,10 @@ class _ConsoleInterpreter(code.InteractiveConsole):
 
 
 @contextlib.contextmanager
-def _stdin_at_eof():
+def stdin_at_eof():
     """
-    Present an exhausted ``sys.stdin`` for the duration of a command.
-
-    The embedded console has no interactive input. A command that reads
-    stdin, such as a bare ``help()`` that starts pydoc's interactive
-    browser, would otherwise block the GUI thread forever waiting for a
-    line that never arrives. An empty stream reads as immediate EOF, so
-    the read ends at once and the command returns.
+    Make ``sys.stdin`` read as EOF, so ``input()`` or a bare ``help()`` in a
+    command returns instead of blocking the GUI thread.
     """
     saved = sys.stdin
     sys.stdin = io.StringIO()
@@ -157,7 +153,7 @@ class AppEnvironment:
         more = False
         # The treatment is for the console UI that has I/O in separate text
         # boxes. After having an alternate terminal UI, it will have stdio.
-        with _stdin_at_eof():
+        with stdin_at_eof():
             for line in source.split('\n'):
                 more = self.console.push(line)
             if more:
@@ -180,7 +176,7 @@ class AppEnvironment:
         if not self.console.buffer:
             for refresh in self.namespace_refreshers:
                 refresh(self.globals)
-        with _stdin_at_eof():
+        with stdin_at_eof():
             return self.console.push(line)
 
 
