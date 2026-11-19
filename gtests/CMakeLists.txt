@@ -86,13 +86,9 @@ add_executable(
     test_nopython_mdspan.cpp
     test_nopython_winograd.cpp
     test_nopython_multidim.cpp
-    test_nopython_pilot_history.cpp
-    test_nopython_pilot_syntax.cpp
     test_nopython_pilot_theme.cpp
     test_nopython_pilot_keymap.cpp
     ${SOLVCON_DEVICE_TEST_SOURCES}
-    ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/console/RPythonConsoleHistory.cpp
-    ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/console/RPythonSyntaxRules.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/theme/theme.cpp
     ${SOLVCON_INCLUDE_DIR}/solvcon/pilot/app/keymap.cpp
     ${SOLVCON_TOGGLE_SOURCES}

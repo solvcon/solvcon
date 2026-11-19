@@ -12,22 +12,13 @@
 
 using solvcon::canvas2dPaletteFor;
 using solvcon::darkCanvas2dPalette;
-#ifndef SC_DISABLE_CPP_PYCON
-using solvcon::darkSyntaxColors;
-#endif // SC_DISABLE_CPP_PYCON
 using solvcon::darkThemePalette;
 using solvcon::lightCanvas2dPalette;
-#ifndef SC_DISABLE_CPP_PYCON
-using solvcon::lightSyntaxColors;
-#endif // SC_DISABLE_CPP_PYCON
 using solvcon::lightThemePalette;
 using solvcon::linuxDesktopHasNativeTheme;
 using solvcon::PlatformId;
 using solvcon::platformIdName;
 using solvcon::resolveThemeVariant;
-#ifndef SC_DISABLE_CPP_PYCON
-using solvcon::syntaxColorsFor;
-#endif // SC_DISABLE_CPP_PYCON
 using solvcon::themeCapabilitiesFor;
 using solvcon::ThemeLook;
 using solvcon::themeLookFromId;
@@ -179,35 +170,6 @@ TEST(PilotThemeWindowsRoom, HasItsOwnTableDistinctFromTheCuratedAndMac)
     EXPECT_GT(win_light.window.g, win_dark.window.g);
     EXPECT_LT(win_light.text.g, win_dark.text.g);
 }
-
-#ifndef SC_DISABLE_CPP_PYCON
-TEST(PilotThemeSyntax, DarkTokensAreBrighterAndSelectByVariant)
-{
-    auto const & light = lightSyntaxColors();
-    auto const & dark = darkSyntaxColors();
-
-    auto sum = [](solvcon::ThemeColor c)
-    { return static_cast<int>(c.r) + static_cast<int>(c.g) + static_cast<int>(c.b); };
-
-    // The two tables must differ, or the console cannot follow the theme.
-    EXPECT_NE(sum(light.keyword), sum(dark.keyword));
-
-    // Dark tokens sit on a dark base, so each category is lifted brighter than
-    // its light-table counterpart; this guards against the tables being
-    // swapped.
-    EXPECT_GT(sum(dark.keyword), sum(light.keyword));
-    EXPECT_GT(sum(dark.string), sum(light.string));
-    EXPECT_GT(sum(dark.number), sum(light.number));
-    EXPECT_GT(sum(dark.error), sum(light.error));
-
-    // syntaxColorsFor selects the matching table on every platform.
-    for (PlatformId platform : {PlatformId::Linux, PlatformId::Mac, PlatformId::Windows})
-    {
-        EXPECT_EQ(syntaxColorsFor(platform, ThemeVariant::Light).keyword.b, light.keyword.b);
-        EXPECT_EQ(syntaxColorsFor(platform, ThemeVariant::Dark).keyword.b, dark.keyword.b);
-    }
-}
-#endif // SC_DISABLE_CPP_PYCON
 
 TEST(PilotCanvas2dPalette, TablesInvertAndSelectByVariant)
 {

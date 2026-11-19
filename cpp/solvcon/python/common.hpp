@@ -624,13 +624,6 @@ public:
     Interpreter & setup_process();
 
     int enter_main();
-#ifndef SC_DISABLE_CPP_PYCON
-    void exec_code(std::string const & code);
-    bool push_code(std::string const & line);
-    void reset_console();
-    std::vector<std::string> get_completions(std::string const & text);
-    std::string get_call_tip(std::string const & text);
-#endif // SC_DISABLE_CPP_PYCON
 
 private:
 
@@ -640,53 +633,6 @@ private:
 
 }; /* end class Interpreter */
 
-#ifndef SC_DISABLE_CPP_PYCON
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-// Suppress the warning "greater visibility than the type of its field"
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-class PythonStreamRedirect
-{
-
-public:
-
-    explicit PythonStreamRedirect(bool enabled)
-    {
-        set_enabled(enabled);
-    }
-
-    std::string stdout_string() const;
-    std::string stderr_string() const;
-
-    PythonStreamRedirect & set_enabled(bool enabled)
-    {
-        Toggle::instance().set_bool("python_redirect", enabled);
-        return *this;
-    }
-
-    // FIXME: NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    bool is_enabled() const { return Toggle::instance().get<bool>("python_redirect", true); }
-    bool is_disabled() const { return !is_enabled(); }
-
-    PythonStreamRedirect & activate();
-    PythonStreamRedirect & deactivate();
-
-    bool is_activated() const { return static_cast<bool>(m_stdout_backup) || static_cast<bool>(m_stderr_backup); }
-    bool is_deactivated() const { return !is_activated(); }
-
-private:
-
-    pybind11::object m_stdout_backup;
-    pybind11::object m_stderr_backup;
-    pybind11::object m_stdout_buffer;
-    pybind11::object m_stderr_buffer;
-
-}; /* end class PythonStreamRedirect */
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-#endif // SC_DISABLE_CPP_PYCON
 } /* end namespace python */
 
 } /* end namespace solvcon */
