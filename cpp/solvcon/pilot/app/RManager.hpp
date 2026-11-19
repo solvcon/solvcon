@@ -18,8 +18,11 @@
 #include <solvcon/pilot/visual/RDomainWidget.hpp>
 #include <solvcon/pilot/canvas/R2DWidget.hpp>
 #include <solvcon/pilot/app/RAction.hpp>
+#include <solvcon/toggle/build_config.hpp>
+#ifndef SC_DISABLE_CPP_PYCON
 #include <solvcon/pilot/console/RPythonConsoleDockWidget.hpp>
 #include <solvcon/pilot/console/RPythonTerminalDockWidget.hpp>
+#endif // SC_DISABLE_CPP_PYCON
 
 #include <vector>
 
@@ -42,9 +45,10 @@ class RThreadManager;
  * widgets, menus, and the active canvas drawing tool.
  *
  * The manager holds the QCoreApplication, the QMainWindow with its menus and
- * MDI area, and the Python console dock. It creates and tracks the 2D and 3D
- * domain widgets, exposes the currently focused canvas, and routes the active
- * drawing tool to it. Access the single instance through instance().
+ * MDI area, and, without SC_DISABLE_CPP_PYCON, the Python console docks. It
+ * creates and tracks the 2D and 3D domain widgets, exposes the currently
+ * focused canvas, and routes the active drawing tool to it. Access the single
+ * instance through instance().
  *
  * @ingroup group_domain
  */
@@ -76,9 +80,11 @@ public:
     /// Select the active drawing tool and apply it to the focused 2D canvas.
     void setDrawTool(std::string const & name);
 
+#ifndef SC_DISABLE_CPP_PYCON
     RPythonConsoleDockWidget * pycon() { return m_pycon; }
 
     RPythonTerminalDockWidget * pyterm() { return m_pyterm; }
+#endif // SC_DISABLE_CPP_PYCON
 
     QMainWindow * mainWindow() { return m_mainWindow; }
 
@@ -110,15 +116,19 @@ public:
     /// Only call reset() when the program is to be stopped.
     void reset();
 
+#ifndef SC_DISABLE_CPP_PYCON
     void toggleConsole();
     void toggleTerminal();
+#endif // SC_DISABLE_CPP_PYCON
 
 private:
 
     RManager();
 
+#ifndef SC_DISABLE_CPP_PYCON
     void setUpConsole();
     void setUpTerminal();
+#endif // SC_DISABLE_CPP_PYCON
     void setUpCentral();
     void setUpMenu();
 
@@ -177,8 +187,10 @@ private:
 
     RThreadManager * m_thread_manager = nullptr;
 
+#ifndef SC_DISABLE_CPP_PYCON
     RPythonConsoleDockWidget * m_pycon = nullptr;
     RPythonTerminalDockWidget * m_pyterm = nullptr;
+#endif // SC_DISABLE_CPP_PYCON
     QMdiArea * m_mdiArea = nullptr;
 
     /**

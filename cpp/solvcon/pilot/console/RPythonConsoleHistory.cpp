@@ -3,6 +3,10 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
+#ifndef SC_DISABLE_CPP_PYCON
+
 #include <solvcon/pilot/console/RPythonConsoleHistory.hpp>
 
 #include <filesystem>
@@ -160,5 +164,7 @@ std::size_t RPythonConsoleHistory::searchBackward(std::string const & query, std
 }
 
 } /* end namespace solvcon */
+
+#endif // SC_DISABLE_CPP_PYCON
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

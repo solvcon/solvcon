@@ -77,8 +77,8 @@ class ShortcutResolutionTC(unittest.TestCase):
         self.assertEqual(r["role"], "none")
         self.assertEqual(r["sequences"], ["Esc"])
 
-    def test_console_resolves_to_the_grave_toggle(self):
-        r = self.mgr.resolve_shortcut("window.console")
+    def test_command_panel_resolves_to_the_grave_toggle(self):
+        r = self.mgr.resolve_shortcut("panel.command")
         self.assertTrue(r["known"])
         self.assertTrue(r["bound"])
         self.assertFalse(r["standard"])
@@ -186,11 +186,11 @@ class ShortcutResolutionTC(unittest.TestCase):
             self.assertIn("Ctrl", native_text)
 
     def test_resolved_checker_reports_curated_undo_clash(self):
-        # Rebind Console to Primary+Z; the resolved checker must see Undo.
+        # Rebind the Command panel to Primary+Z; the checker must see Undo.
         conflicts = self.mgr.shortcut_conflicts_rebinding(
-            "window.console", _KEYMOD_PRIMARY, _KEY_Z)
+            "panel.command", _KEYMOD_PRIMARY, _KEY_Z)
         pairs = {frozenset(pair) for pair in conflicts}
-        self.assertIn(frozenset({"edit.undo", "window.console"}), pairs)
+        self.assertIn(frozenset({"edit.undo", "panel.command"}), pairs)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

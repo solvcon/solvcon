@@ -23,6 +23,34 @@ def label_switch_and_mode(overlay):
     return on, overlay.advanced_labels, overlay.coordinate_labels
 
 
+_message_sink = None
+_pending_messages = []
+
+
+def write_message(text):
+    """Show ``text`` to the user in the pilot's command transcript.
+
+    A message written before the transcript exists waits for it, so what a
+    feature reports while the pilot starts is not lost.
+    """
+    if _message_sink is None:
+        _pending_messages.append(text)
+    else:
+        _message_sink(text)
+
+
+def set_message_sink(sink):
+    """Send every message to ``sink``, starting with the ones waiting for
+    it.  ``None`` holds the messages again."""
+    global _message_sink
+    _message_sink = sink
+    if sink is not None:
+        pending = list(_pending_messages)
+        del _pending_messages[:]
+        for text in pending:
+            sink(text)
+
+
 class ToggleActionBridge(QtCore.QObject):
     """Two-way binding between a checkable QAction and a store toggle.
 
@@ -193,12 +221,9 @@ class PilotFeature(QtCore.QObject):
                 "'mgr' must be an instance of 'solvcon.pilot.RManager'")
         super(PilotFeature, self).__init__(*args, **kw)
 
-    @property
-    def _pycon(self):
-        """
-        :rtype: solvcon.pilot.RPythonConsoleDockWidget
-        """
-        return self._mgr.pycon
+    @staticmethod
+    def _write_message(text):
+        write_message(text)
 
     @property
     def _mainWindow(self):

@@ -128,7 +128,7 @@ class Save2DCanvasDialog(base.PilotFeature):
     def run(self):
         widget = self._mgr.currentR2DWidget()
         if widget is None:
-            self._pycon.writeToHistory(
+            self._write_message(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
         self._ensure_dialog()
@@ -166,7 +166,7 @@ class Save2DCanvasDialog(base.PilotFeature):
             return
         path = resolve_save_path(selected[0], self._diag.selectedNameFilter())
         if path is None:
-            self._pycon.writeToHistory(
+            self._write_message(
                 "Save 2D canvas: only png, jpg, or svg is allowed\n")
             return
         self._save_current(path)
@@ -186,7 +186,7 @@ class Save2DCanvasDialog(base.PilotFeature):
     def _save_current(self, path):
         widget = self._mgr.currentR2DWidget()
         if widget is None:
-            self._pycon.writeToHistory(
+            self._write_message(
                 "Save 2D canvas: no focused 2D canvas\n")
             return False
         # _export_overlay reads the dialog's label controls; build it first.
@@ -197,9 +197,9 @@ class Save2DCanvasDialog(base.PilotFeature):
         else:
             ok = widget.saveImage(path, overlay)
         if ok:
-            self._pycon.writeToHistory(f"Save 2D canvas: wrote {path}\n")
+            self._write_message(f"Save 2D canvas: wrote {path}\n")
         else:
-            self._pycon.writeToHistory(
+            self._write_message(
                 f"Save 2D canvas: failed to write {path}\n")
         return ok
 

@@ -43,8 +43,13 @@ __all__ = [
     'build_pilot_namespace',
     'format_banner',
     'install_pilot_namespace',
+    'PILOT_CONSOLE_NOTE',
 ]
 
+
+# What the console says when it starts; help_pilot() prints the full list.
+PILOT_CONSOLE_NOTE = (
+    "solvcon pilot console. Call help_pilot() to print help.\n")
 
 # A lazily created single-thread pool that backs run_worker.
 _worker_pool = None
@@ -377,7 +382,8 @@ def install_pilot_namespace(mgr, appenv, extra=None):
     Seed the console namespace from the pilot manager and keep it fresh.
 
     The dynamic handles (``viewer``, ``mesh``) are refreshed before each
-    command so they track the focused viewer.
+    command so they track the focused viewer. ``help_pilot()`` prints the
+    banner.
 
     :param mgr: The pilot manager.
     :param appenv: The :class:`AppEnvironment` to seed.
@@ -391,9 +397,12 @@ def install_pilot_namespace(mgr, appenv, extra=None):
     if extra is not None:
         handles.update(extra[0])
         entries.extend(extra[1])
+    entries.append(('help_pilot()', 'print this list'))
+    banner = format_banner(entries)
+    handles['help_pilot'] = lambda: print(banner, end="")
     appenv.seed(**handles)
     appenv.add_namespace_refresher(
         lambda namespace: _refresh_pilot_namespace(mgr, namespace))
-    return format_banner(entries)
+    return banner
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

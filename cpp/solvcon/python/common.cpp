@@ -168,6 +168,7 @@ void Interpreter::preload_modules(std::vector<std::string> const & names)
     }
 }
 
+#ifndef SC_DISABLE_CPP_PYCON
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 void Interpreter::exec_code(std::string const & code)
 {
@@ -317,6 +318,7 @@ std::string PythonStreamRedirect::stderr_string() const
     m_stderr_buffer.attr("seek")(0);
     return pybind11::str(m_stderr_buffer.attr("read")());
 }
+#endif // SC_DISABLE_CPP_PYCON
 
 } /* end namespace python */
 

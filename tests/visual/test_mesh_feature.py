@@ -4,6 +4,7 @@
 
 import os
 import unittest
+from unittest import mock
 
 import solvcon
 from solvcon import testing
@@ -72,18 +73,15 @@ class _FakeViewer:
         self.calls.append(('boundary', ibc, flag))
 
 
-class _FakeConsole:
-    def __init__(self):
-        self.history = []
-
-    def writeToHistory(self, text):
-        self.history.append(text)
-
-
 class _FakeManager:
     def __init__(self):
         self.viewers = []
-        self.pycon = _FakeConsole()
+        self.messages = []
+
+    def capture_messages(self):
+        from solvcon.pilot.base import _gui_common
+        return mock.patch.object(_gui_common, "_message_sink",
+                                 self.messages.append)
 
     def add3DWidget(self):
         self.viewers.append(_FakeViewer())
@@ -97,6 +95,9 @@ class MeshDrawerTC(unittest.TestCase):
     def setUp(self):
         from solvcon.pilot import visual
         self.mgr = _FakeManager()
+        capture = self.mgr.capture_messages()
+        capture.start()
+        self.addCleanup(capture.stop)
         self.drawer = visual.MeshDrawer(self.mgr)
         self.mh = _make_rectangle()
 
@@ -106,14 +107,14 @@ class MeshDrawerTC(unittest.TestCase):
         self.assertEqual(w.calls[:2], [('mesh', self.mh), ('axis', True)])
         self.assertEqual(
             w.calls[2:], [('boundary', i, True) for i in range(4)])
-        # Only draw() writes the summary; show() keeps the console quiet.
-        self.assertEqual(self.mgr.pycon.history, [])
+        # Only draw() writes the summary; show() writes no message.
+        self.assertEqual(self.mgr.messages, [])
 
     def test_draw_writes_one_summary(self):
         w = self.drawer.draw(self.mh, "quad")
         self.assertEqual(self.mgr.viewers, [w])
-        self.assertEqual(len(self.mgr.pycon.history), 1)
-        self.assertTrue(self.mgr.pycon.history[0].startswith("quad: "))
+        self.assertEqual(len(self.mgr.messages), 1)
+        self.assertTrue(self.mgr.messages[0].startswith("quad: "))
 
     def test_each_draw_opens_a_new_viewer(self):
         first = self.drawer.draw(self.mh, "a")
@@ -136,7 +137,7 @@ class MeshDrawerTC(unittest.TestCase):
         w = self.drawer.draw(self.mh, "a")
         self.assertIs(self.drawer.draw(self.mh, "b", viewer=w), w)
         self.assertEqual(self.mgr.viewers, [w])
-        self.assertEqual(len(self.mgr.pycon.history), 2)
+        self.assertEqual(len(self.mgr.messages), 2)
 
     def test_viewer_takes_the_given_title(self):
         w = self.drawer.show(self.mh, title="a")
@@ -164,8 +165,9 @@ class MeshSummaryTC(unittest.TestCase):
 
     def _summary(self, mh, label, notes=None):
         mgr = _FakeManager()
-        self.visual.MeshDrawer(mgr).draw(mh, label, notes=notes)
-        return mgr.pycon.history[-1]
+        with mgr.capture_messages():
+            self.visual.MeshDrawer(mgr).draw(mh, label, notes=notes)
+        return mgr.messages[-1]
 
     def test_unnamed_boundary_group_is_called_by_index(self):
         mh = self.visual.SampleMesh().make('triangle')

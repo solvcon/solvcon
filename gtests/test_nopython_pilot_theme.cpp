@@ -12,16 +12,22 @@
 
 using solvcon::canvas2dPaletteFor;
 using solvcon::darkCanvas2dPalette;
+#ifndef SC_DISABLE_CPP_PYCON
 using solvcon::darkSyntaxColors;
+#endif // SC_DISABLE_CPP_PYCON
 using solvcon::darkThemePalette;
 using solvcon::lightCanvas2dPalette;
+#ifndef SC_DISABLE_CPP_PYCON
 using solvcon::lightSyntaxColors;
+#endif // SC_DISABLE_CPP_PYCON
 using solvcon::lightThemePalette;
 using solvcon::linuxDesktopHasNativeTheme;
 using solvcon::PlatformId;
 using solvcon::platformIdName;
 using solvcon::resolveThemeVariant;
+#ifndef SC_DISABLE_CPP_PYCON
 using solvcon::syntaxColorsFor;
+#endif // SC_DISABLE_CPP_PYCON
 using solvcon::themeCapabilitiesFor;
 using solvcon::ThemeLook;
 using solvcon::themeLookFromId;
@@ -174,6 +180,7 @@ TEST(PilotThemeWindowsRoom, HasItsOwnTableDistinctFromTheCuratedAndMac)
     EXPECT_LT(win_light.text.g, win_dark.text.g);
 }
 
+#ifndef SC_DISABLE_CPP_PYCON
 TEST(PilotThemeSyntax, DarkTokensAreBrighterAndSelectByVariant)
 {
     auto const & light = lightSyntaxColors();
@@ -200,6 +207,7 @@ TEST(PilotThemeSyntax, DarkTokensAreBrighterAndSelectByVariant)
         EXPECT_EQ(syntaxColorsFor(platform, ThemeVariant::Dark).keyword.b, dark.keyword.b);
     }
 }
+#endif // SC_DISABLE_CPP_PYCON
 
 TEST(PilotCanvas2dPalette, TablesInvertAndSelectByVariant)
 {

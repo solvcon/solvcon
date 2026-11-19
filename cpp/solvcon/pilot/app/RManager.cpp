@@ -152,8 +152,10 @@ RManager & RManager::setUp()
         // Paint the style and palette for widgets to follow.
         this->m_themeManager->setWindow(m_mainWindow);
         this->m_themeManager->apply();
+#ifndef SC_DISABLE_CPP_PYCON
         this->setUpConsole();
         this->setUpTerminal();
+#endif // SC_DISABLE_CPP_PYCON
         this->setUpCentral();
         this->primeRhiComposition();
         this->setUpMenu();
@@ -200,8 +202,10 @@ void RManager::reset()
     m_core = nullptr;
     m_mainWindow = nullptr;
     m_menuModel = nullptr;
+#ifndef SC_DISABLE_CPP_PYCON
     m_pycon = nullptr;
     m_pyterm = nullptr;
+#endif // SC_DISABLE_CPP_PYCON
     m_mdiArea = nullptr;
     m_rhi_primer = nullptr;
 }
@@ -447,6 +451,7 @@ void RManager::redoCanvas() const
     canvas->requestRepaint();
 }
 
+#ifndef SC_DISABLE_CPP_PYCON
 void RManager::toggleConsole()
 {
     if (m_pycon)
@@ -509,6 +514,7 @@ void RManager::setUpTerminal()
     applyTerminalTheme(m_themeManager->currentVariant());
     QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_pyterm, applyTerminalTheme);
 }
+#endif // SC_DISABLE_CPP_PYCON
 
 void RManager::setUpCentral()
 {

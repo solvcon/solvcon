@@ -3,6 +3,10 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
+#ifndef SC_DISABLE_CPP_PYCON
+
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 
 #include <string>
@@ -89,5 +93,7 @@ TEST(PilotSyntaxBracket, ReturnsNposForUnmatchedOrNonBracket)
     EXPECT_EQ(matchBracket("ab", 0), syntax_npos);
     EXPECT_EQ(matchBracket("()", 5), syntax_npos);
 }
+
+#endif // SC_DISABLE_CPP_PYCON
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

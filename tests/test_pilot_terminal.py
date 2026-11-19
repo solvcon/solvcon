@@ -41,7 +41,9 @@ class TerminalWidgetTC(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # The controller writes the banner. Build it here rather than rely on
+        if not hasattr(pilot.RManager, "pyterm"):
+            raise unittest.SkipTest("built with SC_DISABLE_CPP_PYCON")
+        # The controller writes the note. Build it here rather than rely on
         # an earlier test in the same process; the build is idempotent.
         from solvcon.pilot.base import _gui
         cls.mgr = _gui.controller.build()
@@ -74,10 +76,10 @@ class TerminalWidgetTC(unittest.TestCase):
         self.assertIsNotNone(self.edit)
         self.assertTrue(self.edit.toPlainText().endswith(">>> "))
 
-    def test_terminal_greets_with_the_console_banner(self):
-        # The terminal opens with the same handles-in-scope banner the
-        # two-pane console prints, above its first prompt.
-        self.assertIn("solvcon pilot console. Handles in scope:",
+    def test_terminal_greets_with_the_console_note(self):
+        # The terminal opens with the same one-line note the two-pane console
+        # prints, above its first prompt.
+        self.assertIn("solvcon pilot console. Call help_pilot()",
                       self.edit.toPlainText())
 
     def test_typed_text_becomes_the_input(self):

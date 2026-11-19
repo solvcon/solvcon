@@ -808,6 +808,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
 
 }; /* end class WrapR2DWidget */
 
+#ifndef SC_DISABLE_CPP_PYCON
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPythonConsoleDockWidget
     : public WrapBase<WrapRPythonConsoleDockWidget, RPythonConsoleDockWidget>
 {
@@ -895,6 +896,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRPythonTerminalDockWidget
     }
 
 }; /* end class WrapRPythonTerminalDockWidget */
+#endif // SC_DISABLE_CPP_PYCON
 
 class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRMenuModel
     : public WrapBase<WrapRMenuModel, RMenuModel>
@@ -1031,6 +1033,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
         namespace py = pybind11;
 
         (*this)
+#ifndef SC_DISABLE_CPP_PYCON
             .def_property_readonly(
                 "pycon",
                 [](wrapped_type & self)
@@ -1043,6 +1046,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 {
                     return self.pyterm();
                 })
+#endif // SC_DISABLE_CPP_PYCON
             .def(
                 "add3DWidget",
                 [](wrapped_type & self)
@@ -1087,6 +1091,11 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 {
                     return self.mdiArea();
                 })
+            //
+            ;
+
+#ifndef SC_DISABLE_CPP_PYCON
+        (*this)
             .def(
                 "toggleConsole",
                 [](wrapped_type & self)
@@ -1101,6 +1110,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRManager
                 })
             //
             ;
+#endif // SC_DISABLE_CPP_PYCON
 
         return *this;
     }
@@ -1368,8 +1378,10 @@ void wrap_pilot(pybind11::module & mod)
         .def_readwrite("advanced_labels", &Overlay2dOptions::advanced_labels)
         .def_readwrite("highlight_id", &Overlay2dOptions::highlight_id);
     WrapR2DWidget::commit(mod, "R2DWidget", "R2DWidget");
+#ifndef SC_DISABLE_CPP_PYCON
     WrapRPythonConsoleDockWidget::commit(mod, "RPythonConsoleDockWidget", "RPythonConsoleDockWidget");
     WrapRPythonTerminalDockWidget::commit(mod, "RPythonTerminalDockWidget", "RPythonTerminalDockWidget");
+#endif // SC_DISABLE_CPP_PYCON
     WrapRMenuModel::commit(
         mod,
         "RMenuModel",

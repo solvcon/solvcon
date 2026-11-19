@@ -359,7 +359,7 @@ class AgentPanel(base.PilotFeature):
         formatted = compose(prompt, scene, tool_surface, history)
         if not formatted:
             return
-        self._pycon.writeToHistory(
+        self._write_message(
             "History (before send):\n%s\n\n" % formatted)
 
     @staticmethod

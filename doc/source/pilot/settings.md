@@ -12,9 +12,8 @@ resolved in this order:
 Pilot starts from its defaults when the file is missing or cannot be parsed,
 so removing the file or breaking a hand edit does not stop the application.
 
-The same directory holds `pilot.ini` for the theme and `console_history` for
-the console history. The content of `pilot.ini` will be merged into
-`pilot.json`.
+The same directory holds `pilot.ini` for the theme. Its content will be merged
+into `pilot.json`.
 
 Settings are grouped by section. The `ui` section holds the state of the user
 interface, one entry per part of it that is remembered:

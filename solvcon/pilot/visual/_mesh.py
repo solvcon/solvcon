@@ -27,7 +27,8 @@ class SampleMesh:
     The built-in sample meshes as data.
 
     Each ``mesh_*`` method builds and returns a :class:`StaticMesh` with no
-    Qt, so the same example meshes serve the GUI feature and the console.
+    Qt, so the same example meshes serve the GUI feature and the Command
+    panel.
     """
 
     def make(self, name):
@@ -292,7 +293,7 @@ class MeshDrawer:
     def draw(self, mh, label, notes=None, viewer=None, title=None):
         """
         Show ``mh`` like :meth:`show`, in a sub-window named ``title``.
-        Write a summary to the console and return the viewer.
+        Write a summary to the user and return the viewer.
 
         ``draw(mh, "quad", notes={'left': "red inlet"})`` on a 4x2 quad
         rectangle writes::
@@ -303,7 +304,7 @@ class MeshDrawer:
         An unnamed boundary group shows as ``bc0``, ``bc1``, and so on.
         """
         w = self.show(mh, viewer=viewer, title=title)
-        self._mgr.pycon.writeToHistory(self._describe_mesh(mh, label, notes))
+        base.write_message(self._describe_mesh(mh, label, notes))
         return w
 
     @staticmethod
@@ -519,7 +520,7 @@ class MeshStyleStatus(QtCore.QObject):
         """Show or hide ``name`` in the active viewer, then refresh the UIs."""
         widget = self._mgr.currentR3DWidget()
         if widget is None:
-            self._mgr.pycon.writeToHistory(
+            base.write_message(
                 "No active 3D viewer to toggle the mesh style\n")
         else:
             widget.showMeshStyle(name, shown)
@@ -604,15 +605,15 @@ class GmshFileDialog(base.PilotFeature):
 
     def _load_gmsh_file(self, filename):
         if not os.path.exists(filename):
-            self._pycon.writeToHistory(f"{filename} does not exist\n")
+            self._write_message(f"{filename} does not exist\n")
             return
 
         with open(filename, 'rb') as fobj:
             data = fobj.read()
-        self._pycon.writeToHistory(f"gmsh mesh file {filename} is read\n")
+        self._write_message(f"gmsh mesh file {filename} is read\n")
         gmsh = core.Gmsh(data)
         mh = gmsh.to_block()
-        self._pycon.writeToHistory("StaticMesh object created from gmsh\n")
+        self._write_message("StaticMesh object created from gmsh\n")
         name = os.path.basename(filename)
         return MeshDrawer(self._mgr).draw(mh, name, title=name)
 

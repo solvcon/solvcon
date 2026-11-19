@@ -5,7 +5,8 @@
 """Command panel: a dock that runs Python.
 
 Every submission becomes a block in a scrolling transcript.  A Python block
-holds the code and the output it printed.
+holds the code and the output it printed; a note holds what a feature
+reported through :func:`~solvcon.pilot.base.write_message`.
 """
 
 import ast
@@ -33,6 +34,7 @@ __all__ = [  # noqa: F822
 ]
 
 PYTHON = "python"
+NOTE = "note"
 
 _DOT = "\u00b7"
 
@@ -59,8 +61,11 @@ class _PanelRules(_style.RuleCatalog):
             "QLabel#badge { border-radius: 3px; padding: 0px 5px;"
             " color: %s; font-weight: bold; }"
             "QLabel#badge[kind=\"python\"] { background: %s; }"
+            "QFrame#block[kind=\"note\"] { border-left: 3px solid %s; }"
+            "QLabel#badge[kind=\"note\"] { background: %s; }"
             % (shades.border.name(), cls._hue(shades, "python"),
-               shades.on_accent.name(), cls._hue(shades, "python")))
+               shades.on_accent.name(), cls._hue(shades, "python"),
+               shades.muted.name(), shades.muted.name()))
 
     @classmethod
     def outcomes(cls, shades):
@@ -313,6 +318,8 @@ class CommandBlock(QFrame):
 
     @staticmethod
     def _input_text(kind, text):
+        if kind == NOTE:
+            return text.rstrip("\n")
         if kind != PYTHON:
             return text
         lines = text.rstrip("\n").split("\n")
@@ -416,7 +423,9 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
             self._scroll.verticalScrollBar().setValue(hi)
 
     def add_block(self, kind, text):
-        self._follow = True
+        # A note is not worth losing the reader's place for.
+        if kind != NOTE:
+            self._follow = True
         block = CommandBlock(kind, text)
         self._blocks.insertWidget(self._blocks.count() - 1, block)
         self._block_list.append(block)
@@ -435,9 +444,8 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
 
 
 class CommandPanel(base.PilotFeature):
-    """The Command dock, toggled from the View "Panels" submenu.  Python
-    runs in the pilot's shared interpreter, with the output captured into
-    its block."""
+    """The Command dock, the pilot's console.  Python runs in the shared
+    interpreter, with the output captured into its block."""
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -448,8 +456,17 @@ class CommandPanel(base.PilotFeature):
     def populate_menu(self):
         self._action = self.add_action(
             "View/Panels", "Command", "Toggle the Python command panel",
-            None, id="panel.command", weight=30, checkable=True)
+            None, id="panel.command", weight=30, checkable=True,
+            checked=True)
         self._action.toggled.connect(self._on_toggled)
+        self._ensure_panel()
+        self._dock.show()
+        base.set_message_sink(self.write_message)
+
+    def write_message(self, text):
+        """Show ``text`` as a note; its trailing newline is dropped."""
+        self._ensure_panel()
+        self._panel.add_block(NOTE, text)
 
     @property
     def panel(self):

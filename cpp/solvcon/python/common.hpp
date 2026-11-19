@@ -624,11 +624,13 @@ public:
     Interpreter & setup_process();
 
     int enter_main();
+#ifndef SC_DISABLE_CPP_PYCON
     void exec_code(std::string const & code);
     bool push_code(std::string const & line);
     void reset_console();
     std::vector<std::string> get_completions(std::string const & text);
     std::string get_call_tip(std::string const & text);
+#endif // SC_DISABLE_CPP_PYCON
 
 private:
 
@@ -638,6 +640,7 @@ private:
 
 }; /* end class Interpreter */
 
+#ifndef SC_DISABLE_CPP_PYCON
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 // Suppress the warning "greater visibility than the type of its field"
@@ -683,6 +686,7 @@ private:
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
+#endif // SC_DISABLE_CPP_PYCON
 } /* end namespace python */
 
 } /* end namespace solvcon */

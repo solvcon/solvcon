@@ -21,6 +21,8 @@
  * @ingroup group_domain
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
 #include <cstdint>
 
 #include <solvcon/pilot/common/platform.hpp>
@@ -115,6 +117,7 @@ struct ThemePalette
     ThemeColor disabled_highlight;
 }; /* end struct ThemePalette */
 
+#ifndef SC_DISABLE_CPP_PYCON
 /**
  * @brief The colors the console's Python highlighter, its matching-bracket
  * marker, and its captured error output draw with.
@@ -138,6 +141,7 @@ struct SyntaxColors
     ThemeColor bracket_match;
     ThemeColor error;
 }; /* end struct SyntaxColors */
+#endif // SC_DISABLE_CPP_PYCON
 
 /**
  * @brief The colors the 2D canvas paints its own surface with.
@@ -200,6 +204,7 @@ ThemePalette const & darkThemePalette();
 /// The palette a platform draws a resolved variant with.
 ThemePalette const & themePaletteFor(PlatformId platform, ThemeVariant variant);
 
+#ifndef SC_DISABLE_CPP_PYCON
 /// The console syntax colors tuned for a light background.
 SyntaxColors const & lightSyntaxColors();
 
@@ -208,6 +213,7 @@ SyntaxColors const & darkSyntaxColors();
 
 /// The syntax colors a platform draws a resolved variant with.
 SyntaxColors const & syntaxColorsFor(PlatformId platform, ThemeVariant variant);
+#endif // SC_DISABLE_CPP_PYCON
 
 /// The canvas colors for a white drawing surface.
 Canvas2dPalette const & lightCanvas2dPalette();
