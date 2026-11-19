@@ -2,11 +2,10 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""Command panel: a dock that runs Python.
+"""Command panel: a command-line console dock.
 
-Every submission becomes a block in a scrolling transcript.  A Python block
-holds the code and the output it printed; a note holds what a feature
-reported through :func:`~solvcon.pilot.base.write_message`.
+The command panel provides command blocks for executing code and reporting the
+results.
 """
 
 import ast
@@ -16,13 +15,16 @@ import io
 import sys
 import time
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QCoreApplication, QTimer, Signal
 from PySide6.QtGui import QColor, QFontDatabase, QKeySequence, QTextCursor
-from PySide6.QtWidgets import (QDockWidget, QFrame, QHBoxLayout, QLabel,
-                               QPlainTextEdit, QPushButton, QScrollArea,
-                               QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QFrame,
+                               QHBoxLayout, QLabel, QPlainTextEdit,
+                               QPushButton, QScrollArea, QSizePolicy,
+                               QToolButton, QVBoxLayout, QWidget)
 
 from ... import apputil
+from ...agent import BackendRegistry, StopReason, op_of
+from .. import agent
 from .. import base
 from .. import _style
 
@@ -34,14 +36,18 @@ __all__ = [  # noqa: F822
 ]
 
 PYTHON = "python"
+AGENT = "agent"
 NOTE = "note"
+PROMPTS = {PYTHON: ">>>", AGENT: "agent>"}
 
+_CHECK = "\u2713"
+_CROSS = "\u2717"
 _DOT = "\u00b7"
 
 #: Hues with no palette role, mixed toward the text color so they keep
 #: their contrast under a light theme and a dark one.
-_HUES = {"python": "#3d7cc9", "ok": "#2e7d32", "error": "#c62828",
-         "warning": "#b8860b"}
+_HUES = {"python": "#3d7cc9", "agent": "#d9822b", "ok": "#2e7d32",
+         "error": "#c62828", "warning": "#b8860b"}
 _HUE_MIX = 0.25
 
 
@@ -57,25 +63,42 @@ class _PanelRules(_style.RuleCatalog):
     def blocks(cls, shades):
         return (
             "QFrame#block { border: 1px solid %s; border-radius: 6px; }"
+            "QFrame#block[kind=\"agent\"] { border-left: 3px solid %s; }"
             "QFrame#block[kind=\"python\"] { border-left: 3px solid %s; }"
             "QLabel#badge { border-radius: 3px; padding: 0px 5px;"
             " color: %s; font-weight: bold; }"
+            "QLabel#badge[kind=\"agent\"] { background: %s; }"
             "QLabel#badge[kind=\"python\"] { background: %s; }"
             "QFrame#block[kind=\"note\"] { border-left: 3px solid %s; }"
             "QLabel#badge[kind=\"note\"] { background: %s; }"
-            % (shades.border.name(), cls._hue(shades, "python"),
-               shades.on_accent.name(), cls._hue(shades, "python"),
+            % (shades.border.name(), cls._hue(shades, "agent"),
+               cls._hue(shades, "python"), shades.on_accent.name(),
+               cls._hue(shades, "agent"), cls._hue(shades, "python"),
                shades.muted.name(), shades.muted.name()))
 
     @classmethod
     def outcomes(cls, shades):
         return (
+            "QLabel#status[state=\"running\"] { color: %s; }"
+            "QLabel#status[state=\"stopping\"] { color: %s; }"
             "QLabel#status[state=\"ok\"] { color: %s; }"
             "QLabel#status[state=\"error\"] { color: %s; }"
+            "QLabel#status[state=\"stopped\"] { color: %s; }"
             "QLabel#error { color: %s; }"
             "QLabel#warning { color: %s; }"
-            % (cls._hue(shades, "ok"), cls._hue(shades, "error"),
-               cls._hue(shades, "error"), cls._hue(shades, "warning")))
+            % (cls._hue(shades, "warning"), shades.muted.name(),
+               cls._hue(shades, "ok"), cls._hue(shades, "error"),
+               shades.muted.name(), cls._hue(shades, "error"),
+               cls._hue(shades, "warning")))
+
+    @classmethod
+    def controls(cls, shades):
+        return (
+            "QToolButton#chip { font-weight: bold; padding: 2px 6px; }"
+            "QToolButton#chip[mode=\"agent\"] { color: %s; }"
+            "QToolButton#chip[mode=\"python\"] { color: %s; }"
+            "QToolButton#action { padding: 1px 6px; }"
+            % (cls._hue(shades, "agent"), cls._hue(shades, "python")))
 
 
 def _mono():
@@ -220,19 +243,29 @@ def _exec_tree(tree, namespace, console):
 class CommandComposer(QPlainTextEdit):
     """The multi-line input under the transcript.
 
-    Enter runs the input when it is complete and otherwise opens an indented
-    continuation line; Shift+Enter always opens a line and Ctrl+Enter always
-    runs.
+    Enter runs the input when it is complete (always, in agent mode) and
+    otherwise opens an indented continuation line; Shift+Enter always opens a
+    line and Ctrl+Enter always runs.  Esc asks to stop a running turn.
     """
 
     submitted = Signal(str)
+    mode_changed = Signal(str)
+    stop_requested = Signal()
     clear_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.mode = PYTHON
         self.setFont(_mono())
         self._fit()
         self.textChanged.connect(self._fit)
+
+    def set_mode(self, mode):
+        """Switch to :data:`PYTHON` or :data:`AGENT` input."""
+        if mode == self.mode:
+            return
+        self.mode = mode
+        self.mode_changed.emit(mode)
 
     def _fit(self):
         """Grow with the input, wrapped lines included, up to eight lines."""
@@ -252,7 +285,7 @@ class CommandComposer(QPlainTextEdit):
         cursor = self.textCursor()
         line = cursor.block().text()
         indent = line[:len(line) - len(line.lstrip())]
-        if line.rstrip().endswith(":"):
+        if self.mode == PYTHON and line.rstrip().endswith(":"):
             indent += "    "
         cursor.insertText("\n" + indent)
 
@@ -265,14 +298,26 @@ class CommandComposer(QPlainTextEdit):
             if mods & Qt.ShiftModifier:
                 self._newline()
             elif (mods & (Qt.ControlModifier | Qt.MetaModifier)
-                  or python_is_complete(text)):
+                  or self.mode == AGENT or python_is_complete(text)):
                 if text.strip():
                     self.submitted.emit(text)
             else:
                 self._newline()
             return
+        if key == Qt.Key_Escape:
+            self.stop_requested.emit()
+            return
         if key == Qt.Key_L and mods & Qt.ControlModifier:
             self.clear_requested.emit()
+            return
+        if key == Qt.Key_I and mods & Qt.ControlModifier:
+            self.set_mode(AGENT if self.mode == PYTHON else PYTHON)
+            return
+        # Holding Backspace to clear a prompt must not fall through into
+        # Python by auto-repeat.
+        if (not text and key == Qt.Key_Backspace and self.mode == AGENT
+                and not event.isAutoRepeat()):
+            self.set_mode(PYTHON)
             return
         super().keyPressEvent(event)
 
@@ -291,30 +336,42 @@ class CommandBlock(QFrame):
         self.setProperty("kind", kind)
         self._started = time.perf_counter()
 
-        badge = QLabel({PYTHON: "py"}.get(kind, kind))
+        badge = QLabel({PYTHON: "py", AGENT: "agent"}.get(kind, kind))
         badge.setObjectName("badge")
         badge.setProperty("kind", kind)
         badge.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._status = QLabel("")
         self._status.setObjectName("status")
         self._status.setAlignment(Qt.AlignRight | Qt.AlignTop)
+        self._actions = QHBoxLayout()
+        self._actions.setSpacing(4)
 
         header = QHBoxLayout()
         header.addWidget(badge, 0, Qt.AlignTop)
         self._input = _transcript_label(self._input_text(kind, text))
-        self._input.setFont(_mono())
+        if kind in (PYTHON, NOTE):
+            self._input.setFont(_mono())
+        else:
+            font = self._input.font()
+            font.setBold(True)
+            self._input.setFont(font)
         header.addWidget(self._input, 1)
         header.addWidget(self._status, 0, Qt.AlignTop)
 
         self._body = QVBoxLayout()
         self._body.setContentsMargins(0, 0, 0, 0)
         self._body.setSpacing(2)
+        self._details = QVBoxLayout()
+        self._details.setContentsMargins(0, 0, 0, 0)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(4)
         layout.addLayout(header)
         layout.addLayout(self._body)
+        layout.addLayout(self._actions)
+        layout.addLayout(self._details)
+        self._actions.addStretch(1)
 
     @staticmethod
     def _input_text(kind, text):
@@ -348,16 +405,72 @@ class CommandBlock(QFrame):
             label.setObjectName("warning")
         self._body.addWidget(label)
 
+    def add_text(self, text):
+        label = _transcript_label(text)
+        self._body.addWidget(label)
+        return label
+
+    def add_command_row(self, command, result):
+        """One row per command: a mark, the call, and its value or error."""
+        ok = result is not None and getattr(result, "ok", False)
+        if result is None:
+            mark, detail = _DOT, "not run"
+        elif ok:
+            value = getattr(result, "value", None)
+            mark, detail = _CHECK, _short_value(value)
+        else:
+            mark, detail = _CROSS, getattr(result, "error", None) or "failed"
+        row = _transcript_label("%s %s%s" % (
+            mark, agent.format_command(command),
+            "  -> " + detail if detail else ""))
+        row.setFont(_mono())
+        if not ok:
+            row.setObjectName("error")
+        self._body.addWidget(row)
+
+    def add_action(self, text, slot=None, tip=None):
+        button = QToolButton()
+        button.setObjectName("action")
+        button.setText(text)
+        if tip:
+            button.setToolTip(tip)
+        if slot is not None:
+            button.clicked.connect(slot)
+        self._actions.insertWidget(self._actions.count() - 1, button)
+        return button
+
+    def add_details(self, title, text):
+        body = _transcript_label(text)
+        body.setFont(_mono())
+        body.setVisible(False)
+        button = self.add_action(title)
+        button.setCheckable(True)
+        button.toggled.connect(body.setVisible)
+        self._details.addWidget(body)
+        return button
+
+
+def _short_value(value):
+    if not value:
+        return ""
+    if isinstance(value, dict) and len(value) == 1:
+        key, item = next(iter(value.items()))
+        return "%s %s" % (key.replace("_id", ""), item)
+    text = str(value)
+    return text if len(text) <= 60 else text[:57] + "..."
+
 
 class CommandPanelWidget(_style.PaletteStyle, QWidget):
     """The dock body: the block transcript over the composer.  It shows
-    blocks and emits :attr:`composer`'s signals; :class:`CommandPanel` runs
-    them."""
+    blocks and emits :attr:`composer`'s signals and
+    :attr:`settings_requested`; :class:`CommandPanel` runs them."""
+
+    settings_requested = Signal()
 
     #: 192 pixels of transcript over a 40 pixel composer.
     PREFERRED_HEIGHT = 192 + 40
 
-    def __init__(self, parent=None):
+    def __init__(self, backends=(), parent=None):
         super().__init__(parent)
 
         self._blocks = QVBoxLayout()
@@ -377,28 +490,59 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
         bar.valueChanged.connect(self._track_bottom)
         bar.rangeChanged.connect(self._keep_bottom)
 
+        self.chip = QToolButton()
+        self.chip.setObjectName("chip")
+        self.chip.setFont(_mono())
+        self.chip.setToolTip("Python or agent (%s)" % _keys("I"))
         self.composer = CommandComposer()
-        self.composer.setPlaceholderText("Python")
         self.run = QPushButton("Run")
-        self._hint = QLabel((" %s " % _DOT).join(
-            ["Enter runs", "Shift+Enter line", _keys("L") + " clears"]))
+
+        self._backend_combo = QComboBox()
+        self._backend_combo.setSizeAdjustPolicy(
+            QComboBox.AdjustToContents)
+        for backend in backends:
+            self._backend_combo.addItem(backend.name, backend)
+        self.settings = QToolButton()
+        self.settings.setObjectName("action")
+        self.settings.setText("Settings")
+        self.settings.setToolTip("Configure the selected agent backend")
+        self._canvas = QLabel("canvas: none")
+        # A window title is the user's text, not markup.
+        self._canvas.setTextFormat(Qt.PlainText)
+        self._hint = QLabel()
         self._hint.setEnabled(False)
-        # The hint clips rather than widen the dock.
-        self._hint.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        # The texts clip rather than widen the dock.
+        for label in (self._canvas, self._hint):
+            label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
         entry = QHBoxLayout()
         entry.setContentsMargins(6, 0, 6, 0)
+        entry.addWidget(self.chip, 0, Qt.AlignTop)
         entry.addWidget(self.composer, 1)
         entry.addWidget(self.run, 0, Qt.AlignTop)
+
+        context = QHBoxLayout()
+        context.setContentsMargins(6, 0, 6, 4)
+        context.addWidget(QLabel("backend:"))
+        context.addWidget(self._backend_combo)
+        context.addWidget(self.settings)
+        context.addSpacing(12)
+        context.addWidget(self._canvas, 1)
+        context.addWidget(self._hint, 2)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
         layout.addWidget(self._scroll, 1)
         layout.addLayout(entry)
-        layout.addWidget(self._hint)
+        layout.addLayout(context)
 
+        self.chip.clicked.connect(self._toggle_mode)
+        self.composer.mode_changed.connect(self._show_mode)
         self.run.clicked.connect(self._run_clicked)
+        self.settings.clicked.connect(self.settings_requested)
+        self._running = False
+        self._show_mode(self.composer.mode)
         self._apply_style()
 
     def sizeHint(self):
@@ -408,12 +552,54 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
         return hint
 
     def _apply_style(self):
-        self.setStyleSheet(_PanelRules.sheet(self, "blocks", "outcomes"))
+        self.setStyleSheet(_PanelRules.sheet(
+            self, "blocks", "outcomes", "controls"))
+
+    def _toggle_mode(self):
+        self.composer.set_mode(
+            AGENT if self.composer.mode == PYTHON else PYTHON)
+        self.composer.setFocus()
+
+    def _show_mode(self, mode):
+        self.chip.setText(PROMPTS[mode])
+        self.chip.setProperty("mode", mode)
+        _repolish(self.chip)
+        self.composer.setPlaceholderText(
+            "Ask the agent to draw, arrange windows, or aim the view"
+            if mode == AGENT else "Python; %s asks the agent" % _keys("I"))
+        hints = ["Enter runs", "Shift+Enter line", _keys("I") + " mode",
+                 "Esc stops", _keys("L") + " clears"]
+        self._hint.setText((" %s " % _DOT).join(hints))
+        self._hint.setToolTip(self._hint.text())
+        self._show_run()
 
     def _run_clicked(self):
-        text = self.composer.toPlainText()
-        if text.strip():
-            self.composer.submitted.emit(text)
+        if self._running and self.composer.mode == AGENT:
+            self.composer.stop_requested.emit()
+        else:
+            text = self.composer.toPlainText()
+            if text.strip():
+                self.composer.submitted.emit(text)
+
+    def set_running(self, running):
+        """Turn Run into Stop while an agent turn is in flight, in agent
+        mode; Python still runs during a turn."""
+        self._running = running
+        self._show_run()
+        self._backend_combo.setEnabled(not running)
+        # The call in flight already holds its configuration.
+        self.settings.setEnabled(not running)
+
+    def _show_run(self):
+        stop = self._running and self.composer.mode == AGENT
+        self.run.setText("Stop" if stop else "Run")
+
+    def selected_backend(self):
+        return self._backend_combo.currentData()
+
+    def set_canvas(self, title):
+        self._canvas.setText("canvas: " + (title or "none"))
+        self._canvas.setToolTip(self._canvas.text())
 
     def _track_bottom(self, value):
         self._follow = value >= self._scroll.verticalScrollBar().maximum()
@@ -436,28 +622,48 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
         # item, and a later widget at that address can read as a QWidgetItem.
         return list(self._block_list)
 
-    def clear(self):
-        for block in self._block_list:
+    def clear(self, keep=None):
+        """Remove every block but ``keep``, the one a running turn still
+        writes to."""
+        for block in self.blocks():
+            if block is keep:
+                continue
             block.setParent(None)
             block.deleteLater()
-        self._block_list = []
+        self._block_list = [] if keep is None else [keep]
 
 
 class CommandPanel(base.PilotFeature):
     """The Command dock, the pilot's console.  Python runs in the shared
-    interpreter, with the output captured into its block."""
+    interpreter; an agent prompt runs through
+    :class:`~solvcon.pilot.agent.AgentTurnRunner` without blocking the
+    window, and a finished turn can be undone or replayed as Python."""
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
         self._action = None
         self._dock = None
         self._panel = None
+        self._runner = agent.AgentTurnRunner(self._mgr, parent=self)
+        self._runner.payload_composed.connect(self._show_payload)
+        self._runner.step_applied.connect(self._show_step)
+        self._runner.turn_finished.connect(self._finish)
+        #: The block of the running agent turn, and whether the user was
+        #: told it holds off another prompt.
+        self._block = None
+        self._told_busy = False
+        self._ticker = QTimer(self)
+        self._ticker.setInterval(100)
+        self._ticker.timeout.connect(self._tick)
+        app = QCoreApplication.instance()
+        if app is not None:
+            app.aboutToQuit.connect(self._stop_all)
 
     def populate_menu(self):
         self._action = self.add_action(
-            "View/Panels", "Command", "Toggle the Python command panel",
-            None, id="panel.command", weight=30, checkable=True,
-            checked=True)
+            "View/Panels", "Command",
+            "Toggle the Python and agent command panel", None,
+            id="panel.command", weight=30, checkable=True, checked=True)
         self._action.toggled.connect(self._on_toggled)
         self._ensure_panel()
         self._dock.show()
@@ -485,21 +691,57 @@ class CommandPanel(base.PilotFeature):
     def _ensure_panel(self):
         if self._panel is not None:
             return
-        self._panel = CommandPanelWidget()
-        self._panel.composer.submitted.connect(self.submit)
-        self._panel.composer.clear_requested.connect(self.clear)
+        self._panel = CommandPanelWidget(
+            backends=BackendRegistry.available())
+        composer = self._panel.composer
+        composer.submitted.connect(self.submit)
+        composer.stop_requested.connect(self.stop)
+        composer.clear_requested.connect(self.clear)
+        self._panel.settings_requested.connect(self._edit_settings)
         self._dock = QDockWidget("Command")
         self._dock.setWidget(self._panel)
         self._mainWindow.addDockWidget(Qt.BottomDockWidgetArea, self._dock)
         self._dock.visibilityChanged.connect(self._sync_action)
+        self._mgr.mdiArea.subWindowActivated.connect(self._show_canvas)
+        self._show_canvas()
+        apputil.get_current_appenv().seed(agent_run=self.agent_run)
 
     def _sync_action(self, _visible):
         # The signal is also False for a dock tabbed behind another.
         self._action.setChecked(not self._dock.isHidden())
 
+    def _edit_settings(self):
+        backend = self._panel.selected_backend()
+        if backend is None:
+            return
+        error = agent.edit_backend_settings(backend, parent=self._panel)
+        if error:
+            self.write_message(error)
+
+    def _show_canvas(self, subwin=None):
+        title = None
+        if self._mgr.currentR2DWidget() is not None:
+            try:
+                title = self._mgr.mdiArea.currentSubWindow().windowTitle()
+            except (AttributeError, RuntimeError):
+                title = "2D canvas"
+        self._panel.set_canvas(title)
+
     def submit(self, text):
+        mode = self._panel.composer.mode
+        if mode == AGENT and self._runner.busy:
+            # Once per turn: pressing Enter again is no news.
+            if not self._told_busy:
+                self._told_busy = True
+                self.write_message("The agent's turn has not ended, so this "
+                                   "prompt stays in the composer. Esc stops "
+                                   "the turn.")
+            return
         self._panel.composer.clear()
-        self.run_python(text)
+        if mode == PYTHON:
+            self.run_python(text)
+        else:
+            self.ask_agent(text.strip())
 
     def run_python(self, source):
         """Run ``source`` in the shared interpreter and capture its output.
@@ -513,7 +755,149 @@ class CommandPanel(base.PilotFeature):
         block.set_status("error" if runs.raised else "ok")
         return block
 
+    def agent_run(self, commands):
+        """Run agent commands from Python and print each outcome; the "As
+        Python" action of an agent block writes this call.
+
+        The commands go through the session, so an op it refuses to the
+        agent stays refused here, and the run lands in the conversation the
+        agent sees next.
+        """
+        commands = [dict(c) for c in commands]
+        results = self._runner.session.apply_commands(commands)
+        for command, result in zip(commands, results):
+            print("%s %s%s" % (
+                _CHECK if result.ok else _CROSS,
+                agent.format_command(command),
+                "" if result.ok else "  -> %s" % result.error))
+        return results
+
+    def ask_agent(self, prompt):
+        """Start one agent turn on the active canvas without blocking.
+        Returns its block, or None while another turn holds the backend."""
+        if self._runner.busy:
+            return None
+        block = self._panel.add_block(AGENT, prompt)
+        self._block, self._told_busy = block, False
+        block.set_status("running")
+        self._panel.set_running(True)
+        self._ticker.start()
+        # With no backend the turn finishes before this returns.
+        self._runner.start(prompt, self._panel.selected_backend())
+        return block
+
+    def _show_payload(self, text):
+        self._block.add_details("Payload", text)
+
+    def _tick(self):
+        if self._block is not None:
+            self._block.set_status("running")
+
+    #: How a turn's stop shows on its block: a status and an optional note.
+    _STOPS = {
+        StopReason.COMPLETED: ("ok", None),
+        StopReason.PROSE: ("ok", None),
+        StopReason.BUDGET: ("ok", "Step budget reached; ask again to go "
+                                  "on."),
+        StopReason.STATE: ("stopped", "The canvas changed while the agent "
+                                      "was working; its last reply was not "
+                                      "applied."),
+        StopReason.STOPPED: ("stopped", "Stopped; a late reply is "
+                                        "dropped."),
+        StopReason.CANCELLED: ("stopped", None),
+        StopReason.NO_BACKEND: ("error", "no backend selected"),
+    }
+
+    def _finish(self, reason, records, world):
+        """Show why the turn stopped and what can be done."""
+        block, self._block = self._block, None
+        self._ticker.stop()
+        state, note = self._STOPS.get(reason, ("error", None))
+        if note is not None:
+            block.add_output(note, error=(state != "ok"))
+        # A step that failed and a later one that repaired it end well, so
+        # the last step that acted says how the turn went.
+        acted = [r for r in records if r.commands or r.failed]
+        if state == "ok" and acted and (acted[-1].failed or not all(
+                getattr(r, "ok", False) for r in acted[-1].results)):
+            state = "error"
+        block.set_status(state)
+        self._add_turn_actions(block, records, world)
+        self._panel.set_running(False)
+        # Take the focus back from Stop, unless the user moved elsewhere.
+        if self._panel.isAncestorOf(QApplication.focusWidget()):
+            self._panel.composer.setFocus()
+
+    def _show_step(self, record):
+        """One step's reply: the failure, or the log messages or text, then
+        one row per command that acts."""
+        block = self._block
+        if record.failed:
+            block.add_output(record.text, error=True)
+        logs = [str(c.get("message")) for c, r in zip(record.commands,
+                                                      record.results)
+                if op_of(c) == "log" and getattr(r, "ok", False)
+                and c.get("message") is not None]
+        if not record.failed and (logs or record.text):
+            block.add_text("\n".join(logs) if logs else record.text)
+        for command, result in zip(record.commands, record.results):
+            if op_of(command) != "log":
+                block.add_command_row(command, result)
+        for command in record.commands[len(record.results):]:
+            block.add_command_row(command, None)
+
+    def _add_turn_actions(self, block, records, world):
+        pairs = [(c, r) for record in records
+                 for c, r in zip(record.commands, record.results)
+                 if op_of(c) != "log"]
+        missing = [c for record in records
+                   for c in record.commands[len(record.results):]]
+        if not pairs and not missing:
+            return
+        steps = agent.undo_turn_steps(pairs)
+        if world is not None and steps:
+            after = world.state_stamp
+            button = block.add_action(
+                "Undo turn", lambda: self._undo(world, after, steps, button),
+                "Revert everything this turn drew")
+        applied = [c for c, r in pairs if getattr(r, "ok", False)]
+        skipped = [(c, "failed") for c, r in pairs
+                   if not getattr(r, "ok", False)]
+        skipped += [(c, "not run") for c in missing]
+        block.add_action(
+            "As Python", lambda: self._as_python(applied, skipped),
+            "Put the commands that ran in the composer as Python")
+
+    def _undo(self, world, stamp, steps, button):
+        if world.state_stamp != stamp or not world.can_undo:
+            button.setEnabled(False)
+            button.setToolTip("The canvas changed after this turn")
+            return
+        for _ in range(steps):
+            world.undo()
+        widget = self._mgr.currentR2DWidget()
+        if widget is not None and widget.world is world:
+            widget.requestRepaint()
+        button.setEnabled(False)
+        button.setText("Undone")
+
+    def _as_python(self, commands, skipped=()):
+        composer = self._panel.composer
+        composer.set_mode(PYTHON)
+        composer.set_text(agent.commands_as_python(commands, skipped))
+        composer.setFocus()
+
+    def stop(self):
+        if self._runner.stop():
+            self._block.set_status("stopping", "stopping...")
+            self._ticker.stop()
+
     def clear(self):
-        self._panel.clear()
+        self._panel.clear(keep=self._block)
+
+    def _stop_all(self):
+        """Stop the turn and wait its call out before the app exits."""
+        self.stop()
+        self._runner.wait()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
