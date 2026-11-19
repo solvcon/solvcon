@@ -7,10 +7,11 @@ Enter rule, the cell runner, and the composer's keys.
 """
 
 import gc
+import types
 import unittest
 from unittest import mock
 
-from solvcon import testing
+from solvcon import apputil, testing
 
 try:
     from solvcon import pilot
@@ -159,6 +160,18 @@ class ComposerTC(unittest.TestCase):
         self._key(QtCore.Qt.Key_Backspace)
         self.assertEqual(self.composer.mode, _command.PYTHON)
 
+    def _history_walks(self):
+        steps = []
+        self.composer.navigate.connect(steps.append)
+        return steps
+
+    def test_arrows_flagged_as_keypad_keys_walk_the_history(self):
+        # What macOS sends for the plain arrow keys.
+        steps = self._history_walks()
+        self._key(QtCore.Qt.Key_Up, mod=QtCore.Qt.KeypadModifier)
+        self._key(QtCore.Qt.Key_Down, mod=QtCore.Qt.KeypadModifier)
+        self.assertEqual(steps, [-1, 1])
+
     def test_enter_on_an_open_block_indents(self):
         self.composer.set_text("for i in range(3):")
         self._key(QtCore.Qt.Key_Return, "\r")
@@ -175,6 +188,39 @@ class ComposerTC(unittest.TestCase):
         self.composer.set_text("x = 1")
         self._key(QtCore.Qt.Key_Return, "\r", QtCore.Qt.ShiftModifier)
         self.assertEqual(self.submitted, [])
+
+    def test_tab_finishes_the_only_match(self):
+        apputil.get_current_appenv().seed(composer_only_match=1)
+        self.composer.set_text("x = composer_only_m")
+        self._key(QtCore.Qt.Key_Tab, "\t")
+        self.assertEqual(self.composer.toPlainText(),
+                         "x = composer_only_match")
+
+    def test_tab_on_a_blank_line_indents(self):
+        self.composer.set_text("if x:\n")
+        self._key(QtCore.Qt.Key_Tab, "\t")
+        self.assertEqual(self.composer.toPlainText(), "if x:\n    ")
+
+    def test_completions_see_the_current_viewer(self):
+        # The namespace tracks the focused viewer only through its refreshers,
+        # so a completion made before the next command needs them to run too.
+        appenv = apputil.get_current_appenv()
+        probe = types.SimpleNamespace(composer_fresh=1)
+
+        def refresh(namespace):
+            namespace["composer_viewer"] = probe
+        with mock.patch.object(appenv, "namespace_refreshers", [refresh]):
+            self.assertEqual(
+                _command.python_completions("composer_viewer.composer"),
+                ["composer_fresh"])
+
+    def test_an_object_that_fails_lookup_offers_nothing(self):
+        class Broken:
+            def __dir__(self):
+                raise RuntimeError("no listing")
+        apputil.get_current_appenv().seed(composer_broken=Broken())
+        self.assertEqual(
+            _command.python_completions("composer_broken."), [])
 
 
 @testing.requires_pilot
