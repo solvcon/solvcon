@@ -50,7 +50,7 @@ class BarStructureTC(unittest.TestCase):
         self.assertEqual(
             list(dict.fromkeys(panels)),
             ["Inspector", "Oblique shock reflection", "App config", "Painter",
-             "MCAP", "Command"] + cpp_docks + ["Agent Console", "Capture"])
+             "MCAP", "Command"] + cpp_docks + ["Capture"])
 
         # The Command toggle lives with the other panel toggles; the Window
         # menu holds only the dynamic sub-window list.

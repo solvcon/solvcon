@@ -20,7 +20,6 @@ if _pcore.enable:
     from .. import canvas
     from .. import painter as _painter
     from .. import track
-    from .. import agent
     from . import _capture
     from . import _theme
     from . import _ui_state
@@ -87,7 +86,6 @@ class _Controller(metaclass=_Singleton):
         self.runprofiling = None
         self.benchmark = None
         self.mcap_panel = None
-        self.agent = None
         self.command_panel = None
         self.theme_menu = None
         self.window_manager = None
@@ -163,7 +161,6 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata = panel.Profiling(mgr=self._rmgr)
         self.runprofiling = panel.RunProfiling(mgr=self._rmgr)
         self.mcap_panel = track.McapPanel(mgr=self._rmgr)
-        self.agent = agent.AgentPanel(mgr=self._rmgr)
         self.command_panel = panel.CommandPanel(mgr=self._rmgr)
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
         self.window_manager = panel.WindowManager(mgr=self._rmgr)
@@ -221,13 +218,11 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata.populate_menu()
         self.runprofiling.populate_menu()
         self.mcap_panel.populate_menu()
-        self.agent.populate_menu()
         self.command_panel.populate_menu()
         self.theme_menu.populate_menu()
         self.window_manager.populate_menu()
         self.capture.populate_menu()
         self.capture_widget.populate_menu()
-        self.agent.bind_auto_open()  # need to be the last to bind all commands
 
         close = _gui_common.build_action(
             wm.mainWindow, "Close",
