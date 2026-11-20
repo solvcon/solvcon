@@ -13,6 +13,7 @@
  */
 
 #include <solvcon/base.hpp>
+#include <solvcon/buffer/BufferAccess.hpp>
 #include <solvcon/buffer/BufferBase.hpp>
 #include <solvcon/buffer/BufferDevice.hpp>
 #include <solvcon/buffer/BufferStorage.hpp>
@@ -99,6 +100,8 @@ private:
 public:
 
     using remover_type = detail::ConcreteBufferRemover;
+    using access_state_type = detail::BufferAccessState;
+    using host_access_type = access_state_type::HostLease;
     using size_type = std::size_t;
 
     static std::shared_ptr<ConcreteBuffer> construct(size_t nbytes, size_t alignment = 0)
@@ -140,7 +143,7 @@ public:
     std::shared_ptr<ConcreteBuffer> clone() const
     {
         std::shared_ptr<ConcreteBuffer> ret = construct(nbytes(), m_alignment);
-        std::copy_n(data(), size(), (*ret).data());
+        ret->copy_from(*this);
         return ret;
     }
 
@@ -207,7 +210,7 @@ public:
         {
             throw std::out_of_range("Buffer size mismatch");
         }
-        std::copy_n(other.data(), size(), data());
+        copy_from(other);
     }
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
@@ -220,7 +223,7 @@ public:
             {
                 throw std::out_of_range("Buffer size mismatch");
             }
-            std::copy_n(other.data(), size(), data());
+            copy_from(other);
         }
         return *this;
     }
@@ -231,12 +234,58 @@ public:
 
     size_type alignment() const noexcept { return m_alignment; }
 
+    /// Wait for currently observed work without reserving host access.
+    void wait() const
+    {
+        if (m_access_state != nullptr)
+        {
+            m_access_state->wait();
+        }
+    }
+
+    /**
+     * Query completion without reserving host access.
+     * @return ``true`` when nothing observed is pending.
+     */
+    bool ready() const { return m_access_state == nullptr || m_access_state->ready(); }
+    /**
+     * Access synchronization state, including for const-buffer reads.
+     * @return Borrowed state, or ``nullptr`` for CPU storage.
+     */
+    access_state_type * access_state() const noexcept { return m_access_state.get(); }
+
+    /**
+     * Acquire recoverable host access for one internal operation.
+     * @return Lease that blocks device submission until destruction; empty for CPU storage.
+     * @note This buffer must outlive the returned lease.
+     */
+    host_access_type acquire_host_access() const { return host_access_type(m_access_state.get()); }
+
+    /**
+     * Wait and permanently exclude device submissions before exposing an untracked pointer.
+     * data() does not call this. BufferExpander calls it before retaining raw pointers.
+     */
+    void export_host_access() const
+    {
+        if (m_access_state != nullptr)
+        {
+            m_access_state->export_host_access();
+        }
+    }
+
     // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
     using unique_ptr_type = std::unique_ptr<int8_t, data_deleter_type>;
 
     static constexpr const char * name() { return "ConcreteBuffer"; }
 
 private:
+    void copy_from(ConcreteBuffer const & other)
+    {
+        auto const src_access = other.acquire_host_access();
+        auto const dst_access = acquire_host_access();
+        std::copy_n(other.data<int8_t>(), size(), data<int8_t>());
+    }
+
     static unique_ptr_type allocate(size_t nbytes, size_t alignment)
     {
         unique_ptr_type ret(nullptr, data_deleter_type());
@@ -268,6 +317,8 @@ private:
     size_t m_nbytes;
     size_t m_alignment = 0; // Alignment of the data buffer in bytes. 0 means no alignment.
     unique_ptr_type m_data;
+    /// Coordinates host/device access; nullptr for CPU storage.
+    std::unique_ptr<access_state_type> m_access_state;
 }; /* end class ConcreteBuffer */
 
 } /* end namespace solvcon */
