@@ -48,8 +48,8 @@ class BarStructureTC(unittest.TestCase):
         panels = [a.text() for a in model.menu("View/Panels").actions()]
         self.assertEqual(
             list(dict.fromkeys(panels)),
-            ["Inspector", "Oblique shock reflection", "App config",
-             "Painter", "MCAP", "Console", "Terminal", "Agent Console",
+            ["Inspector", "Oblique shock reflection", "App config", "Painter",
+             "MCAP", "Command", "Console", "Terminal", "Agent Console",
              "Capture"])
 
         # The Console and Terminal toggles live with the other panel toggles;
