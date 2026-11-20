@@ -178,16 +178,17 @@ class _Controller(metaclass=_Singleton):
         return self._rmgr
 
     def _seed_console_namespace(self):
-        """Curate the console namespace and greet both consoles with a banner.
-
-        The two consoles share one interpreter, so the terminal opens with
-        the same handles-in-scope banner the two-pane console prints.
-        """
-        appenv = apputil.get_current_appenv()
-        banner = apputil.install_pilot_namespace(
-            self._rmgr, appenv, extra=self.capture.console_handles())
-        self._rmgr.pycon.writeToHistory(banner)
-        self._rmgr.pyterm.writeToHistory(banner)
+        """Curate the interpreter's namespace and tell the user how to list
+        what it puts in scope."""
+        apputil.install_pilot_namespace(
+            self._rmgr, apputil.get_current_appenv(),
+            extra=self.capture.console_handles())
+        note = apputil.PILOT_CONSOLE_NOTE
+        _gui_common.write_message(note)
+        # A build without SC_DISABLE_CPP_PYCON has the C++ docks as well.
+        if hasattr(self._rmgr, "pycon"):
+            self._rmgr.pycon.writeToHistory(note)
+            self._rmgr.pyterm.writeToHistory(note)
 
     def _open_benchmark(self):
         if self.benchmark is None:
@@ -242,20 +243,21 @@ class _Controller(metaclass=_Singleton):
                 wm.mainWindow, "Exit", "Exit the application",
                 lambda: wm.quit(), id="file.exit"),
             100)
-        wm.menu_model.place(
-            "View/Panels",
-            _gui_common.build_action(
-                wm.mainWindow, "Console", "Open / Close Console",
-                wm.toggleConsole, id="window.console",
-                checkable=True, checked=True),
-            30)
-        wm.menu_model.place(
-            "View/Panels",
-            _gui_common.build_action(
-                wm.mainWindow, "Terminal", "Open / Close Terminal",
-                wm.toggleTerminal, id="window.terminal",
-                checkable=True, checked=False),
-            35)
+        if hasattr(wm, "toggleConsole"):
+            wm.menu_model.place(
+                "View/Panels",
+                _gui_common.build_action(
+                    wm.mainWindow, "Console", "Open / Close Console",
+                    wm.toggleConsole, id="window.console",
+                    checkable=True, checked=True),
+                31)
+            wm.menu_model.place(
+                "View/Panels",
+                _gui_common.build_action(
+                    wm.mainWindow, "Terminal", "Open / Close Terminal",
+                    wm.toggleTerminal, id="window.terminal",
+                    checkable=True, checked=False),
+                35)
         wm.menu_model.place(
             "Profiling",
             _gui_common.build_action(

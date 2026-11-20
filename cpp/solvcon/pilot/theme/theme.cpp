@@ -179,6 +179,7 @@ static ThemePalette makeWindowsDarkPalette()
     return p;
 }
 
+#ifndef SC_DISABLE_CPP_PYCON
 // The syntax colors keep the light table's familiar hues (a blue keyword, a
 // teal builtin, a red string, a magenta number) and lift each to a brighter,
 // lower-saturation tint for the dark table so the tokens read clearly on the
@@ -209,6 +210,7 @@ static SyntaxColors makeDarkSyntaxColors()
     c.error = {0xf4, 0x77, 0x77};
     return c;
 }
+#endif // SC_DISABLE_CPP_PYCON
 
 // The canvas tables invert around the drawing surface: a white sheet with dark
 // chrome under the light variant, a near-black sheet with lifted chrome under
@@ -343,6 +345,7 @@ ThemePalette const & themePaletteFor(PlatformId platform, ThemeVariant variant)
     }
 }
 
+#ifndef SC_DISABLE_CPP_PYCON
 SyntaxColors const & lightSyntaxColors()
 {
     static SyntaxColors const colors = makeLightSyntaxColors();
@@ -360,6 +363,7 @@ SyntaxColors const & syntaxColorsFor(PlatformId platform, ThemeVariant variant)
     (void)platform;
     return variant == ThemeVariant::Dark ? darkSyntaxColors() : lightSyntaxColors();
 }
+#endif // SC_DISABLE_CPP_PYCON
 
 Canvas2dPalette const & lightCanvas2dPalette()
 {

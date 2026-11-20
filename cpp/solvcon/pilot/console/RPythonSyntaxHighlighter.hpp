@@ -13,6 +13,10 @@
  * @ingroup group_domain
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
+#ifndef SC_DISABLE_CPP_PYCON
+
 #include <solvcon/pilot/theme/theme.hpp>
 
 #include <functional>
@@ -67,5 +71,7 @@ private:
 }; /* end class RPythonSyntaxHighlighter */
 
 } /* end namespace solvcon */
+
+#endif // SC_DISABLE_CPP_PYCON
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

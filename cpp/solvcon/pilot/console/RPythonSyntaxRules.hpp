@@ -14,6 +14,10 @@
  * @ingroup group_domain
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
+#ifndef SC_DISABLE_CPP_PYCON
+
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -55,5 +59,7 @@ std::string nextLineIndent(std::string const & line);
 std::size_t matchBracket(std::string const & text, std::size_t pos);
 
 } /* end namespace solvcon */
+
+#endif // SC_DISABLE_CPP_PYCON
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

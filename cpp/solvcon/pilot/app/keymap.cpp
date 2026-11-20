@@ -36,8 +36,8 @@ std::vector<ShortcutBinding> sharedSeed()
          ShortcutContext::Window},
         {ShortcutCommand::New2DCanvas, StandardAction::New, ShortcutContext::Window},
 
-        // Like VSCode, the pilot binds Console to physical Ctrl+Grave on every platform.
-        {ShortcutCommand::Console, KeyChord{KeyMod::Control, Key::Grave}, ShortcutContext::Window},
+        // Like VSCode, the pilot binds the Command panel to physical Ctrl+Grave on every platform.
+        {ShortcutCommand::CommandPanel, KeyChord{KeyMod::Control, Key::Grave}, ShortcutContext::Window},
 
         // The draw tools take unmodified letters, as every drawing program
         // does. Widget context is what makes that safe: the actions are added
@@ -100,8 +100,8 @@ std::string_view commandId(ShortcutCommand command)
         return "window.close";
     case ShortcutCommand::Exit:
         return "file.exit";
-    case ShortcutCommand::Console:
-        return "window.console";
+    case ShortcutCommand::CommandPanel:
+        return "panel.command";
     case ShortcutCommand::AgentPanel:
         return "panel.agent_console";
     case ShortcutCommand::InspectorPanel:
@@ -220,8 +220,8 @@ ShortcutCapabilities capabilitiesFor(PlatformId platform)
         }
         break;
     case PlatformId::Mac:
-        // App switcher, Spotlight, and the in-app window cycle. Console
-        // sits on physical Ctrl+Grave, so Cmd+Grave stays a system chord.
+        // App switcher, Spotlight, and the in-app window cycle. The Command
+        // panel sits on physical Ctrl+Grave, so Cmd+Grave stays a system chord.
         caps.reservedSequences.push_back({KeyMod::Primary, Key::Tab});
         caps.reservedSequences.push_back({KeyMod::Primary, Key::Space});
         caps.reservedSequences.push_back({KeyMod::Primary, Key::Grave});

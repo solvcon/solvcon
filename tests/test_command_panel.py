@@ -8,6 +8,7 @@ Enter rule, the cell runner, and the composer's keys.
 
 import gc
 import unittest
+from unittest import mock
 
 from solvcon import testing
 
@@ -91,6 +92,20 @@ class RunCellTC(unittest.TestCase):
                 _command.run_cell(source)
                 self.assertEqual((sys.stdin, sys.stdout, sys.stderr),
                                  streams)
+
+
+@testing.requires_pilot
+class MessageSinkTC(unittest.TestCase):
+
+    def test_messages_wait_for_the_sink(self):
+        from solvcon.pilot.base import _gui_common
+        with mock.patch.object(_gui_common, "_message_sink", None), \
+                mock.patch.object(_gui_common, "_pending_messages", []):
+            _gui_common.write_message("early\n")
+            shown = []
+            _gui_common.set_message_sink(shown.append)
+            _gui_common.write_message("late\n")
+            self.assertEqual(shown, ["early\n", "late\n"])
 
 
 @testing.requires_pilot

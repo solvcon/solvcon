@@ -2,7 +2,7 @@
 
 Pilot is the GUI (graphical user interface) for controlling the computing
 system and its analysis. All actions are exposed to Python and can be driven
-from the interactive console. It provides two major functions:
+from the Command panel. It provides two major functions:
 
 ```{toctree}
 :maxdepth: 1

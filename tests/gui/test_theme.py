@@ -258,7 +258,7 @@ class ThemeCanvasTC(unittest.TestCase):
 
 
 @testing.requires_live_window
-class ThemeConsoleTC(unittest.TestCase):
+class ThemeCommandPanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
         self.app = QtWidgets.QApplication.instance()
@@ -268,45 +268,43 @@ class ThemeConsoleTC(unittest.TestCase):
         # keep the tests independent of the order they run in.
         self.mgr.set_theme("system")
 
-    def _console_dock(self):
+    def _command_dock(self):
         for dock in self.mgr.mainWindow.findChildren(QtWidgets.QDockWidget):
-            if "Console" == dock.windowTitle():
+            if "Command" == dock.windowTitle():
                 return dock
-        self.fail("the console dock is not in the main window")
+        self.fail("the command dock is not in the main window")
 
-    def _console_edits(self):
-        # The console's transcript and command editors are the QTextEdit
-        # instances under its dock. Deliver the posted palette-change events
-        # and polish each so its palette resolves against the current
-        # application palette before it is read. Polishing every text edit in
-        # the process instead would repolish widgets this test says nothing
-        # about, at the price of re-running their stylesheets.
+    def _command_edits(self):
+        # The composer is the one plain-text editor under the dock. Deliver
+        # the posted palette-change events and polish it so its palette
+        # resolves against the current application palette before it is
+        # read. Polishing every text edit in the process instead would
+        # repolish widgets this test says nothing about.
         self.app.processEvents()
-        edits = self._console_dock().findChildren(QtWidgets.QTextEdit)
-        self.assertEqual(len(edits), 2)
+        edits = self._command_dock().findChildren(QtWidgets.QPlainTextEdit)
+        self.assertEqual(len(edits), 1)
         for edit in edits:
             edit.ensurePolished()
         return edits
 
-    def test_console_does_not_force_its_own_text_palette(self):
-        # The crux of the change: the console dropped its hardcoded
-        # black-on-white palette, so it never overrides the Text or Base brush
-        # and follows the application theme like every other widget.
+    def test_composer_does_not_force_its_own_text_palette(self):
+        # The composer never overrides the Text or Base brush, so it follows
+        # the application theme like every other widget.
         active = QPalette.Active
-        for edit in self._console_edits():
+        for edit in self._command_edits():
             palette = edit.palette()
             self.assertFalse(palette.isBrushSet(active, QPalette.Text))
             self.assertFalse(palette.isBrushSet(active, QPalette.Base))
 
-    def test_console_text_is_light_under_the_dark_theme(self):
+    def test_composer_text_is_light_under_the_dark_theme(self):
         self.mgr.set_theme("dark")
-        for edit in self._console_edits():
+        for edit in self._command_edits():
             self.assertGreater(
                 edit.palette().color(QPalette.Text).lightness(), 150)
 
-    def test_console_text_is_dark_under_the_light_theme(self):
+    def test_composer_text_is_dark_under_the_light_theme(self):
         self.mgr.set_theme("light")
-        for edit in self._console_edits():
+        for edit in self._command_edits():
             self.assertLess(
                 edit.palette().color(QPalette.Text).lightness(), 100)
 

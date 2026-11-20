@@ -83,12 +83,8 @@ class ObsreflApp(base.PilotFeature):
             self.viewer_updated()
 
     def _report(self, message):
-        """Carry what the controller has to say to the pilot console.
-
-        The console belongs to the outer GUI, so the controller says it and
-        the feature, which holds the GUI, writes it.
-        """
-        self._pycon.writeToHistory(f"obsrefl {message}\n")
+        """Show the controller's report, prefixed, in the Command panel."""
+        self._write_message(f"obsrefl {message}\n")
 
 
 def build_app(controller):

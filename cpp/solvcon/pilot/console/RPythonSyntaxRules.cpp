@@ -3,6 +3,10 @@
  * BSD 3-Clause License, see COPYING
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
+#ifndef SC_DISABLE_CPP_PYCON
+
 #include <solvcon/pilot/console/RPythonSyntaxRules.hpp>
 
 #include <cctype>
@@ -194,5 +198,7 @@ std::size_t matchBracket(std::string const & text, std::size_t pos)
 }
 
 } /* end namespace solvcon */
+
+#endif // SC_DISABLE_CPP_PYCON
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

@@ -46,18 +46,17 @@ class BarStructureTC(unittest.TestCase):
         view = [a.text() for a in model.menu("View").actions()]
         self.assertEqual(view[0], "Panels")
         panels = [a.text() for a in model.menu("View/Panels").actions()]
+        cpp_docks = ["Console", "Terminal"] if hasattr(mgr, "pycon") else []
         self.assertEqual(
             list(dict.fromkeys(panels)),
             ["Inspector", "Oblique shock reflection", "App config", "Painter",
-             "MCAP", "Command", "Console", "Terminal", "Agent Console",
-             "Capture"])
+             "MCAP", "Command"] + cpp_docks + ["Agent Console", "Capture"])
 
-        # The Console and Terminal toggles live with the other panel toggles;
-        # the Window menu holds only the dynamic sub-window list.
-        self.assertIsNotNone(model.action("window.console"))
-        self.assertIsNotNone(model.action("window.terminal"))
+        # The Command toggle lives with the other panel toggles; the Window
+        # menu holds only the dynamic sub-window list.
+        self.assertIsNotNone(model.action("panel.command"))
         window_items = [a.text() for a in model.menu("Window").actions()]
-        self.assertNotIn("Console", window_items)
+        self.assertNotIn("Command", window_items)
         self.assertNotIn("Terminal", window_items)
 
     def test_benchmark_menu(self):

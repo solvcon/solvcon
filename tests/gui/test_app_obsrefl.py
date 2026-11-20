@@ -81,11 +81,9 @@ class ObsreflAppTC(_AppFixture, unittest.TestCase):
                          feature._dock.windowTitle())
         self.assertEqual("Oblique shock reflection",
                          feature._viewer._subwin.windowTitle())
-        with mock.patch.object(type(feature), '_pycon',
-                               new_callable=mock.PropertyMock) as pycon:
+        with mock.patch.object(type(feature), '_write_message') as write:
             feature._report("recording a movie")
-        pycon.return_value.writeToHistory.assert_called_once_with(
-            "obsrefl recording a movie\n")
+        write.assert_called_once_with("obsrefl recording a movie\n")
 
     def test_panel_opens_with_a_paused_preview(self):
         feature = self._feature()

@@ -464,7 +464,7 @@ class ScreenCapture(_gui_common.PilotFeature):
         self.recording_changed.emit(self.recording)
 
     def _report(self, message, ok):
-        self._pycon.writeToHistory(message + "\n")
+        self._write_message(message + "\n")
         self.reported.emit(message, ok)
 
 

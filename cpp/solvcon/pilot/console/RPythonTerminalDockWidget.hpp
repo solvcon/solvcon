@@ -15,6 +15,10 @@
  * @ingroup group_domain
  */
 
+#include <solvcon/toggle/build_config.hpp>
+
+#ifndef SC_DISABLE_CPP_PYCON
+
 #include <solvcon/python/common.hpp> // must be first.
 
 #include <solvcon/pilot/console/RPythonConsoleHistory.hpp>
@@ -217,5 +221,7 @@ private:
 }; /* end class RPythonTerminalDockWidget */
 
 } /* end namespace solvcon */
+
+#endif // SC_DISABLE_CPP_PYCON
 
 // vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
