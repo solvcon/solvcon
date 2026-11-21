@@ -33,6 +33,7 @@
 #include <limits>
 #include <mdspan>
 #include <numeric>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -1681,6 +1682,7 @@ void SimpleArrayMixinSort<A, T>::sort()
 template <typename T, IntegralType I>
 void indexed_copy(T * dest, T const * data, I const * begin, I const * const end); // NOLINT(readability-avoid-const-params-in-decls)
 
+/// Find the first out-of-range value in C-contiguous indices.
 template <IntegralType T>
 T const * check_index_range(SimpleArray<T> const & indices, ssize_t max_idx);
 
@@ -3287,37 +3289,43 @@ A detail::SimpleArrayMixinSort<A, T>::take_along_axis(SimpleArray<I> const & ind
 {
     auto athis = static_cast<A *>(this);
     detail::validate_1d(*athis, "take_along_axis");
+    if (indices.size() == 0 || indices.logical_data() == nullptr)
+    {
+        return A(indices.shape());
+    }
+    I const * first = indices.logical_data();
+    std::optional<SimpleArray<I>> row_major;
+    if (!indices.is_c_contiguous())
+    {
+        row_major.emplace(indices.to_row_major());
+        first = row_major->logical_data();
+    }
 
+    I const * const last = first + indices.size();
     ssize_t const max_idx = athis->shape()[0];
-    I const * src = indices.begin();
-    I const * const end = indices.end();
-    while (src < end)
+    for (I const * src = first; src != last; ++src)
     {
         if (std::cmp_less(*src, 0) || std::cmp_greater_equal(*src, max_idx))
         {
-            ssize_t const offset = src - indices.begin();
-            std::string const indices_str = format_flat_index(indices.shape(), offset);
-
             throw std::out_of_range(
                 std::format("SimpleArray::take_along_axis(): "
                             "indices{} is {}, which is out of range of the array size {}",
-                            indices_str,
+                            format_flat_index(indices.shape(), src - first),
                             *src,
                             max_idx));
         }
-        src++;
     }
 
-    src = indices.begin();
-    A ret(indices.shape());
+    // The shape-only constructor leaves rank-zero arrays without storage.
+    A ret = indices.shape().empty()
+                ? A(indices.shape(), indices.stride(), ConcreteBuffer::construct(sizeof(T)))
+                : A(indices.shape());
     T const * data = athis->begin();
     T * dst = ret.begin();
-    while (src < end)
+    for (I const * src = first; src != last; ++src, ++dst)
     {
         T const * valp = data + static_cast<ssize_t>(*src);
         *dst = *valp;
-        ++dst;
-        ++src;
     }
     return ret;
 }
@@ -3750,8 +3758,12 @@ SimpleArray<U> detail::SimpleArrayMixinSearch<A, T>::where(SimpleArray<U> const 
 template <IntegralType T>
 T const * detail::check_index_range(SimpleArray<T> const & indices, ssize_t max_idx)
 {
-    T const * src = indices.begin();
-    T const * const end = indices.end();
+    if (indices.size() == 0 || indices.logical_data() == nullptr)
+    {
+        return nullptr;
+    }
+    T const * src = indices.logical_data();
+    T const * const end = src + indices.size();
     while (src < end)
     {
         if (std::cmp_less(*src, 0) || std::cmp_greater_equal(*src, max_idx))
@@ -3784,34 +3796,35 @@ A detail::SimpleArrayMixinSort<A, T>::take_along_axis_simd(SimpleArray<I> const 
 {
     auto athis = static_cast<A *>(this);
     detail::validate_1d(*athis, "take_along_axis_simd");
-
-    if (indices.size() == 0)
+    if (indices.size() == 0 || indices.logical_data() == nullptr)
     {
         return A(indices.shape());
     }
+    std::optional<SimpleArray<I>> row_major;
+    if (!indices.is_c_contiguous())
+    {
+        row_major.emplace(indices.to_row_major());
+    }
+    SimpleArray<I> const & contiguous_indices = row_major ? *row_major : indices;
 
     ssize_t const max_idx = athis->shape()[0];
-
-    I const * oor_ptr = check_index_range(indices, max_idx);
+    I const * oor_ptr = check_index_range(contiguous_indices, max_idx);
     if (oor_ptr != nullptr)
     {
-        ssize_t const offset = oor_ptr - indices.begin();
-        std::string const indices_str = format_flat_index(indices.shape(), offset);
-
-        const auto err = std::format("SimpleArray::take_along_axis_simd(): "
-                                     "indices{} is {}, which is out of range of the array size {}",
-                                     indices_str,
-                                     *oor_ptr,
-                                     max_idx);
-        throw std::out_of_range(err);
+        throw std::out_of_range(
+            std::format("SimpleArray::take_along_axis_simd(): "
+                        "indices{} is {}, which is out of range of the array size {}",
+                        format_flat_index(indices.shape(), oor_ptr - contiguous_indices.logical_data()),
+                        *oor_ptr,
+                        max_idx));
     }
 
-    I const * src = indices.begin();
-    I const * const end = indices.end();
-    A ret(indices.shape());
-    T const * data = athis->begin();
-    T * dest = ret.begin();
-    detail::indexed_copy(dest, data, src, end);
+    // The shape-only constructor leaves rank-zero arrays without storage.
+    A ret = indices.shape().empty()
+                ? A(indices.shape(), indices.stride(), ConcreteBuffer::construct(sizeof(T)))
+                : A(indices.shape());
+    I const * const src = contiguous_indices.logical_data();
+    detail::indexed_copy(ret.begin(), athis->begin(), src, src + indices.size());
     return ret;
 }
 

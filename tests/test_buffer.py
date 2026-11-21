@@ -2174,6 +2174,47 @@ class SimpleArrayBasicTC(unittest.TestCase):
         ):
             ret_arr = data_arr.take_along_axis_simd(idx_arr)
 
+    def test_take_along_axis_index_views(self):
+        data = np.arange(10, 70, 10, dtype='int32')
+        source = solvcon.SimpleArrayInt32(array=data)
+        base = np.arange(6, dtype='int64')
+        indices = solvcon.SimpleArrayInt64(array=base)
+        transposed = base.reshape(2, 3).T
+        scalar = np.array(2, dtype='int64')
+        cases = (
+            ('stepped', indices[::2], base[::2]),
+            ('reversed', indices[3:0:-1], base[3:0:-1]),
+            ('transposed', solvcon.SimpleArrayInt64(array=transposed),
+             transposed),
+            ('offset', indices[2:5], base[2:5]),
+            ('empty', indices[3:3], base[3:3]),
+            ('scalar', solvcon.SimpleArrayInt64(array=scalar), scalar),
+        )
+        for (layout, view, expected_indices), method in itertools.product(
+                cases, ('take_along_axis', 'take_along_axis_simd')):
+            with self.subTest(layout=layout, method=method):
+                result = getattr(source, method)(view)
+                self.assertEqual(result.shape, expected_indices.shape)
+                assert_array_equal(result.ndarray,
+                                   np.take(data, expected_indices))
+
+    def test_take_along_axis_index_view_bounds(self):
+        data = np.arange(6, dtype='int32')
+        source = solvcon.SimpleArrayInt32(array=data)
+        for value, method in itertools.product(
+                (6, -1), ('take_along_axis', 'take_along_axis_simd')):
+            with self.subTest(value=value, method=method):
+                # The invalid value lies outside the first four buffer slots.
+                base = np.array([[1, 0, 2, 0], [3, 0, value, 0]],
+                                dtype='int64')
+                indices = solvcon.SimpleArrayInt64(array=base)[:, ::2]
+                with self.assertRaisesRegex(
+                    IndexError,
+                    rf"SimpleArray::{method}\(\): indices\[1, 1\] is {value}, "
+                    "which is out of range of the array size 6"
+                ):
+                    getattr(source, method)(indices)
+
 
 class SimpleArrayAlignmentTC(unittest.TestCase):
     """
