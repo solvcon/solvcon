@@ -17,11 +17,6 @@
  * @ingroup group_core
  */
 
-// The Command panel, written in Python, is the pilot's console. Remove this
-// line to build the C++ Console and Terminal docks as well. It is a macro,
-// unlike the switches below, to take whole Qt classes out of moc and the build.
-#define SC_DISABLE_CPP_PYCON
-
 namespace solvcon
 {
 

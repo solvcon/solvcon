@@ -14,16 +14,12 @@ import argparse
 import warnings
 
 import solvcon
-from . import apputil
 
 
 __all__ = [
     'python_command',
     'setup_process',
     'enter_main',
-    'exec_code',
-    'get_completions',
-    'get_call_tip',
 ]
 
 
@@ -150,41 +146,5 @@ def enter_main(argv):
     else:
         sys.stderr.write('mode "{}" is not supported'.format(args.mode))
     return ret
-
-
-def exec_code(code):
-    # The persistent interpreter reports a user exception through its own
-    # showtraceback/showsyntaxerror, which format the traceback against the
-    # console input. Do not wrap it in the host call stack.
-    return apputil.run_code(code)
-
-
-def push_code(line):
-    # Interactive per-line entry for the terminal console: feed one line and
-    # report whether the statement is still incomplete, so the terminal can
-    # switch between the primary and continuation prompts.
-    return apputil.push_code(line)
-
-
-def reset_console():
-    # Abandon a partially entered statement, so the terminal can return to
-    # the primary prompt without running the incomplete block.
-    return apputil.reset_console()
-
-
-def get_completions(text):
-    try:
-        return apputil.get_completions(text)
-    except Exception as e:
-        sys.stderr.write("get_completions error: {}\n".format(e))
-        return []
-
-
-def get_call_tip(text):
-    try:
-        return apputil.get_call_tip(text)
-    except Exception as e:
-        sys.stderr.write("get_call_tip error: {}\n".format(e))
-        return ''
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

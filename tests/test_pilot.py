@@ -97,23 +97,6 @@ class PythonConsoleBackendTC(unittest.TestCase):
             self.assertFalse(self.env.console.push(''))
         self.assertEqual(out.getvalue(), '0\n1\n2\n')
 
-    def test_push_line_drives_interactive_multiline(self):
-        # push_line feeds one line at a time and reports whether the
-        # statement is still open, without closing it on the caller's behalf,
-        # so a terminal can show a continuation prompt.
-        import io
-        from contextlib import redirect_stdout
-        # A complete statement closes at once.
-        self.assertFalse(self.env.push_line('total = 0'))
-        # An open block stays open until a blank line closes it.
-        self.assertTrue(self.env.push_line('for i in range(3):'))
-        self.assertTrue(self.env.push_line('    total += i'))
-        self.assertFalse(self.env.push_line(''))
-        out = io.StringIO()
-        with redirect_stdout(out):
-            self.assertFalse(self.env.push_line('total'))
-        self.assertEqual(out.getvalue().strip(), '3')
-
     def test_exception_reports_user_traceback(self):
         _, out, err = self._run('raise ValueError("boom")')
         self.assertIn('ValueError: boom', err)
@@ -131,17 +114,6 @@ class PythonConsoleBackendTC(unittest.TestCase):
         # embedded interpreter that hosts the pilot keeps running.
         more, out, err = self._run('raise SystemExit(2)')
         self.assertFalse(more)
-
-    def test_exec_code_entry_point_drives_the_console(self):
-        # The C++ widget calls solvcon.system.exec_code; it must feed the
-        # same persistent interpreter and auto-display the result.
-        import io
-        from contextlib import redirect_stdout
-        from solvcon import system
-        out = io.StringIO()
-        with redirect_stdout(out):
-            system.exec_code('6 * 7')
-        self.assertEqual(out.getvalue().strip(), '42')
 
 
 class _FakeViewer:
@@ -297,60 +269,6 @@ class HousekeepingTC(unittest.TestCase):
         self.assertIn(name, apputil.environ)
         apputil.stop_code(env)
         self.assertNotIn(name, apputil.environ)
-
-
-class CallTipTC(unittest.TestCase):
-    """
-    The call tip that the console shows when a ``(`` is typed.
-
-    Driven through solvcon.apputil directly, so it runs headlessly.
-    """
-
-    def setUp(self):
-        from solvcon.apputil import AppEnvironment
-        self.env = AppEnvironment("tip_{}".format(id(self)))
-
-    def test_builtin_signature_and_docstring(self):
-        from solvcon import apputil
-        tip = apputil.get_call_tip('range')
-        self.assertTrue(tip.startswith('range('))
-        self.assertIn('range', tip)
-
-    def test_seeded_callable_signature_and_first_paragraph(self):
-        from solvcon import apputil
-
-        def greet(name, count=1):
-            """Say hello to someone.
-
-            This second paragraph must not appear in the tip.
-            """
-            return name
-
-        self.env.seed(greet=greet)
-        tip = apputil.get_call_tip('greet')
-        self.assertIn('greet(name, count=1)', tip)
-        self.assertIn('Say hello to someone.', tip)
-        self.assertNotIn('second paragraph', tip)
-
-    def test_non_callable_returns_empty(self):
-        from solvcon import apputil
-        self.env.seed(value=42)
-        self.assertEqual(apputil.get_call_tip('value'), '')
-
-    def test_unknown_name_returns_empty(self):
-        from solvcon import apputil
-        self.assertEqual(apputil.get_call_tip('does_not_exist'), '')
-
-    def test_call_expression_is_not_evaluated(self):
-        from solvcon import apputil
-
-        def boom():
-            raise AssertionError("the call tip must not invoke the callable")
-
-        self.env.seed(boom=boom)
-        # 'boom()' is not a bare identifier chain, so it is rejected before
-        # any evaluation and boom is never called.
-        self.assertEqual(apputil.get_call_tip('boom()'), '')
 
 
 class PythonCommandTC(unittest.TestCase):

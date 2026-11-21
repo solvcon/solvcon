@@ -152,10 +152,6 @@ RManager & RManager::setUp()
         // Paint the style and palette for widgets to follow.
         this->m_themeManager->setWindow(m_mainWindow);
         this->m_themeManager->apply();
-#ifndef SC_DISABLE_CPP_PYCON
-        this->setUpConsole();
-        this->setUpTerminal();
-#endif // SC_DISABLE_CPP_PYCON
         this->setUpCentral();
         this->primeRhiComposition();
         this->setUpMenu();
@@ -202,10 +198,6 @@ void RManager::reset()
     m_core = nullptr;
     m_mainWindow = nullptr;
     m_menuModel = nullptr;
-#ifndef SC_DISABLE_CPP_PYCON
-    m_pycon = nullptr;
-    m_pyterm = nullptr;
-#endif // SC_DISABLE_CPP_PYCON
     m_mdiArea = nullptr;
     m_rhi_primer = nullptr;
 }
@@ -450,71 +442,6 @@ void RManager::redoCanvas() const
     canvas->world()->redo();
     canvas->requestRepaint();
 }
-
-#ifndef SC_DISABLE_CPP_PYCON
-void RManager::toggleConsole()
-{
-    if (m_pycon)
-    {
-        if (m_pycon->isVisible())
-        {
-            m_pycon->hide();
-        }
-        else
-        {
-            m_pycon->show();
-        }
-    }
-}
-
-void RManager::setUpConsole()
-{
-    m_pycon = new RPythonConsoleDockWidget(QString("Console"), m_mainWindow);
-    m_pycon->setAllowedAreas(Qt::AllDockWidgetAreas);
-    m_mainWindow->addDockWidget(Qt::BottomDockWidgetArea, m_pycon);
-
-    auto applyConsoleTheme = [this](ThemeVariant variant)
-    {
-        m_pycon->applyTheme(syntaxColorsFor(m_themeManager->platform(), variant));
-    };
-    applyConsoleTheme(m_themeManager->currentVariant());
-    QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_pycon, applyConsoleTheme);
-}
-
-void RManager::toggleTerminal()
-{
-    if (m_pyterm)
-    {
-        if (m_pyterm->isVisible())
-        {
-            m_pyterm->hide();
-        }
-        else
-        {
-            m_pyterm->show();
-        }
-    }
-}
-
-void RManager::setUpTerminal()
-{
-    m_pyterm = new RPythonTerminalDockWidget(QString("Terminal"), m_mainWindow);
-    m_pyterm->setAllowedAreas(Qt::AllDockWidgetAreas);
-    m_mainWindow->addDockWidget(Qt::BottomDockWidgetArea, m_pyterm);
-
-    // The two consoles share the bottom area as tabs, with the two-pane
-    // console shown first; the terminal is opened from the View menu.
-    m_mainWindow->tabifyDockWidget(m_pycon, m_pyterm);
-    m_pyterm->hide();
-
-    auto applyTerminalTheme = [this](ThemeVariant variant)
-    {
-        m_pyterm->applyTheme(syntaxColorsFor(m_themeManager->platform(), variant));
-    };
-    applyTerminalTheme(m_themeManager->currentVariant());
-    QObject::connect(m_themeManager, &RThemeManager::themeChanged, m_pyterm, applyTerminalTheme);
-}
-#endif // SC_DISABLE_CPP_PYCON
 
 void RManager::setUpCentral()
 {

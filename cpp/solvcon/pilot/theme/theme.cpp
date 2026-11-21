@@ -179,39 +179,6 @@ static ThemePalette makeWindowsDarkPalette()
     return p;
 }
 
-#ifndef SC_DISABLE_CPP_PYCON
-// The syntax colors keep the light table's familiar hues (a blue keyword, a
-// teal builtin, a red string, a magenta number) and lift each to a brighter,
-// lower-saturation tint for the dark table so the tokens read clearly on the
-// dark base instead of sinking into it.
-
-static SyntaxColors makeLightSyntaxColors()
-{
-    SyntaxColors c;
-    c.keyword = {0x00, 0x00, 0xb4};
-    c.builtin = {0x00, 0x6e, 0x6e};
-    c.string = {0xa0, 0x00, 0x00};
-    c.comment = {0x80, 0x80, 0x80};
-    c.number = {0x8c, 0x00, 0x8c};
-    c.bracket_match = {0xb4, 0xb4, 0xff};
-    c.error = {0xaa, 0x00, 0x00};
-    return c;
-}
-
-static SyntaxColors makeDarkSyntaxColors()
-{
-    SyntaxColors c;
-    c.keyword = {0x6a, 0xb7, 0xff};
-    c.builtin = {0x4e, 0xc9, 0xb0};
-    c.string = {0xe5, 0x92, 0x8b};
-    c.comment = {0x80, 0x84, 0x89};
-    c.number = {0xd6, 0xa4, 0xe0};
-    c.bracket_match = {0x3d, 0x50, 0x6b};
-    c.error = {0xf4, 0x77, 0x77};
-    return c;
-}
-#endif // SC_DISABLE_CPP_PYCON
-
 // The canvas tables invert around the drawing surface: a white sheet with dark
 // chrome under the light variant, a near-black sheet with lifted chrome under
 // the dark one. The background, the geometry stroke, and the shared selection
@@ -344,26 +311,6 @@ ThemePalette const & themePaletteFor(PlatformId platform, ThemeVariant variant)
         return dark ? darkThemePalette() : lightThemePalette();
     }
 }
-
-#ifndef SC_DISABLE_CPP_PYCON
-SyntaxColors const & lightSyntaxColors()
-{
-    static SyntaxColors const colors = makeLightSyntaxColors();
-    return colors;
-}
-
-SyntaxColors const & darkSyntaxColors()
-{
-    static SyntaxColors const colors = makeDarkSyntaxColors();
-    return colors;
-}
-
-SyntaxColors const & syntaxColorsFor(PlatformId platform, ThemeVariant variant)
-{
-    (void)platform;
-    return variant == ThemeVariant::Dark ? darkSyntaxColors() : lightSyntaxColors();
-}
-#endif // SC_DISABLE_CPP_PYCON
 
 Canvas2dPalette const & lightCanvas2dPalette()
 {

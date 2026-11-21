@@ -17,9 +17,7 @@ Tools to run applications
 import code
 import contextlib
 import importlib
-import inspect
 import io
-import re
 import rlcompleter
 import sys
 # It must import at the end, because a from-import follows the plain imports.
@@ -33,10 +31,6 @@ __all__ = [
     'AppEnvironment',
     'get_current_appenv',
     'get_completions',
-    'get_call_tip',
-    'run_code',
-    'push_code',
-    'reset_console',
     'run_worker',
     'stdin_at_eof',
     'stop_code',
@@ -53,13 +47,6 @@ PILOT_CONSOLE_NOTE = (
 
 # A lazily created single-thread pool that backs run_worker.
 _worker_pool = None
-
-
-# A dotted identifier chain such as ``range`` or ``mgr.add3DWidget``. The
-# call tip only introspects such an expression, never one that calls or
-# subscripts, so evaluating it cannot run arbitrary user code.
-_IDENTIFIER_CHAIN = re.compile(
-    r'[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$')
 
 
 # All environment objects of this process.
@@ -156,33 +143,12 @@ class AppEnvironment:
         for refresh in self.namespace_refreshers:
             refresh(self.globals)
         more = False
-        # The treatment is for the console UI that has I/O in separate text
-        # boxes. After having an alternate terminal UI, it will have stdio.
         with stdin_at_eof():
             for line in source.split('\n'):
                 more = self.console.push(line)
             if more:
                 more = self.console.push('')
         return more
-
-    def push_line(self, line):
-        """
-        Push a single line to the persistent interpreter, interactively.
-
-        Unlike :meth:`run_code`, this does not close an open block with a
-        trailing blank line: it hands the interpreter one line and reports
-        whether the statement is still incomplete, so a terminal UI can show
-        a continuation prompt and keep collecting input. The namespace is
-        refreshed once at the start of a statement, when no partial input is
-        buffered.
-
-        :return: True when the interpreter is waiting for more input.
-        """
-        if not self.console.buffer:
-            for refresh in self.namespace_refreshers:
-                refresh(self.globals)
-        with stdin_at_eof():
-            return self.console.push(line)
 
 
 def get_appenv(name=None):
@@ -223,55 +189,6 @@ def get_completions(text):
         completions.append(c)
         i += 1
     return completions
-
-
-def get_call_tip(expr):
-    """
-    A signature and docstring summary for the callable named by ``expr``.
-
-    ``expr`` is a dotted identifier chain such as ``range`` or
-    ``mgr.add3DWidget``. It is resolved against the current namespace, so,
-    like the introspective completion, it can touch live objects. It is
-    never evaluated when it is anything other than an identifier chain, so
-    a call or subscript cannot run arbitrary code. Returns an empty string
-    when the expression does not resolve to a callable.
-    """
-    expr = expr.strip()
-    if not _IDENTIFIER_CHAIN.match(expr):
-        return ''
-    aenv = get_current_appenv()
-    namespace = {'__builtins__': __builtins__}
-    namespace.update(aenv.globals)
-    try:
-        obj = eval(expr, namespace)
-    except Exception:
-        return ''
-    if not callable(obj):
-        return ''
-    try:
-        signature = str(inspect.signature(obj))
-    except (TypeError, ValueError):
-        signature = '(...)'
-    tip = expr + signature
-    doc = inspect.getdoc(obj)
-    if doc:
-        tip += '\n' + doc.strip().split('\n\n')[0]
-    return tip
-
-
-def run_code(source):
-    aenv = get_current_appenv()
-    return aenv.run_code(source)
-
-
-def push_code(line):
-    aenv = get_current_appenv()
-    return aenv.push_line(line)
-
-
-def reset_console():
-    """Abandon any partially entered statement in the current console."""
-    get_current_appenv().console.resetbuffer()
 
 
 def run_worker(func, *args, **kwargs):

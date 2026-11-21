@@ -18,12 +18,6 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RWindowsThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RLinuxThemeBackend.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeManager.hpp
-    # console/
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleDockWidget.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonTerminalDockWidget.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleHistory.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxHighlighter.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxRules.hpp
     # visual/
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RDomainWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScene.hpp
@@ -74,12 +68,6 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RWindowsThemeBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RLinuxThemeBackend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/theme/RThemeManager.cpp
-    # console/
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleDockWidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonTerminalDockWidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonConsoleHistory.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxHighlighter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/console/RPythonSyntaxRules.cpp
     # visual/
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RDomainWidget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/visual/RScene.cpp
