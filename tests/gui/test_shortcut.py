@@ -25,7 +25,6 @@ except ImportError:
     QTest = None
 
 _PANEL_CHORDS = (
-    ("panel.agent_console", ["Ctrl+Shift+A"]),
     ("panel.inspector", ["Ctrl+Shift+I"]),
     ("panel.painter", ["Ctrl+Shift+P"]),
 )

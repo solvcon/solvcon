@@ -46,7 +46,6 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
         EXPECT_EQ(reset->context, solvcon::ShortcutContext::Widget);
 
         for (auto const & panel : {
-                 CommandChord{solvcon::ShortcutCommand::AgentPanel, solvcon::Key::A},
                  CommandChord{solvcon::ShortcutCommand::InspectorPanel, solvcon::Key::I},
                  CommandChord{solvcon::ShortcutCommand::PainterPanel, solvcon::Key::P},
              })

@@ -25,9 +25,6 @@ std::vector<ShortcutBinding> sharedSeed()
         {ShortcutCommand::Close,
          KeyChord{KeyMod::Primary, Key::W},
          ShortcutContext::Application},
-        {ShortcutCommand::AgentPanel,
-         KeyChord{KeyMod::Primary | KeyMod::Shift, Key::A},
-         ShortcutContext::Window},
         {ShortcutCommand::InspectorPanel,
          KeyChord{KeyMod::Primary | KeyMod::Shift, Key::I},
          ShortcutContext::Window},
@@ -102,8 +99,6 @@ std::string_view commandId(ShortcutCommand command)
         return "file.exit";
     case ShortcutCommand::CommandPanel:
         return "panel.command";
-    case ShortcutCommand::AgentPanel:
-        return "panel.agent_console";
     case ShortcutCommand::InspectorPanel:
         return "panel.inspector";
     case ShortcutCommand::PainterPanel:

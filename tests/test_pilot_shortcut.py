@@ -19,7 +19,6 @@ _KEYMOD_PRIMARY = 1
 _KEY_Z = 17
 
 _PANEL_CHORDS = (
-    ("panel.agent_console", ["Ctrl+Shift+A"]),
     ("panel.inspector", ["Ctrl+Shift+I"]),
     ("panel.painter", ["Ctrl+Shift+P"]),
 )
@@ -175,8 +174,8 @@ class ShortcutResolutionTC(unittest.TestCase):
     def test_primary_modifier_native_text_follows_platform(self):
         # Qt PortableText spells the command modifier as Ctrl everywhere;
         # NativeText carries the Command glyph on macOS.
-        r = self.mgr.resolve_shortcut("panel.agent_console")
-        self.assertEqual(r["sequences"], ["Ctrl+Shift+A"])
+        r = self.mgr.resolve_shortcut("panel.inspector")
+        self.assertEqual(r["sequences"], ["Ctrl+Shift+I"])
         native = QtGui.QKeySequence(
             r["sequences"][0], QtGui.QKeySequence.PortableText)
         native_text = native.toString(QtGui.QKeySequence.NativeText)

@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""Backend settings dialog for the Agent Console.
+"""Backend settings dialog for the Command panel's agent mode.
 
 The dialog is built from whatever a backend advertises through
 ``settings_spec()``, so a backend that grows a knob needs no change here.
