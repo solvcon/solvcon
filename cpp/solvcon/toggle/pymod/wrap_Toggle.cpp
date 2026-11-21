@@ -115,7 +115,6 @@ WrapFixedToggle::WrapFixedToggle(pybind11::module & mod, const char * pyname, co
 
     // Instance properties.
     // clang-format off
-    SC_PYTHON_TOGGLE_FIXED(python_redirect)
     SC_PYTHON_TOGGLE_FIXED(show_axis)
     // clang-format on
 
@@ -376,10 +375,10 @@ struct Toggle2Python
 
         for (auto const & fk : keys)
         {
-            // python_redirect and show_axis are declared toggles but are
-            // reported under the "fixed" section by the compatibility facade,
-            // so skip them here to avoid listing them twice.
-            if ("python_redirect" == fk || "show_axis" == fk)
+            // show_axis is a declared toggle but is reported under the
+            // "fixed" section by the compatibility facade, so skip it here to
+            // avoid listing it twice.
+            if ("show_axis" == fk)
             {
                 continue;
             }

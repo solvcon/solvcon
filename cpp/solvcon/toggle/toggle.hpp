@@ -802,10 +802,10 @@ public:
 /**
  * Compatibility facade for the former fixed toggles.
  *
- * python_redirect and show_axis are now ordinary declared toggles in the
- * store, so they gain change notification and serialization. This facade
- * reads and writes them through the store (with their startup defaults),
- * keeping the old get_/set_ accessors working until their callers move.
+ * show_axis is now an ordinary declared toggle in the store, so it gains
+ * change notification and serialization. This facade reads and writes it
+ * through the store (with its startup default), keeping the old get_/set_
+ * accessors working until their callers move.
  *
  * @ingroup group_core
  */
@@ -819,8 +819,6 @@ public:
     {
     }
 
-    bool get_python_redirect() const { return m_table->get<bool>("python_redirect", true); }
-    void set_python_redirect(bool v) { m_table->set_bool("python_redirect", v); }
     bool get_show_axis() const { return m_table->get<bool>("show_axis", false); }
     void set_show_axis(bool v) { m_table->set_bool("show_axis", v); }
 
@@ -851,8 +849,8 @@ private:
  *    register with no map lookup, for tight loops.
  *
  * The former solid and fixed toggles are compatibility facades: use_pyside is
- * an inline constexpr build switch (see build_config.hpp), and python_redirect
- * and show_axis are ordinary declared toggles in the store.
+ * an inline constexpr build switch (see build_config.hpp), and show_axis is an
+ * ordinary declared toggle in the store.
  *
  * @ingroup group_core
  */
@@ -925,7 +923,6 @@ private:
     // serialization like any other toggle.
     Toggle()
     {
-        m_dynamic_table.declare<bool>("python_redirect", true, ToggleCategory::Ops);
         m_dynamic_table.declare<bool>("show_axis", false, ToggleCategory::Ops);
     }
     Toggle(Toggle const &) = default;
