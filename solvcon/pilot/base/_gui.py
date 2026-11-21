@@ -86,7 +86,7 @@ class _Controller(metaclass=_Singleton):
         self.runprofiling = None
         self.benchmark = None
         self.mcap_panel = None
-        self.command_panel = None
+        self.console_panel = None
         self.theme_menu = None
         self.window_manager = None
         self.capture = None
@@ -161,7 +161,7 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata = panel.Profiling(mgr=self._rmgr)
         self.runprofiling = panel.RunProfiling(mgr=self._rmgr)
         self.mcap_panel = track.McapPanel(mgr=self._rmgr)
-        self.command_panel = panel.CommandPanel(mgr=self._rmgr)
+        self.console_panel = panel.ConsolePanel(mgr=self._rmgr)
         self.theme_menu = _theme.ThemeMenu(mgr=self._rmgr)
         self.window_manager = panel.WindowManager(mgr=self._rmgr)
         self.capture = _capture.ScreenCapture(mgr=self._rmgr)
@@ -213,7 +213,7 @@ class _Controller(metaclass=_Singleton):
         self.openprofiledata.populate_menu()
         self.runprofiling.populate_menu()
         self.mcap_panel.populate_menu()
-        self.command_panel.populate_menu()
+        self.console_panel.populate_menu()
         self.theme_menu.populate_menu()
         self.window_manager.populate_menu()
         self.capture.populate_menu()

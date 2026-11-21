@@ -73,11 +73,11 @@ TEST(PilotKeymapTable, SeedsSharedBindingsOnEveryPlatform)
     }
 }
 
-TEST(PilotKeymapTable, CommandPanelSharesGraveAcrossPlatforms)
+TEST(PilotKeymapTable, ConsolePanelSharesGraveAcrossPlatforms)
 {
     for (auto platform : PLATFORMS)
     {
-        auto const * panel = solvcon::bindingFor(platform, solvcon::ShortcutCommand::CommandPanel);
+        auto const * panel = solvcon::bindingFor(platform, solvcon::ShortcutCommand::ConsolePanel);
         ASSERT_NE(panel, nullptr);
         EXPECT_EQ(std::get<solvcon::KeyChord>(panel->key),
                   (solvcon::KeyChord{solvcon::KeyMod::Control, solvcon::Key::Grave}));
@@ -198,19 +198,19 @@ TEST(PilotKeymapConflicts, DefaultTablesHaveNoDeclaredConflicts)
 
 TEST(PilotKeymapConflicts, DeclaredCheckerReportsDuplicateCuratedChord)
 {
-    // A synthetic table where CommandPanel steals Undo's usual Primary+Z spelling.
+    // A synthetic table where ConsolePanel steals Undo's usual Primary+Z spelling.
     std::vector<solvcon::ShortcutBinding> table = {
         {solvcon::ShortcutCommand::Undo,
          solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::Z},
          solvcon::ShortcutContext::Window},
-        {solvcon::ShortcutCommand::CommandPanel,
+        {solvcon::ShortcutCommand::ConsolePanel,
          solvcon::KeyChord{solvcon::KeyMod::Primary, solvcon::Key::Z},
          solvcon::ShortcutContext::Window},
     };
     auto const conflicts = solvcon::findDeclaredConflictsIn(table);
     ASSERT_EQ(conflicts.size(), 1U);
     EXPECT_EQ(conflicts[0].first, solvcon::ShortcutCommand::Undo);
-    EXPECT_EQ(conflicts[0].second, solvcon::ShortcutCommand::CommandPanel);
+    EXPECT_EQ(conflicts[0].second, solvcon::ShortcutCommand::ConsolePanel);
 }
 
 TEST(PilotKeymapId, CommandFromIdInvertsCommandId)

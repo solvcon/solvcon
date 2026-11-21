@@ -2,9 +2,9 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""Command panel: a command-line console dock.
+"""Console panel: a command-line dock for Python and the agent.
 
-The command panel provides command blocks for executing code and reporting the
+The console panel provides console blocks for executing code and reporting the
 results.
 """
 
@@ -32,10 +32,10 @@ from .. import base
 from .. import _style
 
 __all__ = [  # noqa: F822
-    'CommandBlock',
-    'CommandComposer',
-    'CommandPanel',
-    'CommandPanelWidget',
+    'ConsoleBlock',
+    'ConsoleComposer',
+    'ConsolePanel',
+    'ConsolePanelWidget',
 ]
 
 PYTHON = "python"
@@ -222,9 +222,9 @@ def run_cell(source, appenv=None):
         tree = None
         try:
             if source is not None:
-                tree = ast.parse(source, "<command>", "exec")
+                tree = ast.parse(source, "<console>", "exec")
         except (SyntaxError, ValueError, OverflowError):
-            console.showsyntaxerror("<command>")
+            console.showsyntaxerror("<console>")
             raised = True
         if tree is not None:
             raised = _exec_tree(tree, appenv.globals, console)
@@ -238,9 +238,9 @@ def _exec_tree(tree, namespace, console):
     if tree.body and isinstance(tree.body[-1], ast.Expr):
         last = ast.Expression(tree.body.pop().value)
     try:
-        exec(compile(tree, "<command>", "exec"), namespace)
+        exec(compile(tree, "<console>", "exec"), namespace)
         if last is not None:
-            sys.displayhook(eval(compile(last, "<command>", "eval"),
+            sys.displayhook(eval(compile(last, "<console>", "eval"),
                                  namespace))
     except SystemExit:
         console.write("SystemExit: use the window controls to quit.\n")
@@ -268,7 +268,7 @@ def python_completions(prefix):
     return sorted({name[len(root):] for name in names})
 
 
-class CommandComposer(QPlainTextEdit):
+class ConsoleComposer(QPlainTextEdit):
     """The multi-line input under the transcript.
 
     Enter runs the input when it is complete (always, in agent mode) and
@@ -436,7 +436,7 @@ class CommandComposer(QPlainTextEdit):
         self.moveCursor(QTextCursor.End)
 
 
-class CommandBlock(QFrame):
+class ConsoleBlock(QFrame):
     """One submission in the transcript, with its outcome."""
 
     def __init__(self, kind, text, parent=None):
@@ -600,10 +600,10 @@ def _short_value(value):
     return text if len(text) <= 60 else text[:57] + "..."
 
 
-class CommandPanelWidget(_style.PaletteStyle, QWidget):
+class ConsolePanelWidget(_style.PaletteStyle, QWidget):
     """The dock body: the block transcript over the composer.  It shows
     blocks and emits :attr:`composer`'s signals and
-    :attr:`settings_requested`; :class:`CommandPanel` runs them."""
+    :attr:`settings_requested`; :class:`ConsolePanel` runs them."""
 
     settings_requested = Signal()
 
@@ -634,7 +634,7 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
         self.chip.setObjectName("chip")
         self.chip.setFont(_mono())
         self.chip.setToolTip("Python or agent (%s)" % _keys("I"))
-        self.composer = CommandComposer()
+        self.composer = ConsoleComposer()
         self.run = QPushButton("Run")
 
         self._backend_combo = QComboBox()
@@ -754,7 +754,7 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
         # A note is not worth losing the reader's place for.
         if kind != NOTE:
             self._follow = True
-        block = CommandBlock(kind, text)
+        block = ConsoleBlock(kind, text)
         self._blocks.insertWidget(self._blocks.count() - 1, block)
         self._block_list.append(block)
         return block
@@ -775,11 +775,11 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
         self._block_list = [] if keep is None else [keep]
 
 
-class CommandPanel(base.PilotFeature):
-    """The Command dock, the pilot's console.  Python runs in the shared
-    interpreter; an agent prompt runs through
-    :class:`~solvcon.pilot.agent.AgentTurnRunner` without blocking the
-    window, and a finished turn can be undone or replayed as Python."""
+class ConsolePanel(base.PilotFeature):
+    """The Console dock.  Python runs in the shared interpreter; an agent
+    prompt runs through :class:`~solvcon.pilot.agent.AgentTurnRunner`
+    without blocking the window, and a finished turn can be undone or
+    replayed as Python."""
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -806,9 +806,9 @@ class CommandPanel(base.PilotFeature):
 
     def populate_menu(self):
         self._action = self.add_action(
-            "View/Panels", "Command",
-            "Toggle the Python and agent command panel", None,
-            id="panel.command", weight=30, checkable=True, checked=True)
+            "View/Panels", "Console",
+            "Toggle the Python and agent console", None,
+            id="panel.console", weight=30, checkable=True, checked=True)
         self._action.toggled.connect(self._on_toggled)
         self._ensure_panel()
         self._dock.show()
@@ -836,7 +836,7 @@ class CommandPanel(base.PilotFeature):
     def _ensure_panel(self):
         if self._panel is not None:
             return
-        self._panel = CommandPanelWidget(
+        self._panel = ConsolePanelWidget(
             backends=BackendRegistry.available())
         composer = self._panel.composer
         composer.submitted.connect(self.submit)
@@ -845,7 +845,7 @@ class CommandPanel(base.PilotFeature):
         composer.stop_requested.connect(self.stop)
         composer.clear_requested.connect(self.clear)
         self._panel.settings_requested.connect(self._edit_settings)
-        self._dock = QDockWidget("Command")
+        self._dock = QDockWidget("Console")
         self._dock.setWidget(self._panel)
         self._mainWindow.addDockWidget(Qt.BottomDockWidgetArea, self._dock)
         self._dock.visibilityChanged.connect(self._sync_action)

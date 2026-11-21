@@ -49,13 +49,13 @@ class BarStructureTC(unittest.TestCase):
         self.assertEqual(
             list(dict.fromkeys(panels)),
             ["Inspector", "Oblique shock reflection", "App config", "Painter",
-             "MCAP", "Command", "Capture"])
+             "MCAP", "Console", "Capture"])
 
-        # The Command toggle lives with the other panel toggles; the Window
+        # The Console toggle lives with the other panel toggles; the Window
         # menu holds only the dynamic sub-window list.
-        self.assertIsNotNone(model.action("panel.command"))
+        self.assertIsNotNone(model.action("panel.console"))
         window_items = [a.text() for a in model.menu("Window").actions()]
-        self.assertNotIn("Command", window_items)
+        self.assertNotIn("Console", window_items)
 
     def test_benchmark_menu(self):
         mgr = _gui.controller.build()

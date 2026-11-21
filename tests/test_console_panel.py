@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Tests for the command panel's pieces that need no live window: the
+Tests for the console panel's pieces that need no live window: the
 Enter rule, the cell runner, and the composer's keys.
 """
 
@@ -15,7 +15,7 @@ from solvcon import apputil, testing
 
 try:
     from solvcon import pilot
-    from solvcon.pilot.panel import _command
+    from solvcon.pilot.panel import _console
     from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
     pilot = None
@@ -25,22 +25,22 @@ except ImportError:
 class EnterRuleTC(unittest.TestCase):
 
     def test_open_block_asks_for_more(self):
-        self.assertFalse(_command.python_is_complete(
+        self.assertFalse(_console.python_is_complete(
             "for i in range(3):"))
-        self.assertFalse(_command.python_is_complete(
+        self.assertFalse(_console.python_is_complete(
             "for i in range(3):\n    print(i)"))
 
     def test_blank_last_line_closes_the_block(self):
-        self.assertTrue(_command.python_is_complete(
+        self.assertTrue(_console.python_is_complete(
             "for i in range(3):\n    print(i)\n"))
 
     def test_a_blank_line_does_not_close_a_string_or_a_bracket(self):
         for source in ('s = """\n', 'f(\n', 'f(1,\n    ', 's = """\n    '):
             with self.subTest(source=source):
-                self.assertFalse(_command.python_is_complete(source))
+                self.assertFalse(_console.python_is_complete(source))
 
     def test_broken_source_runs_to_show_the_error(self):
-        self.assertTrue(_command.python_is_complete("x = )"))
+        self.assertTrue(_console.python_is_complete("x = )"))
 
 
 @testing.requires_pilot
@@ -52,36 +52,36 @@ class RunCellTC(unittest.TestCase):
     def test_dedented_statement_after_a_block_runs(self):
         # Pushed line by line into the interactive console this is a
         # SyntaxError; as a cell it runs like a file.
-        runs = _command.run_cell(
+        runs = _console.run_cell(
             "for i in range(2):\n    print(i)\nprint('done')")
         self.assertEqual(self._text(runs), "0\n1\ndone\n")
 
     def test_stdout_and_stderr_keep_their_order(self):
-        runs = _command.run_cell(
+        runs = _console.run_cell(
             "import sys\nprint('a')\nprint('b', file=sys.stderr)\n"
             "print('c')")
         self.assertEqual(runs, [(False, "a\n"), (True, "b\n"),
                                 (False, "c\n")])
 
     def test_stderr_output_alone_is_not_an_exception(self):
-        runs = _command.run_cell(
+        runs = _console.run_cell(
             "import sys\nprint('careful', file=sys.stderr)")
         self.assertIn("careful", self._text(runs, True))
         self.assertFalse(runs.raised)
-        self.assertTrue(_command.run_cell("1 / 0").raised)
-        self.assertTrue(_command.run_cell("1 +").raised)
+        self.assertTrue(_console.run_cell("1 / 0").raised)
+        self.assertTrue(_console.run_cell("1 +").raised)
 
     def test_state_persists_in_the_console_namespace(self):
-        _command.run_cell("_cp_value = 5")
+        _console.run_cell("_cp_value = 5")
         self.assertEqual(
-            self._text(_command.run_cell("_cp_value + 1")), "6\n")
+            self._text(_console.run_cell("_cp_value + 1")), "6\n")
 
     def test_input_reads_eof(self):
-        err = self._text(_command.run_cell("input()"), True)
+        err = self._text(_console.run_cell("input()"), True)
         self.assertIn("EOFError", err)
 
     def test_exit_is_reported_and_the_pilot_lives_on(self):
-        runs = _command.run_cell("raise SystemExit(2)")
+        runs = _console.run_cell("raise SystemExit(2)")
         self.assertTrue(runs.raised)
         self.assertIn("use the window controls", self._text(runs, True))
 
@@ -90,7 +90,7 @@ class RunCellTC(unittest.TestCase):
         streams = (sys.stdin, sys.stdout, sys.stderr)
         for source in ("raise SystemExit(2)", "x = )", "1 / 0"):
             with self.subTest(source=source):
-                _command.run_cell(source)
+                _console.run_cell(source)
                 self.assertEqual((sys.stdin, sys.stdout, sys.stderr),
                                  streams)
 
@@ -123,9 +123,9 @@ class PanelStyleTC(unittest.TestCase):
             return sum(isinstance(o, QtWidgets.QWidgetItem)
                        for o in gc.get_objects())
 
-        panel = _command.CommandPanelWidget()
-        kept = panel.add_block(_command.PYTHON, "x = 1")
-        gone = panel.add_block(_command.PYTHON, "y = 2")
+        panel = _console.ConsolePanelWidget()
+        kept = panel.add_block(_console.PYTHON, "x = 1")
+        gone = panel.add_block(_console.PYTHON, "y = 2")
         before = wrappers()
         self.assertEqual(panel.blocks(), [kept, gone])
         self.assertEqual(wrappers(), before)
@@ -138,7 +138,7 @@ class ComposerTC(unittest.TestCase):
 
     def setUp(self):
         pilot.RManager.instance.setUp()
-        self.composer = _command.CommandComposer()
+        self.composer = _console.ConsoleComposer()
         self.submitted = []
         self.composer.submitted.connect(self.submitted.append)
 
@@ -151,14 +151,14 @@ class ComposerTC(unittest.TestCase):
 
     def test_ctrl_i_toggles_the_mode(self):
         self._key(QtCore.Qt.Key_I, "", QtCore.Qt.ControlModifier)
-        self.assertEqual(self.composer.mode, _command.AGENT)
+        self.assertEqual(self.composer.mode, _console.AGENT)
         self._key(QtCore.Qt.Key_I, "", QtCore.Qt.ControlModifier)
-        self.assertEqual(self.composer.mode, _command.PYTHON)
+        self.assertEqual(self.composer.mode, _console.PYTHON)
 
     def test_backspace_on_empty_input_switches_back(self):
-        self.composer.set_mode(_command.AGENT)
+        self.composer.set_mode(_console.AGENT)
         self._key(QtCore.Qt.Key_Backspace)
-        self.assertEqual(self.composer.mode, _command.PYTHON)
+        self.assertEqual(self.composer.mode, _console.PYTHON)
 
     def _history_walks(self):
         steps = []
@@ -211,7 +211,7 @@ class ComposerTC(unittest.TestCase):
             namespace["composer_viewer"] = probe
         with mock.patch.object(appenv, "namespace_refreshers", [refresh]):
             self.assertEqual(
-                _command.python_completions("composer_viewer.composer"),
+                _console.python_completions("composer_viewer.composer"),
                 ["composer_fresh"])
 
     def test_an_object_that_fails_lookup_offers_nothing(self):
@@ -220,7 +220,7 @@ class ComposerTC(unittest.TestCase):
                 raise RuntimeError("no listing")
         apputil.get_current_appenv().seed(composer_broken=Broken())
         self.assertEqual(
-            _command.python_completions("composer_broken."), [])
+            _console.python_completions("composer_broken."), [])
 
 
 @testing.requires_pilot
@@ -230,13 +230,13 @@ class BlockWidthTC(unittest.TestCase):
 
     def setUp(self):
         pilot.RManager.instance.setUp()
-        self.panel = _command.CommandPanelWidget()
+        self.panel = _console.ConsolePanelWidget()
         self.addCleanup(self.panel.deleteLater)
         self.narrow = self.panel.add_block(
-            _command.PYTHON, "x = 1").minimumSizeHint().width()
+            _console.PYTHON, "x = 1").minimumSizeHint().width()
 
     def test_long_output_keeps_the_block_narrow(self):
-        block = self.panel.add_block(_command.PYTHON, "x = 1")
+        block = self.panel.add_block(_console.PYTHON, "x = 1")
         block.add_output("x" * 1000)
         self.assertEqual(block.minimumSizeHint().width(), self.narrow)
 

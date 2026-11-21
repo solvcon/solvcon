@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Tests for the helpers behind an agent turn's block in the Command dock: the
+Tests for the helpers behind an agent turn's block in the Console dock: the
 command rows, the replay as Python, and the steps Undo turn takes.
 """
 

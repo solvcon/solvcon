@@ -83,7 +83,7 @@ class ObsreflApp(base.PilotFeature):
             self.viewer_updated()
 
     def _report(self, message):
-        """Show the controller's report, prefixed, in the Command panel."""
+        """Show the controller's report, prefixed, in the Console panel."""
         self._write_message(f"obsrefl {message}\n")
 
 
