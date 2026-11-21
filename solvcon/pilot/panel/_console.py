@@ -273,10 +273,7 @@ class ConsoleComposer(QPlainTextEdit):
 
     Enter runs the input when it is complete (always, in agent mode) and
     otherwise opens an indented continuation line; Shift+Enter always opens a
-    line and Ctrl+Enter always runs.  Up on the first line and Down on the
-    last walk the history of the current mode.  Esc asks to stop a running
-    turn.  In Python mode, Tab completes the word behind the caret and indents
-    a blank line; while the list is open, plain Enter and Tab take its choice.
+    line and Ctrl+Enter always runs.
     """
 
     submitted = Signal(str)
@@ -354,7 +351,9 @@ class ConsoleComposer(QPlainTextEdit):
                 self._newline()
             return
         if key == Qt.Key_Escape:
-            self.stop_requested.emit()
+            # Stop belongs to agent mode, like the Stop button.
+            if self.mode == AGENT:
+                self.stop_requested.emit()
             return
         if key == Qt.Key_L and mods & Qt.ControlModifier:
             self.clear_requested.emit()
@@ -368,11 +367,13 @@ class ConsoleComposer(QPlainTextEdit):
                 and not event.isAutoRepeat()):
             self.set_mode(PYTHON)
             return
-        if key == Qt.Key_Tab and self.mode == PYTHON:
-            if self._text_before_caret().strip():
-                self._show_completions(insert_single=True)
-            else:
-                self.textCursor().insertText("    ")
+        if key == Qt.Key_Tab:
+            # A tab character means nothing to the agent.
+            if self.mode == PYTHON:
+                if self._text_before_caret().strip():
+                    self._show_completions(insert_single=True)
+                else:
+                    self.textCursor().insertText("    ")
             return
         # The cursor moves through the lines a long input wraps to, and only
         # past the first or the last does the key walk the history.
@@ -708,9 +709,8 @@ class ConsolePanelWidget(_style.PaletteStyle, QWidget):
             "Ask the agent to draw, arrange windows, or aim the view"
             if mode == AGENT else "Python; %s asks the agent" % _keys("I"))
         hints = ["Enter runs", "Shift+Enter line", _keys("I") + " mode",
-                 "Esc stops", _keys("L") + " clears"]
-        if mode == PYTHON:
-            hints.insert(2, "Tab completes")
+                 _keys("L") + " clears"]
+        hints.insert(2, "Tab completes" if mode == PYTHON else "Esc stops")
         self._hint.setText((" %s " % _DOT).join(hints))
         self._hint.setToolTip(self._hint.text())
         self._show_run()

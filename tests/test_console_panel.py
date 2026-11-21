@@ -160,6 +160,21 @@ class ComposerTC(unittest.TestCase):
         self._key(QtCore.Qt.Key_Backspace)
         self.assertEqual(self.composer.mode, _console.PYTHON)
 
+    def test_esc_stops_a_turn_only_in_agent_mode(self):
+        stops = []
+        self.composer.stop_requested.connect(lambda: stops.append(True))
+        self._key(QtCore.Qt.Key_Escape)
+        self.assertEqual(stops, [])
+        self.composer.set_mode(_console.AGENT)
+        self._key(QtCore.Qt.Key_Escape)
+        self.assertEqual(stops, [True])
+
+    def test_tab_leaves_an_agent_prompt_alone(self):
+        self.composer.set_mode(_console.AGENT)
+        self.composer.set_text("draw a circle")
+        self._key(QtCore.Qt.Key_Tab, "\t")
+        self.assertEqual(self.composer.toPlainText(), "draw a circle")
+
     def _history_walks(self):
         steps = []
         self.composer.navigate.connect(steps.append)
