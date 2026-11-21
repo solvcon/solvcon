@@ -12,15 +12,18 @@ import ast
 import codeop
 import contextlib
 import io
+import re
 import sys
 import time
 
-from PySide6.QtCore import Qt, QCoreApplication, QTimer, Signal
+from PySide6.QtCore import (Qt, QCoreApplication, QStringListModel, QTimer,
+                            Signal)
 from PySide6.QtGui import QColor, QFontDatabase, QKeySequence, QTextCursor
-from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QFrame,
-                               QHBoxLayout, QLabel, QPlainTextEdit,
-                               QPushButton, QScrollArea, QSizePolicy,
-                               QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QCompleter,
+                               QDockWidget, QFrame, QHBoxLayout, QLabel,
+                               QPlainTextEdit, QPushButton, QScrollArea,
+                               QSizePolicy, QToolButton, QVBoxLayout,
+                               QWidget)
 
 from ... import apputil
 from ...agent import BackendRegistry, StopReason, op_of
@@ -39,6 +42,14 @@ PYTHON = "python"
 AGENT = "agent"
 NOTE = "note"
 PROMPTS = {PYTHON: ">>>", AGENT: "agent>"}
+
+#: Output past these many lines or characters folds behind a toggle.
+FOLD_LINES = 20
+FOLD_CHARS = 2000
+
+#: Output past this many characters keeps its head and tail only; a label
+#: holding a megabyte of text stalls the window on every layout.
+KEEP_CHARS = 100000
 
 _CHECK = "\u2713"
 _CROSS = "\u2717"
@@ -240,16 +251,37 @@ def _exec_tree(tree, namespace, console):
     return True
 
 
+def python_completions(prefix):
+    """Sorted names that finish ``prefix``, without its dotted root, from the
+    interpreter's namespace as the next command would see it."""
+    appenv = apputil.get_current_appenv()
+    # A failed refresh is reported when a cell runs; a key press stays quiet.
+    with contextlib.suppress(Exception):
+        for refresh in appenv.namespace_refreshers:
+            refresh(appenv.globals)
+    # Looking up an attribute can run anything, such as a lazy import.
+    try:
+        names = apputil.get_completions(prefix)
+    except Exception:
+        return []
+    root = prefix[:prefix.rfind(".") + 1]
+    return sorted({name[len(root):] for name in names})
+
+
 class CommandComposer(QPlainTextEdit):
     """The multi-line input under the transcript.
 
     Enter runs the input when it is complete (always, in agent mode) and
     otherwise opens an indented continuation line; Shift+Enter always opens a
-    line and Ctrl+Enter always runs.  Esc asks to stop a running turn.
+    line and Ctrl+Enter always runs.  Up on the first line and Down on the
+    last walk the history of the current mode.  Esc asks to stop a running
+    turn.  In Python mode, Tab completes the word behind the caret and indents
+    a blank line; while the list is open, plain Enter and Tab take its choice.
     """
 
     submitted = Signal(str)
     mode_changed = Signal(str)
+    navigate = Signal(int)
     stop_requested = Signal()
     clear_requested = Signal()
 
@@ -257,6 +289,10 @@ class CommandComposer(QPlainTextEdit):
         super().__init__(parent)
         self.mode = PYTHON
         self.setFont(_mono())
+        self._completer = QCompleter(QStringListModel(self), self)
+        self._completer.setWidget(self)
+        self._completer.popup().setFont(_mono())
+        self._completer.activated[str].connect(self._insert_completion)
         self._fit()
         self.textChanged.connect(self._fit)
 
@@ -265,6 +301,7 @@ class CommandComposer(QPlainTextEdit):
         if mode == self.mode:
             return
         self.mode = mode
+        self._completer.popup().hide()
         self.mode_changed.emit(mode)
 
     def _fit(self):
@@ -294,6 +331,18 @@ class CommandComposer(QPlainTextEdit):
         # macOS flags the arrow keys as keypad keys.
         mods = event.modifiers() & ~Qt.KeypadModifier
         text = self.toPlainText()
+        if self._completer.popup().isVisible():
+            if key == Qt.Key_Escape:
+                self._completer.popup().hide()
+                return
+            is_enter = key in (Qt.Key_Return, Qt.Key_Enter)
+            # Ignored, these go to the completer: Enter and Tab take the
+            # choice, and Backtab closes the list.
+            if (is_enter and not mods) or key in (Qt.Key_Tab, Qt.Key_Backtab):
+                event.ignore()
+                return
+            if is_enter:
+                self._completer.popup().hide()
         if key in (Qt.Key_Return, Qt.Key_Enter):
             if mods & Qt.ShiftModifier:
                 self._newline()
@@ -319,7 +368,68 @@ class CommandComposer(QPlainTextEdit):
                 and not event.isAutoRepeat()):
             self.set_mode(PYTHON)
             return
+        if key == Qt.Key_Tab and self.mode == PYTHON:
+            if self._text_before_caret().strip():
+                self._show_completions(insert_single=True)
+            else:
+                self.textCursor().insertText("    ")
+            return
+        # The cursor moves through the lines a long input wraps to, and only
+        # past the first or the last does the key walk the history.
+        if (key == Qt.Key_Up and not mods
+                and not self.textCursor().movePosition(QTextCursor.Up)):
+            self.navigate.emit(-1)
+            return
+        if (key == Qt.Key_Down and not mods
+                and not self.textCursor().movePosition(QTextCursor.Down)):
+            self.navigate.emit(1)
+            return
+        position = self.textCursor().position()
         super().keyPressEvent(event)
+        # A bare modifier also arrives here, and must keep the chosen row.
+        if (self._completer.popup().isVisible()
+                and (self.toPlainText() != text
+                     or self.textCursor().position() != position)):
+            self._show_completions(insert_single=False)
+
+    def _text_before_caret(self):
+        cursor = self.textCursor()
+        cursor.clearSelection()
+        cursor.movePosition(QTextCursor.StartOfBlock, QTextCursor.KeepAnchor)
+        return cursor.selectedText()
+
+    def _show_completions(self, insert_single):
+        """Offer the names that finish the word behind the caret.  A leading
+        dot follows an expression like ``f().``, which is not evaluated."""
+        popup = self._completer.popup()
+        prefix = re.search(r"[\w.]*$", self._text_before_caret()).group()
+        names = ([] if not prefix or prefix[0] == "." or ".." in prefix
+                 else python_completions(prefix))
+        word = prefix.rpartition(".")[2]
+        # A list of just the finished word would take the Enter that runs the
+        # line; a name may end in "(", "()", " ", or ":".
+        finished = [name.rstrip("(): ") for name in names] == [word]
+        if not names or (not insert_single and finished):
+            popup.hide()
+            return
+        self._completer.model().setStringList(names)
+        self._completer.setCompletionPrefix(word)
+        if insert_single and len(names) == 1:
+            self._insert_completion(names[0])
+            return
+        popup.setCurrentIndex(self._completer.completionModel().index(0, 0))
+        rect = self.cursorRect()
+        rect.setWidth(popup.sizeHintForColumn(0)
+                      + popup.verticalScrollBar().sizeHint().width())
+        self._completer.complete(rect)
+
+    def _insert_completion(self, name):
+        cursor = self.textCursor()
+        cursor.clearSelection()
+        cursor.movePosition(QTextCursor.Left, QTextCursor.KeepAnchor,
+                            len(self._completer.completionPrefix()))
+        cursor.insertText(name)
+        self.setTextCursor(cursor)
 
     def set_text(self, text):
         self.setPlainText(text)
@@ -394,16 +504,38 @@ class CommandBlock(QFrame):
         _repolish(self._status)
 
     def add_output(self, text, error=False, warning=False):
-        text = text.rstrip("\n")
+        """Add captured output; long text folds, and huge text keeps only its
+        ends."""
+        text = _keep_ends(text.rstrip("\n"), KEEP_CHARS)
         if not text:
             return
-        label = _transcript_label(text)
+        label = _transcript_label()
         label.setFont(_mono())
         if error:
             label.setObjectName("error")
         elif warning:
             label.setObjectName("warning")
         self._body.addWidget(label)
+        nline = text.count("\n") + 1
+        if nline <= FOLD_LINES and len(text) <= FOLD_CHARS:
+            label.setText(text)
+            return
+        head = "\n".join(text.split("\n", FOLD_LINES)[:FOLD_LINES])
+        head = head[:FOLD_CHARS]
+        more = ("Show all %d lines" % nline if nline > FOLD_LINES
+                else "Show all %d characters" % len(text))
+        label.setText(head)
+        toggle = QToolButton()
+        toggle.setObjectName("action")
+        toggle.setAutoRaise(True)
+        toggle.setText(more)
+        toggle.setCheckable(True)
+
+        def flip(on):
+            label.setText(text if on else head)
+            toggle.setText("Fold" if on else more)
+        toggle.toggled.connect(flip)
+        self._body.addWidget(toggle, 0, Qt.AlignLeft)
 
     def add_text(self, text):
         label = _transcript_label(text)
@@ -448,6 +580,14 @@ class CommandBlock(QFrame):
         button.toggled.connect(body.setVisible)
         self._details.addWidget(body)
         return button
+
+
+def _keep_ends(text, limit):
+    if len(text) <= limit:
+        return text
+    half = limit // 2
+    return "%s\n... %d characters omitted ...\n%s" % (
+        text[:half], len(text) - 2 * half, text[-half:])
 
 
 def _short_value(value):
@@ -569,6 +709,8 @@ class CommandPanelWidget(_style.PaletteStyle, QWidget):
             if mode == AGENT else "Python; %s asks the agent" % _keys("I"))
         hints = ["Enter runs", "Shift+Enter line", _keys("I") + " mode",
                  "Esc stops", _keys("L") + " clears"]
+        if mode == PYTHON:
+            hints.insert(2, "Tab completes")
         self._hint.setText((" %s " % _DOT).join(hints))
         self._hint.setToolTip(self._hint.text())
         self._show_run()
@@ -648,6 +790,9 @@ class CommandPanel(base.PilotFeature):
         self._runner.payload_composed.connect(self._show_payload)
         self._runner.step_applied.connect(self._show_step)
         self._runner.turn_finished.connect(self._finish)
+        self._history = {PYTHON: [], AGENT: []}
+        self._history_index = None
+        self._draft = ""
         #: The block of the running agent turn, and whether the user was
         #: told it holds off another prompt.
         self._block = None
@@ -695,6 +840,8 @@ class CommandPanel(base.PilotFeature):
             backends=BackendRegistry.available())
         composer = self._panel.composer
         composer.submitted.connect(self.submit)
+        composer.navigate.connect(self._navigate)
+        composer.mode_changed.connect(self._end_history_walk)
         composer.stop_requested.connect(self.stop)
         composer.clear_requested.connect(self.clear)
         self._panel.settings_requested.connect(self._edit_settings)
@@ -727,6 +874,40 @@ class CommandPanel(base.PilotFeature):
                 title = "2D canvas"
         self._panel.set_canvas(title)
 
+    def _navigate(self, offset):
+        """Step ``offset`` entries through the current mode's history; the
+        unsent draft comes back past the newest entry."""
+        mode = self._panel.composer.mode
+        entries = self._history[mode]
+        if not entries:
+            return
+        if self._history_index is None:
+            if offset > 0:
+                return
+            self._draft = self._panel.composer.toPlainText()
+            index = len(entries)
+        else:
+            index = self._history_index
+        index += offset
+        if index >= len(entries):
+            self._history_index = None
+            self._panel.composer.set_text(self._draft)
+            return
+        self._history_index = max(0, index)
+        self._panel.composer.set_text(entries[self._history_index])
+
+    def _remember(self, mode, text):
+        entries = self._history[mode]
+        if not entries or entries[-1] != text:
+            entries.append(text)
+        self._end_history_walk()
+
+    def _end_history_walk(self, mode=None):
+        """Forget the history position; each mode has its own history, so a
+        position in one means nothing in the other."""
+        self._history_index = None
+        self._draft = ""
+
     def submit(self, text):
         mode = self._panel.composer.mode
         if mode == AGENT and self._runner.busy:
@@ -737,6 +918,7 @@ class CommandPanel(base.PilotFeature):
                                    "prompt stays in the composer. Esc stops "
                                    "the turn.")
             return
+        self._remember(mode, text.rstrip("\n"))
         self._panel.composer.clear()
         if mode == PYTHON:
             self.run_python(text)

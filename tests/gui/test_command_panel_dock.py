@@ -18,7 +18,8 @@ try:
     from solvcon import agent
     from solvcon.pilot.agent import _agent_turn
     from solvcon.pilot.panel import _command
-    from PySide6.QtCore import QCoreApplication, Qt
+    from PySide6.QtCore import QCoreApplication, QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QLabel, QToolButton
 except ImportError:
     pilot = None
@@ -116,6 +117,23 @@ class CommandPanelTC(unittest.TestCase):
                    if label.text() == "<b>bold</b>"]
         self.assertEqual(label.textFormat(), Qt.PlainText)
 
+    def test_long_single_line_output_folds(self):
+        block = self.feature.run_python("print('x' * 5000)")
+        toggles = [b.text() for b in block.findChildren(QToolButton)]
+        self.assertIn("Show all 5000 characters", toggles)
+
+    def test_huge_output_shows_only_its_ends(self):
+        block = self.panel.add_block(_command.PYTHON, "")
+        block.add_output("HEAD" + "x" * _command.KEEP_CHARS + "TAIL")
+        [toggle] = [b for b in block.findChildren(QToolButton)
+                    if b.text().startswith("Show all")]
+        toggle.click()
+        [shown] = [label.text() for label in block.findChildren(QLabel)
+                   if "characters omitted" in label.text()]
+        self.assertTrue(shown.startswith("HEAD"))
+        self.assertTrue(shown.endswith("TAIL"))
+        self.assertLess(len(shown), _command.KEEP_CHARS + 100)
+
     def test_a_dock_tabbed_behind_another_stays_open(self):
         dock = self.feature._dock
         dock.show()
@@ -136,6 +154,19 @@ class CommandPanelTC(unittest.TestCase):
         [label] = block.findChildren(QLabel, "error")
         self.assertIn("no route", label.text())
         self.assertTrue(block._status.text().startswith("error"))
+
+    def test_history_walk_ends_with_a_mode_switch(self):
+        composer = self.panel.composer
+        for source in ("a = 1", "b = 2", "c = 3"):
+            self.feature.submit(source)
+        composer.set_mode(_command.AGENT)
+        self.feature._remember(_command.AGENT, "draw a circle")
+        composer.set_mode(_command.PYTHON)
+        self.feature._navigate(-1)
+        self.assertEqual(composer.toPlainText(), "c = 3")
+        composer.set_mode(_command.AGENT)
+        self.feature._navigate(-1)
+        self.assertEqual(composer.toPlainText(), "draw a circle")
 
     def test_agent_turn_lists_every_command(self):
         self._use(_ScriptBackend(TWO_SHAPES))
@@ -243,6 +274,58 @@ class CommandPanelTC(unittest.TestCase):
 
 
 @testing.requires_live_window
+class CompletionPopupTC(unittest.TestCase):
+
+    def setUp(self):
+        self.mgr = pilot.RManager.instance.setUp()
+        self.feature = _command.CommandPanel(mgr=self.mgr)
+        self.feature.populate_menu()
+        self.composer = self.feature.panel.composer
+        self.popup = self.composer._completer.popup()
+        self.submitted = []
+        self.composer.submitted.connect(self.submitted.append)
+        solvcon.apputil.get_current_appenv().seed(
+            popup_alpha=1, popup_beta=2, popup_bravo=3)
+        self.addCleanup(self.popup.hide)
+
+    def _key(self, target, key, text=""):
+        event = QKeyEvent(QEvent.Type.KeyPress, key, Qt.NoModifier, text)
+        QCoreApplication.sendEvent(target, event)
+
+    def _open(self, source):
+        self.composer.set_text(source)
+        self._key(self.composer, Qt.Key_Tab, "\t")
+        self.assertTrue(self.popup.isVisible())
+
+    def _offered(self):
+        model = self.composer._completer.completionModel()
+        return [model.index(i, 0).data() for i in range(model.rowCount())]
+
+    def test_several_matches_open_the_list(self):
+        self._open("popup_")
+        self.assertEqual(self._offered(),
+                         ["popup_alpha", "popup_beta", "popup_bravo"])
+        self.assertEqual(self.composer.toPlainText(), "popup_")
+
+    def test_enter_takes_the_choice_and_does_not_run(self):
+        self._open("popup_")
+        self._key(self.popup, Qt.Key_Down)
+        self._key(self.popup, Qt.Key_Return, "\r")
+        self.assertFalse(self.popup.isVisible())
+        self.assertEqual(self.composer.toPlainText(), "popup_beta")
+        self.assertEqual(self.submitted, [])
+
+    def test_escape_closes_the_list_and_stops_nothing(self):
+        stops = []
+        self.composer.stop_requested.connect(lambda: stops.append(True))
+        self._open("popup_")
+        self._key(self.popup, Qt.Key_Escape)
+        self.assertFalse(self.popup.isVisible())
+        self.assertEqual(stops, [])
+        self.assertEqual(self.composer.toPlainText(), "popup_")
+
+
+@testing.requires_live_window
 class ConsoleNoteTC(unittest.TestCase):
 
     def test_the_note_leads_to_the_full_list(self):
@@ -259,7 +342,7 @@ class ConsoleNoteTC(unittest.TestCase):
         [label] = [label for label in block.findChildren(QLabel)
                    if "Handles in scope:" in label.text()]
         self.assertIn("show_mesh(m)", label.text())
-        # The whole list, up to its last entry, help_pilot().
+        # Nothing of the list may fold away; help_pilot() is its last entry.
         self.assertIn("capture(target)", label.text())
         self.assertIn("help_pilot()", label.text().splitlines()[-1])
 
