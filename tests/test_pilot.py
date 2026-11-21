@@ -48,74 +48,6 @@ class PilotRequireTC(unittest.TestCase):
         self.assertIs(cm.exception.__cause__, cause)
 
 
-class PythonConsoleBackendTC(unittest.TestCase):
-    """
-    The persistent read-eval-print backend behind the pilot console.
-
-    These drive ``solvcon.apputil`` and ``solvcon.system`` directly, so
-    they run headlessly and do not need the Qt pilot to be built.
-    """
-
-    def setUp(self):
-        from solvcon.apputil import AppEnvironment
-        self.env = AppEnvironment("test_{}".format(id(self)))
-
-    def _run(self, source):
-        """Run source in the test environment, capturing stdout and stderr."""
-        import io
-        from contextlib import redirect_stdout, redirect_stderr
-        out, err = io.StringIO(), io.StringIO()
-        with redirect_stdout(out), redirect_stderr(err):
-            more = self.env.run_code(source)
-        return more, out.getvalue(), err.getvalue()
-
-    def test_pycon(self):
-        # A bare expression auto-displays and binds to _, the way a
-        # read-eval-print loop behaves, rather than printing nothing.
-        import builtins
-        more, out, err = self._run('21 + 21')
-        self.assertFalse(more)
-        self.assertEqual(out.strip(), '42')
-        self.assertEqual(builtins._, 42)
-        _, out, err = self._run('_ + 8')
-        self.assertEqual(out.strip(), '50')
-
-    def test_assignment_is_silent(self):
-        more, out, err = self._run('answer = 42')
-        self.assertFalse(more)
-        self.assertEqual(out, '')
-        _, out, err = self._run('answer')
-        self.assertEqual(out.strip(), '42')
-
-    def test_multiline_reports_more_then_runs(self):
-        import io
-        from contextlib import redirect_stdout
-        self.assertTrue(self.env.console.push('for i in range(3):'))
-        self.assertTrue(self.env.console.push('    print(i)'))
-        out = io.StringIO()
-        with redirect_stdout(out):
-            self.assertFalse(self.env.console.push(''))
-        self.assertEqual(out.getvalue(), '0\n1\n2\n')
-
-    def test_exception_reports_user_traceback(self):
-        _, out, err = self._run('raise ValueError("boom")')
-        self.assertIn('ValueError: boom', err)
-        self.assertIn('File "<console>"', err)
-        # The host call stack must not leak into the user-facing report.
-        self.assertNotIn('apputil', err)
-
-    def test_syntax_error_reports_offending_line(self):
-        _, out, err = self._run('def bad(:')
-        self.assertIn('SyntaxError', err)
-        self.assertIn('bad(', err)
-
-    def test_exit_does_not_kill_process(self):
-        # exit()/quit() raises SystemExit; the console swallows it so the
-        # embedded interpreter that hosts the pilot keeps running.
-        more, out, err = self._run('raise SystemExit(2)')
-        self.assertFalse(more)
-
-
 class _FakeViewer:
     """A stand-in for a 3D viewer widget."""
 
@@ -215,14 +147,14 @@ class PilotNamespaceTC(unittest.TestCase):
     def test_refresher_tracks_the_current_viewer(self):
         from solvcon import apputil
         apputil.install_pilot_namespace(self.mgr, self.env)
-        # No viewer is open yet, so a command leaves the handles empty.
-        self.env.run_code('pass')
+        # No viewer is open yet, so a refresh leaves the handles empty.
+        self.env.refresh_namespace()
         self.assertIsNone(self.env.globals['viewer'])
-        # Opening a viewer must be reflected on the next command, not stay
+        # Opening a viewer must be reflected on the next refresh, not stay
         # stale at the value captured when the namespace was seeded.
         sentinel = object()
         self.mgr.add3DWidget().updateMesh(sentinel)
-        self.env.run_code('pass')
+        self.env.refresh_namespace()
         self.assertIs(self.env.globals['mesh'], sentinel)
 
     @testing.requires_pilot

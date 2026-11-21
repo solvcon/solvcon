@@ -34,12 +34,11 @@ class ToggleTC(unittest.TestCase):
         # should be implmented in the future.
 
         # Test names
-        golden = ["python_redirect", "show_axis"]
+        golden = ["show_axis"]
         self.assertEqual(fixed.NAMES, golden)
         self.assertEqual(sorted(fixed.get_names()), golden)
 
         # Test property defaults
-        self.assertEqual(fixed.python_redirect, True)
         self.assertEqual(fixed.show_axis, False)
 
     def test_clone(self):
@@ -304,7 +303,7 @@ class ToggleTypedAccessTC(unittest.TestCase):
     def test_category(self):
         tg = solvcon.Toggle.instance.clone()
         # The startup toggles are declared with the Ops category.
-        self.assertEqual(tg.category("python_redirect"),
+        self.assertEqual(tg.category("show_axis"),
                          solvcon.ToggleCategory.Ops)
         tg.dynamic_clear()
         tg.declare_int32("t.count", 1)
@@ -432,7 +431,7 @@ class ToggleSerializationTC(unittest.TestCase):
         tg.add_subkey("k1")
         tg.set_real("k1.kreal", -2.12)
 
-        golden = [{'fixed': {'python_redirect': True, 'show_axis': False}},
+        golden = [{'fixed': {'show_axis': False}},
                   {'dynamic': {'k1': {'kreal': -2.12}, 'kbool': True}}]
         data = tg.to_python()
         self.assertIsInstance(data, list)  # return a list of dict
@@ -457,7 +456,7 @@ class ToggleSerializationTC(unittest.TestCase):
         tg.dynamic_clear()
         self.assertEqual(tg.dynamic_keys(), [])
 
-        golden = {'python_redirect': True, 'show_axis': False}
+        golden = {'show_axis': False}
         data = tg.to_python(type="fixed")
         self.assertIsInstance(data, dict)
         self.assertEqual(data, golden)

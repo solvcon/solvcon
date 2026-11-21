@@ -80,6 +80,36 @@ class RunCellTC(unittest.TestCase):
         err = self._text(_console.run_cell("input()"), True)
         self.assertIn("EOFError", err)
 
+    def test_only_a_trailing_expression_is_shown(self):
+        import builtins
+        runs = _console.run_cell("21 + 21")
+        self.assertEqual(self._text(runs), "42\n")
+        self.assertEqual(builtins._, 42)
+        # A statement shows nothing.
+        self.assertEqual(self._text(_console.run_cell("_cp_x = 1")), "")
+
+    def test_an_error_shows_the_cell_and_not_the_host(self):
+        # Ubuntu's Python installs its own hook, which must not take the
+        # report away from the transcript.
+        with mock.patch("sys.excepthook", lambda *args: None):
+            err = self._text(
+                _console.run_cell('raise ValueError("boom")'), True)
+        self.assertIn("ValueError: boom", err)
+        self.assertIn('File "<console>"', err)
+        self.assertNotIn("_console.py", err)
+        err = self._text(_console.run_cell("def bad(:"), True)
+        self.assertIn("SyntaxError", err)
+        self.assertIn("bad(", err)
+
+    def test_a_cell_sees_the_refreshed_namespace(self):
+        appenv = apputil.get_current_appenv()
+
+        def refresh(namespace):
+            namespace["_cp_live"] = 7
+        with mock.patch.object(appenv, "namespace_refreshers", [refresh]):
+            runs = _console.run_cell("_cp_live")
+        self.assertEqual(self._text(runs), "7\n")
+
     def test_exit_is_reported_and_the_pilot_lives_on(self):
         runs = _console.run_cell("raise SystemExit(2)")
         self.assertTrue(runs.raised)
@@ -132,6 +162,17 @@ class PanelStyleTC(unittest.TestCase):
         panel.clear(keep=kept)
         self.assertEqual(panel.blocks(), [kept])
 
+    def test_the_transcript_drops_its_oldest_blocks(self):
+        panel = _console.ConsolePanelWidget()
+        with mock.patch.object(_console, "KEEP_BLOCKS", 2):
+            running = panel.add_block(_console.AGENT, "draw")
+            panel.add_block(_console.PYTHON, "x = 1")
+            # The block of a running turn stays, however old.
+            second = panel.add_block(_console.PYTHON, "y = 2", keep=running)
+            self.assertEqual(panel.blocks(), [running, second])
+            third = panel.add_block(_console.PYTHON, "z = 3")
+            self.assertEqual(panel.blocks(), [second, third])
+
 
 @testing.requires_pilot
 class ComposerTC(unittest.TestCase):
@@ -159,6 +200,21 @@ class ComposerTC(unittest.TestCase):
         self.composer.set_mode(_console.AGENT)
         self._key(QtCore.Qt.Key_Backspace)
         self.assertEqual(self.composer.mode, _console.PYTHON)
+
+    def test_esc_stops_a_turn_only_in_agent_mode(self):
+        stops = []
+        self.composer.stop_requested.connect(lambda: stops.append(True))
+        self._key(QtCore.Qt.Key_Escape)
+        self.assertEqual(stops, [])
+        self.composer.set_mode(_console.AGENT)
+        self._key(QtCore.Qt.Key_Escape)
+        self.assertEqual(stops, [True])
+
+    def test_tab_leaves_an_agent_prompt_alone(self):
+        self.composer.set_mode(_console.AGENT)
+        self.composer.set_text("draw a circle")
+        self._key(QtCore.Qt.Key_Tab, "\t")
+        self.assertEqual(self.composer.toPlainText(), "draw a circle")
 
     def _history_walks(self):
         steps = []

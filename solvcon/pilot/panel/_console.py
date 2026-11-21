@@ -51,6 +51,11 @@ FOLD_CHARS = 2000
 #: holding a megabyte of text stalls the window on every layout.
 KEEP_CHARS = 100000
 
+#: The transcript keeps this many blocks and each mode's history this many
+#: entries; the oldest go first.
+KEEP_BLOCKS = 500
+KEEP_HISTORY = 1000
+
 _CHECK = "\u2713"
 _CROSS = "\u2717"
 _DOT = "\u00b7"
@@ -213,10 +218,9 @@ def run_cell(source, appenv=None):
             contextlib.redirect_stdout(_OrderedCapture(runs, False)), \
             contextlib.redirect_stderr(_OrderedCapture(runs, True)):
         try:
-            for refresh in appenv.namespace_refreshers:
-                refresh(appenv.globals)
+            appenv.refresh_namespace()
         except Exception:
-            console.showtraceback()
+            _show_traceback(console)
             source = None
             raised = True
         tree = None
@@ -245,10 +249,21 @@ def _exec_tree(tree, namespace, console):
     except SystemExit:
         console.write("SystemExit: use the window controls to quit.\n")
     except BaseException:
-        console.showtraceback()
+        _show_traceback(console)
     else:
         return False
     return True
+
+
+def _show_traceback(console):
+    # A replaced sys.excepthook, such as Ubuntu's apport hook, takes the
+    # report from console.write(), and Python 3.12 also hands it the host's
+    # frames.
+    hook, sys.excepthook = sys.excepthook, sys.__excepthook__
+    try:
+        console.showtraceback()
+    finally:
+        sys.excepthook = hook
 
 
 def python_completions(prefix):
@@ -257,8 +272,7 @@ def python_completions(prefix):
     appenv = apputil.get_current_appenv()
     # A failed refresh is reported when a cell runs; a key press stays quiet.
     with contextlib.suppress(Exception):
-        for refresh in appenv.namespace_refreshers:
-            refresh(appenv.globals)
+        appenv.refresh_namespace()
     # Looking up an attribute can run anything, such as a lazy import.
     try:
         names = apputil.get_completions(prefix)
@@ -273,10 +287,7 @@ class ConsoleComposer(QPlainTextEdit):
 
     Enter runs the input when it is complete (always, in agent mode) and
     otherwise opens an indented continuation line; Shift+Enter always opens a
-    line and Ctrl+Enter always runs.  Up on the first line and Down on the
-    last walk the history of the current mode.  Esc asks to stop a running
-    turn.  In Python mode, Tab completes the word behind the caret and indents
-    a blank line; while the list is open, plain Enter and Tab take its choice.
+    line and Ctrl+Enter always runs.
     """
 
     submitted = Signal(str)
@@ -354,7 +365,9 @@ class ConsoleComposer(QPlainTextEdit):
                 self._newline()
             return
         if key == Qt.Key_Escape:
-            self.stop_requested.emit()
+            # Stop belongs to agent mode, like the Stop button.
+            if self.mode == AGENT:
+                self.stop_requested.emit()
             return
         if key == Qt.Key_L and mods & Qt.ControlModifier:
             self.clear_requested.emit()
@@ -368,11 +381,13 @@ class ConsoleComposer(QPlainTextEdit):
                 and not event.isAutoRepeat()):
             self.set_mode(PYTHON)
             return
-        if key == Qt.Key_Tab and self.mode == PYTHON:
-            if self._text_before_caret().strip():
-                self._show_completions(insert_single=True)
-            else:
-                self.textCursor().insertText("    ")
+        if key == Qt.Key_Tab:
+            # A tab character means nothing to the agent.
+            if self.mode == PYTHON:
+                if self._text_before_caret().strip():
+                    self._show_completions(insert_single=True)
+                else:
+                    self.textCursor().insertText("    ")
             return
         # The cursor moves through the lines a long input wraps to, and only
         # past the first or the last does the key walk the history.
@@ -500,8 +515,10 @@ class ConsoleBlock(QFrame):
         if text is None:
             text = "%s %.2f s" % (state, self.elapsed())
         self._status.setText(text)
-        self._status.setProperty("state", state)
-        _repolish(self._status)
+        # The running ticker sets the same state ten times a second.
+        if self._status.property("state") != state:
+            self._status.setProperty("state", state)
+            _repolish(self._status)
 
     def add_output(self, text, error=False, warning=False):
         """Add captured output; long text folds, and huge text keeps only its
@@ -708,9 +725,8 @@ class ConsolePanelWidget(_style.PaletteStyle, QWidget):
             "Ask the agent to draw, arrange windows, or aim the view"
             if mode == AGENT else "Python; %s asks the agent" % _keys("I"))
         hints = ["Enter runs", "Shift+Enter line", _keys("I") + " mode",
-                 "Esc stops", _keys("L") + " clears"]
-        if mode == PYTHON:
-            hints.insert(2, "Tab completes")
+                 _keys("L") + " clears"]
+        hints.insert(2, "Tab completes" if mode == PYTHON else "Esc stops")
         self._hint.setText((" %s " % _DOT).join(hints))
         self._hint.setToolTip(self._hint.text())
         self._show_run()
@@ -750,13 +766,21 @@ class ConsolePanelWidget(_style.PaletteStyle, QWidget):
         if self._follow:
             self._scroll.verticalScrollBar().setValue(hi)
 
-    def add_block(self, kind, text):
+    def add_block(self, kind, text, keep=None):
+        """Add a block, dropping the oldest past :data:`KEEP_BLOCKS` but
+        ``keep``, the one a running turn still writes to."""
         # A note is not worth losing the reader's place for.
         if kind != NOTE:
             self._follow = True
         block = ConsoleBlock(kind, text)
         self._blocks.insertWidget(self._blocks.count() - 1, block)
         self._block_list.append(block)
+        excess = max(0, len(self._block_list) - KEEP_BLOCKS)
+        old = [b for b in self._block_list[:-1] if b is not keep][:excess]
+        for gone in old:
+            self._block_list.remove(gone)
+            gone.setParent(None)
+            gone.deleteLater()
         return block
 
     def blocks(self):
@@ -817,7 +841,7 @@ class ConsolePanel(base.PilotFeature):
     def write_message(self, text):
         """Show ``text`` as a note; its trailing newline is dropped."""
         self._ensure_panel()
-        self._panel.add_block(NOTE, text)
+        self._panel.add_block(NOTE, text, keep=self._block)
 
     @property
     def panel(self):
@@ -900,6 +924,7 @@ class ConsolePanel(base.PilotFeature):
         entries = self._history[mode]
         if not entries or entries[-1] != text:
             entries.append(text)
+            del entries[:-KEEP_HISTORY]
         self._end_history_walk()
 
     def _end_history_walk(self, mode=None):
@@ -929,7 +954,7 @@ class ConsolePanel(base.PilotFeature):
         """Run ``source`` in the shared interpreter and capture its output.
         It runs on the GUI thread, so a long command freezes the window."""
         source = source.rstrip()
-        block = self._panel.add_block(PYTHON, source)
+        block = self._panel.add_block(PYTHON, source, keep=self._block)
         runs = run_cell(source)
         for is_error, text in runs:
             block.add_output(text, error=is_error and runs.raised,

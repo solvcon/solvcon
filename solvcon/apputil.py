@@ -53,28 +53,6 @@ _worker_pool = None
 environ = {}
 
 
-class _ConsoleInterpreter(code.InteractiveConsole):
-    """
-    A :class:`code.InteractiveConsole` bound to an application namespace.
-
-    The console compiles in ``"single"`` mode, so a bare expression is
-    auto-displayed and bound to ``_`` the way the standard read-eval-print
-    loop does. Exceptions are formatted against the user's own input by
-    :meth:`showtraceback` and :meth:`showsyntaxerror`, not the host stack.
-
-    ``exit()`` or ``quit()`` typed in the console raises :exc:`SystemExit`,
-    which would tear down the interpreter that the pilot embeds. Guard it
-    here so the console reports the request without ending the process.
-    """
-    def push(self, line):
-        try:
-            return super().push(line)
-        except SystemExit:
-            self.write("SystemExit: use the window controls to quit.\n")
-            self.resetbuffer()
-            return False
-
-
 @contextlib.contextmanager
 def stdin_at_eof():
     """
@@ -93,9 +71,9 @@ class AppEnvironment:
     """
     Collects the environment for an application.
 
-    The read-eval-print loop uses a single namespace, so :ivar:`globals`
-    and :ivar:`locals` are the same dict: names bound by executed code and
-    names injected by the pilot are both visible to the interpreter.
+    The console uses a single namespace, so :ivar:`globals` and
+    :ivar:`locals` are the same dict: names bound by executed code and names
+    injected by the pilot are both visible to the interpreter.
 
     :ivar globals:
         The namespace of the application.
@@ -112,7 +90,7 @@ class AppEnvironment:
         self.locals = namespace
         self.name = name
         self.namespace_refreshers = []
-        self.console = _ConsoleInterpreter(namespace)
+        self.console = code.InteractiveConsole(namespace)
         # Each run of the application appends a new environment.
         environ[name] = self
 
@@ -129,26 +107,11 @@ class AppEnvironment:
         """
         self.namespace_refreshers.append(refresh)
 
-    def run_code(self, source):
-        """
-        Feed a possibly multi-line command to the persistent interpreter.
-
-        Each line drives ``push()``, which returns whether more input is
-        needed to complete the statement. A block left open after the last
-        line is closed with a blank line, the way a blank line ends a
-        compound statement in the interactive interpreter.
-
-        :return: True when the interpreter is still waiting for more input.
-        """
+    def refresh_namespace(self):
+        """Run the refreshers, so the namespace tracks the live session
+        before the next command or completion reads it."""
         for refresh in self.namespace_refreshers:
             refresh(self.globals)
-        more = False
-        with stdin_at_eof():
-            for line in source.split('\n'):
-                more = self.console.push(line)
-            if more:
-                more = self.console.push('')
-        return more
 
 
 def get_appenv(name=None):
