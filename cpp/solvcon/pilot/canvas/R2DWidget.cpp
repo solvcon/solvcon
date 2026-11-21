@@ -358,13 +358,14 @@ void R2DWidget::paintSelection(QPainter & painter) const
     }
     // The oriented bounding box wraps the shape at any orientation, so the
     // box and its top-left handle rotate together and never separate.
-    obb_array_type const obb = m_world->shape_obb(m_selected);
+    OrientedBoundBox3dFp64 const obb = m_world->shape_obb(m_selected);
     QPolygonF box;
 
     double sx = 0.0, sy = 0.0;
-    for (size_t i = 0; i < 4; ++i)
+    for (size_t i = 0; i < OrientedBoundBox3dFp64::NCORNER; ++i)
     {
-        m_view.screen_from_world(obb[2 * i], obb[2 * i + 1], sx, sy);
+        Point3dFp64 const corner = obb.corner(i);
+        m_view.screen_from_world(corner.x(), corner.y(), sx, sy);
         box << QPointF(sx, sy);
     }
 
@@ -704,18 +705,19 @@ int32_t R2DWidget::pickShapeAt(QPointF const & screen_pos) const
 
 R2DWidget::coord2_type R2DWidget::selectionCenterWorld() const
 {
-    // Center of the oriented bounding box: midpoint of opposite corners.
-    obb_array_type const obb = m_world->shape_obb(m_selected);
-    return {(obb[0] + obb[4]) * 0.5, (obb[1] + obb[5]) * 0.5};
+    Point3dFp64 const center = m_world->shape_obb(m_selected).center();
+    return {center.x(), center.y()};
 }
 
 QPointF R2DWidget::rotateHandlePos() const
 {
-    // The handle anchor is always at the box's top-left corner (obb[0..1]).
-    obb_array_type const obb = m_world->shape_obb(m_selected);
+    // The handle anchor is always at the box's top-left corner (obb corner 0).
+    OrientedBoundBox3dFp64 const obb = m_world->shape_obb(m_selected);
+    Point3dFp64 const anchor = obb.corner(0);
+    Point3dFp64 const center = obb.center();
     double hx = 0.0, hy = 0.0, cx = 0.0, cy = 0.0;
-    m_view.screen_from_world(obb[0], obb[1], hx, hy);
-    m_view.screen_from_world((obb[0] + obb[4]) * 0.5, (obb[1] + obb[5]) * 0.5, cx, cy);
+    m_view.screen_from_world(anchor.x(), anchor.y(), hx, hy);
+    m_view.screen_from_world(center.x(), center.y(), cx, cy);
     double const dx = hx - cx, dy = hy - cy;
     double const len = std::hypot(dx, dy);
     if (len > 1.0e-9)

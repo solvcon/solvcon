@@ -111,7 +111,7 @@ class PainterDesignPageTC(unittest.TestCase):
         self._select(self.sid)
         self._commit("X", "5")
         self.assertAlmostEqual(self.page.fields["X"].value(), 5)
-        self.assertAlmostEqual(self.world.shape_obb(self.sid)[0], 3)
+        self.assertAlmostEqual(self.world.shape_obb(self.sid).corner(0).x, 3)
         self.assertEqual(self.canvas.repaints, 1)
         # The whole edit is a single undo step, and the fields follow it back.
         self.world.undo()
@@ -140,7 +140,7 @@ class PainterDesignPageTC(unittest.TestCase):
         self.page.refresh()
         field.edit.editingFinished.emit()
         self.assertEqual(self.canvas.repaints, 1)
-        self.assertAlmostEqual(self.world.shape_obb(self.sid)[0], -2)
+        self.assertAlmostEqual(self.world.shape_obb(self.sid).corner(0).x, -2)
 
     def test_the_page_fits_the_designed_inspector(self):
         # Four editors asking for a line of text each would open the dock
@@ -164,7 +164,8 @@ class PainterDesignPageTC(unittest.TestCase):
             with self.subTest(text=text):
                 self._commit("X", text)
                 self.assertEqual(self.canvas.repaints, 0)
-                self.assertAlmostEqual(self.world.shape_obb(self.sid)[0], -2)
+                self.assertAlmostEqual(
+                    self.world.shape_obb(self.sid).corner(0).x, -2)
 
     def test_extreme_coordinates_never_break_the_shape(self):
         # A shape this far out still reports a finite center, and a move is
@@ -177,8 +178,9 @@ class PainterDesignPageTC(unittest.TestCase):
             with self.subTest(text=text):
                 self._commit("X", text)
                 self.assertEqual(self.canvas.repaints, 0)
-                self.assertTrue(all(math.isfinite(value) for value
-                                    in self.world.shape_obb(far)))
+                self.assertTrue(all(
+                    math.isfinite(corner.x) and math.isfinite(corner.y)
+                    for corner in self.world.shape_obb(far).corners()))
 
     def test_a_dead_selection_leaves_the_page_empty(self):
         # The canvas keeps the id it stored, and a query on a dead one throws.

@@ -24,8 +24,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <format>
 #include <limits>
+#include <memory>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 namespace solvcon
@@ -248,6 +251,192 @@ struct RingEntry
 }; /* end struct RingEntry */
 
 /**
+ * Oriented bounding box of a planar shape: a rectangle that turns with the
+ * shape, so its sides keep the shape's own width and height under rotation.
+ *
+ * The box is held as a center, a unit x axis in the xy plane, and half
+ * extents along that axis and its normal. Corners are derived on demand, so
+ * the box stays an exact rectangle however often it rotates. The world is
+ * planar: rotation is about z and the box has no extent in z.
+ *
+ * Corners are ordered top-left, top-right, bottom-right, bottom-left in the
+ * box's own frame.
+ *
+ * @tparam T Floating-point coordinate type.
+ *
+ * @ingroup group_geometry
+ */
+template <typename T>
+class OrientedBoundBox3d
+    : public NumberBase<int32_t, T>
+{
+
+public:
+
+    using value_type = T;
+    using point_type = Point3d<T>;
+    using point_pad_type = PointPad<T>;
+    using bbox_type = BoundBox3d<T>;
+
+    static constexpr size_t NCORNER = 4;
+
+    OrientedBoundBox3d() = default;
+
+    /// Axis-aligned box over an axis-aligned bounding box. Halved before
+    /// combined, so a box near the edge of the value range stays finite.
+    explicit OrientedBoundBox3d(bbox_type const & aabb)
+        : m_cx(aabb.min_x() / 2 + aabb.max_x() / 2)
+        , m_cy(aabb.min_y() / 2 + aabb.max_y() / 2)
+        , m_cz(aabb.min_z() / 2 + aabb.max_z() / 2)
+        , m_hw(aabb.max_x() / 2 - aabb.min_x() / 2)
+        , m_hh(aabb.max_y() / 2 - aabb.min_y() / 2)
+    {
+    }
+
+    /// The axis (ux, uy) is normalized; it must have a direction, and the
+    /// half extents must not be negative.
+    OrientedBoundBox3d(point_type const & center, value_type ux, value_type uy, value_type half_width, value_type half_height)
+        : m_cx(center.x())
+        , m_cy(center.y())
+        , m_cz(center.z())
+        , m_hw(half_width)
+        , m_hh(half_height)
+    {
+        if (!(half_width >= 0) || !(half_height >= 0))
+        {
+            throw std::invalid_argument(
+                std::format("OrientedBoundBox3d: half extents ({}, {}) must not be negative", half_width, half_height));
+        }
+        set_axis(ux, uy);
+    }
+
+    template <typename U>
+    explicit OrientedBoundBox3d(OrientedBoundBox3d<U> const & other)
+        : m_cx(static_cast<T>(other.center().x()))
+        , m_cy(static_cast<T>(other.center().y()))
+        , m_cz(static_cast<T>(other.center().z()))
+        , m_ux(static_cast<T>(other.ux()))
+        , m_uy(static_cast<T>(other.uy()))
+        , m_hw(static_cast<T>(other.half_width()))
+        , m_hh(static_cast<T>(other.half_height()))
+    {
+    }
+
+    point_type center() const { return point_type(m_cx, m_cy, m_cz); }
+    value_type ux() const { return m_ux; }
+    value_type uy() const { return m_uy; }
+    value_type half_width() const { return m_hw; }
+    value_type half_height() const { return m_hh; }
+    value_type width() const { return 2 * m_hw; }
+    value_type height() const { return 2 * m_hh; }
+
+    point_type corner(size_t i) const
+    {
+        if (i >= NCORNER)
+        {
+            throw std::out_of_range(std::format("OrientedBoundBox3d::corner: i = {} >= {}", i, NCORNER));
+        }
+        // Signs along the box's x axis u and y axis v = (-uy, ux).
+        static constexpr std::array<value_type, NCORNER> sa{-1, 1, 1, -1};
+        static constexpr std::array<value_type, NCORNER> sb{1, 1, -1, -1};
+        value_type const a = sa[i] * m_hw;
+        value_type const b = sb[i] * m_hh;
+        return point_type(m_cx + a * m_ux - b * m_uy, m_cy + a * m_uy + b * m_ux, m_cz);
+    }
+
+    std::shared_ptr<point_pad_type> corners() const
+    {
+        auto out = point_pad_type::construct(/* ndim */ 3);
+        for (size_t i = 0; i < NCORNER; ++i)
+        {
+            out->append(corner(i));
+        }
+        return out;
+    }
+
+    bbox_type aabb() const
+    {
+        value_type const ex = std::abs(m_ux) * m_hw + std::abs(m_uy) * m_hh;
+        value_type const ey = std::abs(m_uy) * m_hw + std::abs(m_ux) * m_hh;
+        return bbox_type(m_cx - ex, m_cy - ey, m_cz, m_cx + ex, m_cy + ey, m_cz);
+    }
+
+    void translate(value_type dx, value_type dy)
+    {
+        m_cx += dx;
+        m_cy += dy;
+    }
+
+    /// Rotate by angle (radians) about the pivot (cx, cy).
+    void rotate(value_type angle, value_type cx, value_type cy)
+    {
+        value_type const c = std::cos(angle);
+        value_type const s = std::sin(angle);
+        value_type const ox = m_cx - cx;
+        value_type const oy = m_cy - cy;
+        m_cx = cx + c * ox - s * oy;
+        m_cy = cy + s * ox + c * oy;
+        // Renormalized, so repeated rotations do not drift the axis length.
+        set_axis(c * m_ux - s * m_uy, s * m_ux + c * m_uy);
+    }
+
+    /**
+     * Fit the box to a point set, keeping its axis. `visit` is called once
+     * with a callable `take(x, y)` and feeds it every point. A box fed no
+     * points is left as it was.
+     */
+    template <typename Visit>
+    void refit(Visit && visit)
+    {
+        value_type const vx = -m_uy;
+        value_type const vy = m_ux;
+        value_type amin = std::numeric_limits<value_type>::max(), amax = std::numeric_limits<value_type>::lowest();
+        value_type bmin = amin, bmax = amax;
+        auto take = [&](value_type x, value_type y)
+        {
+            value_type const a = x * m_ux + y * m_uy, b = x * vx + y * vy;
+            amin = std::min(amin, a);
+            amax = std::max(amax, a);
+            bmin = std::min(bmin, b);
+            bmax = std::max(bmax, b);
+        };
+        std::forward<Visit>(visit)(take);
+        if (amin > amax)
+        {
+            return;
+        }
+
+        value_type const am = amin / 2 + amax / 2;
+        value_type const bm = bmin / 2 + bmax / 2;
+        m_cx = am * m_ux + bm * vx;
+        m_cy = am * m_uy + bm * vy;
+        m_hw = amax / 2 - amin / 2;
+        m_hh = bmax / 2 - bmin / 2;
+    }
+
+private:
+
+    void set_axis(value_type ux, value_type uy)
+    {
+        value_type const len = std::hypot(ux, uy);
+        if (!(len > 0) || !std::isfinite(len))
+        {
+            throw std::invalid_argument(std::format("OrientedBoundBox3d: axis ({}, {}) has no direction", ux, uy));
+        }
+        m_ux = ux / len;
+        m_uy = uy / len;
+    }
+
+    value_type m_cx = 0;
+    value_type m_cy = 0;
+    value_type m_cz = 0;
+    value_type m_ux = 1; ///< Unit x axis; the y axis is (-uy, ux).
+    value_type m_uy = 0;
+    value_type m_hw = 0; ///< Half width, along the x axis.
+    value_type m_hh = 0; ///< Half height, along the y axis.
+}; /* end class OrientedBoundBox3d */
+
+/**
  * Lightweight record mapping a shape ID to the segment and curve ranges
  * it owns in the world's pads. A shape may own segments only
  * (triangle, line, rectangle), curves only (ellipse, circle), or both.
@@ -256,8 +445,6 @@ struct RingEntry
  */
 struct ShapeRecord
 {
-    using bbox_array_type = small_vector<double, 4>; ///< Four corners, (x, y) pairs.
-
     ShapeType type;
     size_t segment_offset; ///< First index in SegmentPad.
     size_t segment_count; ///< Number of segments this shape occupies.
@@ -267,10 +454,8 @@ struct ShapeRecord
     size_t ring_count; ///< Number of rings this shape owns. Zero for non-polygon shapes.
     uint8_t ring_ndim; ///< Dimensionality (2 or 3) of this shape's rings. Zero for non-polygon shapes.
 
-    /// OBB corner x's in world coordinates, ordered TL, TR, BR, BL.
-    bbox_array_type obb_x;
-    /// OBB corner y's in world coordinates, ordered TL, TR, BR, BL.
-    bbox_array_type obb_y;
+    /// Oriented bounding box, kept in double whatever the world's value type.
+    OrientedBoundBox3d<double> obb;
 }; /* end struct ShapeRecord */
 
 /**
@@ -465,11 +650,10 @@ public:
     using curve_pad_type = CurvePad<T>;
     using ring_list_type = RingList<T>;
     using bbox_type = BoundBox3d<T>;
+    using obb_type = OrientedBoundBox3d<T>;
     using rtree_type = RTree<ShapeEntry<T>, bbox_type>;
 
-    using coord2_type = small_vector<value_type, 2>; ///< An (x, y) pair.
     using bbox_array_type = small_vector<value_type, 4>; ///< As [min_x, min_y, max_x, max_y].
-    using obb_array_type = small_vector<value_type, 8>; ///< Four corners, (x, y) pairs.
 
     template <typename... Args>
     static std::shared_ptr<World<T>> construct(Args &&... args)
@@ -747,29 +931,18 @@ public:
 
     /**
      * World position of a live shape's rotate-handle anchor (the oriented
-     * bounding box's top-left corner), as [x, y]. Carried by every translate
-     * and rotate, so it stays put relative to the shape.
+     * bounding box's top-left corner). Carried by every translate and
+     * rotate, so it stays put relative to the shape.
      */
-    coord2_type shape_handle(int32_t shape_id) const
+    point_type shape_handle(int32_t shape_id) const
     {
-        ShapeRecord const & rec = find_shape_or_throw(shape_id);
-        return {static_cast<value_type>(rec.obb_x[0]), static_cast<value_type>(rec.obb_y[0])};
+        return shape_obb(shape_id).corner(0);
     }
 
-    /**
-     * Oriented bounding box of a live shape: four world corners ordered
-     * top-left, top-right, bottom-right, bottom-left.
-     */
-    obb_array_type shape_obb(int32_t shape_id) const
+    /// Oriented bounding box of a live shape, as a copy in the world's value type.
+    obb_type shape_obb(int32_t shape_id) const
     {
-        ShapeRecord const & rec = find_shape_or_throw(shape_id);
-        obb_array_type out(8);
-        for (size_t i = 0; i < 4; ++i)
-        {
-            out[2 * i] = static_cast<value_type>(rec.obb_x[i]);
-            out[2 * i + 1] = static_cast<value_type>(rec.obb_y[i]);
-        }
-        return out;
+        return obb_type(find_shape_or_throw(shape_id).obb);
     }
 
     /// Pick the live shape at world point (x, y).
@@ -1011,15 +1184,14 @@ int32_t World<T>::register_shape(ShapeType type,
                                  uint8_t ring_ndim)
 {
     auto shape_id = static_cast<int32_t>(m_shape_registry.size());
-    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count, ring_offset, ring_count, ring_ndim, {}, {}}); // NOLINT(modernize-use-designated-initializers)
+    m_shape_registry.push_back(ShapeRecord{type, segment_offset, segment_count, curve_offset, curve_count, ring_offset, ring_count, ring_ndim, {}}); // NOLINT(modernize-use-designated-initializers)
     ++m_nshape;
     bbox_type const bb = compute_shape_bbox(m_shape_registry[shape_id]);
 
-    // Seed the oriented bounding box to the axis-aligned bbox corners.
+    // Seed the oriented bounding box to the axis-aligned bbox.
     // TODO: store the OBB directly in ShapeRecord at construction.
-    ShapeRecord & seeded = m_shape_registry[shape_id];
-    seeded.obb_x = ShapeRecord::bbox_array_type{bb.min_x(), bb.max_x(), bb.max_x(), bb.min_x()};
-    seeded.obb_y = ShapeRecord::bbox_array_type{bb.max_y(), bb.max_y(), bb.min_y(), bb.min_y()};
+    m_shape_registry[shape_id].obb = OrientedBoundBox3d<double>(
+        BoundBox3d<double>(bb.min_x(), bb.min_y(), bb.min_z(), bb.max_x(), bb.max_y(), bb.max_z()));
     m_rtree->insert(ShapeEntry<T>{shape_id, bb});
 
     // Record the creation so undo removes the shape and redo brings it back
@@ -1309,11 +1481,7 @@ void World<T>::apply_translate(int32_t shape_id, value_type dx, value_type dy)
         m_curves->y3(idx) += dy;
     }
     // The oriented bounding box rides along with the shape.
-    for (uint32_t i = 0; i < 4; ++i)
-    {
-        rec.obb_x[i] += dx;
-        rec.obb_y[i] += dy;
-    }
+    rec.obb.translate(dx, dy);
     // Reinsert with updated bounding box.
     m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
     mark_changed();
@@ -1370,16 +1538,8 @@ void World<T>::apply_rotate(int32_t shape_id, value_type angle, value_type cx, v
     }
 
     // Rotate the oriented bounding box about the same pivot so it stays
-    // fixed relative to the shape. Done in `double` to match its storage.
-    auto const dcos = static_cast<double>(cos_a);
-    auto const dsin = static_cast<double>(sin_a);
-    for (uint32_t i = 0; i < 4; ++i)
-    {
-        double const ox = rec.obb_x[i] - cx;
-        double const oy = rec.obb_y[i] - cy;
-        rec.obb_x[i] = cx + dcos * ox - dsin * oy;
-        rec.obb_y[i] = cy + dsin * ox + dcos * oy;
-    }
+    // fixed relative to the shape.
+    rec.obb.rotate(angle, cx, cy);
     // Reinsert with updated bounding box.
     m_rtree->insert(ShapeEntry<T>{shape_id, compute_shape_bbox(rec)});
     mark_changed();
@@ -1402,64 +1562,26 @@ void World<T>::rotate_shape(int32_t shape_id, value_type angle, value_type cx, v
 template <typename T>
 void World<T>::refit_obb(ShapeRecord & rec) const
 {
-    // The box's x axis runs from its top-left to top-right corner; a box with
-    // no width (a vertical line) takes the axis from its height instead.
-    double ux = rec.obb_x[1] - rec.obb_x[0];
-    double uy = rec.obb_y[1] - rec.obb_y[0];
-    double len = std::hypot(ux, uy);
-    if (len <= 0.0)
-    {
-        double const vx = rec.obb_x[0] - rec.obb_x[3];
-        double const vy = rec.obb_y[0] - rec.obb_y[3];
-        ux = vy;
-        uy = -vx;
-        len = std::hypot(ux, uy);
-    }
-    if (len > 0.0)
-    {
-        ux /= len;
-        uy /= len;
-    }
-    else
-    {
-        ux = 1.0;
-        uy = 0.0;
-    }
-    double const vx = -uy, vy = ux;
-
-    double amin = std::numeric_limits<double>::max(), amax = std::numeric_limits<double>::lowest();
-    double bmin = amin, bmax = amax;
-    auto take = [&](double x, double y)
-    {
-        double const a = x * ux + y * uy, b = x * vx + y * vy;
-        amin = std::min(amin, a);
-        amax = std::max(amax, a);
-        bmin = std::min(bmin, b);
-        bmax = std::max(bmax, b);
-    };
-    for (uint32_t i = 0; i < rec.segment_count; ++i)
-    {
-        size_t const idx = rec.segment_offset + i;
-        take(m_segments->x0(idx), m_segments->y0(idx));
-        take(m_segments->x1(idx), m_segments->y1(idx));
-    }
-    for (uint32_t i = 0; i < rec.curve_count; ++i)
-    {
-        size_t const idx = rec.curve_offset + i;
-        take(m_curves->x0(idx), m_curves->y0(idx));
-        take(m_curves->x1(idx), m_curves->y1(idx));
-        take(m_curves->x2(idx), m_curves->y2(idx));
-        take(m_curves->x3(idx), m_curves->y3(idx));
-    }
-
-    // Corners ordered TL, TR, BR, BL in the box's own frame.
-    std::array<double, 4> const as{amin, amax, amax, amin};
-    std::array<double, 4> const bs{bmax, bmax, bmin, bmin};
-    for (uint32_t i = 0; i < 4; ++i)
-    {
-        rec.obb_x[i] = as[i] * ux + bs[i] * vx;
-        rec.obb_y[i] = as[i] * uy + bs[i] * vy;
-    }
+    // The box keeps its axis, so a shape squeezed to no width (a vertical
+    // line) still remembers which way it was turned.
+    rec.obb.refit(
+        [&](auto && take)
+        {
+            for (uint32_t i = 0; i < rec.segment_count; ++i)
+            {
+                size_t const idx = rec.segment_offset + i;
+                take(m_segments->x0(idx), m_segments->y0(idx));
+                take(m_segments->x1(idx), m_segments->y1(idx));
+            }
+            for (uint32_t i = 0; i < rec.curve_count; ++i)
+            {
+                size_t const idx = rec.curve_offset + i;
+                take(m_curves->x0(idx), m_curves->y0(idx));
+                take(m_curves->x1(idx), m_curves->y1(idx));
+                take(m_curves->x2(idx), m_curves->y2(idx));
+                take(m_curves->x3(idx), m_curves->y3(idx));
+            }
+        });
 }
 
 template <typename T>
@@ -2118,6 +2240,8 @@ void World<T>::append_shape_degeneracy(WorldDiagnostics & diag, int32_t sid, Sha
     }
 }
 
+using OrientedBoundBox3dFp32 = OrientedBoundBox3d<float>;
+using OrientedBoundBox3dFp64 = OrientedBoundBox3d<double>;
 using WorldFp32 = World<float>;
 using WorldFp64 = World<double>;
 

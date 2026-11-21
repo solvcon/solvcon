@@ -10,8 +10,6 @@ boxed value, a section head, a pill. Each is a role here, so two pages that
 draw one of them cannot drift apart.
 """
 
-import math
-
 from PySide6 import QtGui, QtWidgets
 
 from .._style import RuleCatalog, Shades
@@ -58,22 +56,6 @@ class Parts:
     def mono_font():
         """The stand-in for the mono font the design gives every number."""
         return QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.FixedFont)
-
-    @staticmethod
-    def obb_metrics(obb):
-        """Return the center, width, and height of an oriented bounding box.
-
-        The corners run top-left, top-right, bottom-right, bottom-left, so the
-        two sides give the shape's own width and height rather than the wider
-        span a rotated shape covers along the axes.
-        """
-        xs = obb[0::2]
-        ys = obb[1::2]
-        # Divided before summed: four corners far enough out add up past the
-        # double range, and the center would come back infinite.
-        return (sum(x / 4 for x in xs), sum(y / 4 for y in ys),
-                math.hypot(xs[1] - xs[0], ys[1] - ys[0]),
-                math.hypot(xs[3] - xs[0], ys[3] - ys[0]))
 
 
 class Rules(RuleCatalog):
