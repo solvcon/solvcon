@@ -51,6 +51,11 @@ FOLD_CHARS = 2000
 #: holding a megabyte of text stalls the window on every layout.
 KEEP_CHARS = 100000
 
+#: The transcript keeps this many blocks and each mode's history this many
+#: entries; the oldest go first.
+KEEP_BLOCKS = 500
+KEEP_HISTORY = 1000
+
 _CHECK = "\u2713"
 _CROSS = "\u2717"
 _DOT = "\u00b7"
@@ -750,13 +755,21 @@ class ConsolePanelWidget(_style.PaletteStyle, QWidget):
         if self._follow:
             self._scroll.verticalScrollBar().setValue(hi)
 
-    def add_block(self, kind, text):
+    def add_block(self, kind, text, keep=None):
+        """Add a block, dropping the oldest past :data:`KEEP_BLOCKS` but
+        ``keep``, the one a running turn still writes to."""
         # A note is not worth losing the reader's place for.
         if kind != NOTE:
             self._follow = True
         block = ConsoleBlock(kind, text)
         self._blocks.insertWidget(self._blocks.count() - 1, block)
         self._block_list.append(block)
+        excess = max(0, len(self._block_list) - KEEP_BLOCKS)
+        old = [b for b in self._block_list[:-1] if b is not keep][:excess]
+        for gone in old:
+            self._block_list.remove(gone)
+            gone.setParent(None)
+            gone.deleteLater()
         return block
 
     def blocks(self):
@@ -817,7 +830,7 @@ class ConsolePanel(base.PilotFeature):
     def write_message(self, text):
         """Show ``text`` as a note; its trailing newline is dropped."""
         self._ensure_panel()
-        self._panel.add_block(NOTE, text)
+        self._panel.add_block(NOTE, text, keep=self._block)
 
     @property
     def panel(self):
@@ -900,6 +913,7 @@ class ConsolePanel(base.PilotFeature):
         entries = self._history[mode]
         if not entries or entries[-1] != text:
             entries.append(text)
+            del entries[:-KEEP_HISTORY]
         self._end_history_walk()
 
     def _end_history_walk(self, mode=None):
@@ -929,7 +943,7 @@ class ConsolePanel(base.PilotFeature):
         """Run ``source`` in the shared interpreter and capture its output.
         It runs on the GUI thread, so a long command freezes the window."""
         source = source.rstrip()
-        block = self._panel.add_block(PYTHON, source)
+        block = self._panel.add_block(PYTHON, source, keep=self._block)
         runs = run_cell(source)
         for is_error, text in runs:
             block.add_output(text, error=is_error and runs.raised,

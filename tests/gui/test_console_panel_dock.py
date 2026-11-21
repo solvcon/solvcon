@@ -168,6 +168,14 @@ class ConsolePanelTC(unittest.TestCase):
         self.feature._navigate(-1)
         self.assertEqual(composer.toPlainText(), "draw a circle")
 
+    def test_history_keeps_only_the_latest_entries(self):
+        with mock.patch.object(_console, "KEEP_HISTORY", 2):
+            for source in ("a = 1", "b = 2", "c = 3"):
+                self.feature.submit(source)
+        for _ in range(3):
+            self.feature._navigate(-1)
+        self.assertEqual(self.panel.composer.toPlainText(), "b = 2")
+
     def test_agent_turn_lists_every_command(self):
         self._use(_ScriptBackend(TWO_SHAPES))
         block = self.feature.ask_agent("draw two shapes")

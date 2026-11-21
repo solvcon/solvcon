@@ -132,6 +132,17 @@ class PanelStyleTC(unittest.TestCase):
         panel.clear(keep=kept)
         self.assertEqual(panel.blocks(), [kept])
 
+    def test_the_transcript_drops_its_oldest_blocks(self):
+        panel = _console.ConsolePanelWidget()
+        with mock.patch.object(_console, "KEEP_BLOCKS", 2):
+            running = panel.add_block(_console.AGENT, "draw")
+            panel.add_block(_console.PYTHON, "x = 1")
+            # The block of a running turn stays, however old.
+            second = panel.add_block(_console.PYTHON, "y = 2", keep=running)
+            self.assertEqual(panel.blocks(), [running, second])
+            third = panel.add_block(_console.PYTHON, "z = 3")
+            self.assertEqual(panel.blocks(), [second, third])
+
 
 @testing.requires_pilot
 class ComposerTC(unittest.TestCase):
