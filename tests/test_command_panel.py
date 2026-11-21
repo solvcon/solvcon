@@ -123,13 +123,13 @@ class PanelStyleTC(unittest.TestCase):
                        for o in gc.get_objects())
 
         panel = _command.CommandPanelWidget()
-        first = panel.add_block(_command.PYTHON, "x = 1")
-        second = panel.add_block(_command.PYTHON, "y = 2")
+        kept = panel.add_block(_command.PYTHON, "x = 1")
+        gone = panel.add_block(_command.PYTHON, "y = 2")
         before = wrappers()
-        self.assertEqual(panel.blocks(), [first, second])
+        self.assertEqual(panel.blocks(), [kept, gone])
         self.assertEqual(wrappers(), before)
-        panel.clear()
-        self.assertEqual(panel.blocks(), [])
+        panel.clear(keep=kept)
+        self.assertEqual(panel.blocks(), [kept])
 
 
 @testing.requires_pilot
@@ -147,6 +147,17 @@ class ComposerTC(unittest.TestCase):
         event = QtGui.QKeyEvent(QtCore.QEvent.Type.KeyPress, key, mod, text,
                                 repeat)
         QtWidgets.QApplication.sendEvent(self.composer, event)
+
+    def test_ctrl_i_toggles_the_mode(self):
+        self._key(QtCore.Qt.Key_I, "", QtCore.Qt.ControlModifier)
+        self.assertEqual(self.composer.mode, _command.AGENT)
+        self._key(QtCore.Qt.Key_I, "", QtCore.Qt.ControlModifier)
+        self.assertEqual(self.composer.mode, _command.PYTHON)
+
+    def test_backspace_on_empty_input_switches_back(self):
+        self.composer.set_mode(_command.AGENT)
+        self._key(QtCore.Qt.Key_Backspace)
+        self.assertEqual(self.composer.mode, _command.PYTHON)
 
     def test_enter_on_an_open_block_indents(self):
         self.composer.set_text("for i in range(3):")
