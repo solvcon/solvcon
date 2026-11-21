@@ -4,14 +4,14 @@
 
 """
 The dock panels: the entity tree, the window manager, the profiling
-view, screen capture, and the Command panel.
+view, screen capture, and the Console panel.
 """
 
 from .. import _pilot_core as _pcore
 
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_capture_panel': ['CaptureWidget'],
-    '_command': ['CommandPanel'],
+    '_console': ['ConsolePanel'],
     '_profiling': ['Profiling', 'RunProfiling'],
     '_tree_panel': ['EntityTreeWidget', 'MeshInfoTree', 'TreePanel',
                     'TreePanelBase'],

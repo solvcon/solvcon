@@ -5,7 +5,7 @@
 """
 The pilot side of the controlling agent, on top of the headless
 :mod:`solvcon.agent` session: the dispatcher that runs its commands against
-the windows, and the turn runner and backend settings the Command dock uses.
+the windows, and the turn runner and backend settings the Console dock uses.
 """
 
 from .. import _pilot_core as _pcore

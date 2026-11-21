@@ -15,7 +15,7 @@ from solvcon import testing
 
 try:
     from solvcon import pilot, agent
-    from solvcon.pilot.panel import _command
+    from solvcon.pilot.panel import _console
     from solvcon.pilot.agent._agent_control import (
         PilotWindowManager, LiveViewExecutor, build_control_dispatcher,
         pilot_scene_context)
@@ -212,11 +212,11 @@ class DispatcherIntegrationTC(_PilotTC):
             {"close_window", "clear", "remove_shape"}, names)
 
 
-class CommandPanelControlTC(_PilotTC):
-    """The Command panel wires the composite dispatcher into its session."""
+class ConsolePanelControlTC(_PilotTC):
+    """The Console panel wires the composite dispatcher into its session."""
 
     def test_panel_session_exposes_window_and_view_tools(self):
-        feature = _command.CommandPanel(mgr=self.mgr)
+        feature = _console.ConsolePanel(mgr=self.mgr)
         names = {tool["name"]
                  for tool in feature._runner.session.tool_surface()}
         self.assertLessEqual(

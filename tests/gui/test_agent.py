@@ -16,7 +16,7 @@ except ImportError:
 
 @testing.requires_live_window
 class AgentBackendSettingsTC(unittest.TestCase):
-    """The backend settings dialog the Command panel's Settings opens."""
+    """The backend settings dialog the Console panel's Settings opens."""
 
     def setUp(self):
         pilot.RManager.instance.setUp()

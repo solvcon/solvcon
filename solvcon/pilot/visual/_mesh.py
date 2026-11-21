@@ -27,7 +27,7 @@ class SampleMesh:
     The built-in sample meshes as data.
 
     Each ``mesh_*`` method builds and returns a :class:`StaticMesh` with no
-    Qt, so the same example meshes serve the GUI feature and the Command
+    Qt, so the same example meshes serve the GUI feature and the Console
     panel.
     """
 

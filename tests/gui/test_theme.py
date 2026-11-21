@@ -258,7 +258,7 @@ class ThemeCanvasTC(unittest.TestCase):
 
 
 @testing.requires_live_window
-class ThemeCommandPanelTC(unittest.TestCase):
+class ThemeConsolePanelTC(unittest.TestCase):
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
         self.app = QtWidgets.QApplication.instance()
@@ -270,9 +270,9 @@ class ThemeCommandPanelTC(unittest.TestCase):
 
     def _command_dock(self):
         for dock in self.mgr.mainWindow.findChildren(QtWidgets.QDockWidget):
-            if "Command" == dock.windowTitle():
+            if "Console" == dock.windowTitle():
                 return dock
-        self.fail("the command dock is not in the main window")
+        self.fail("the console dock is not in the main window")
 
     def _command_edits(self):
         # The composer is the one plain-text editor under the dock. Deliver

@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Tests for the command panel docked in the pilot: Python blocks, notes,
+Tests for the console panel docked in the pilot: Python blocks, notes,
 agent turns, Stop, undoing a turn, and replaying it as Python.
 """
 
@@ -17,7 +17,7 @@ try:
     from solvcon import pilot
     from solvcon import agent
     from solvcon.pilot.agent import _agent_turn
-    from solvcon.pilot.panel import _command
+    from solvcon.pilot.panel import _console
     from PySide6.QtCore import QCoreApplication, QEvent, Qt
     from PySide6.QtGui import QKeyEvent
     from PySide6.QtWidgets import QLabel, QToolButton
@@ -59,11 +59,11 @@ TWO_SHAPES = [{"op": "add_circle", "cx": 0.0, "cy": 0.0, "r": 10.0},
 
 
 @testing.requires_live_window
-class CommandPanelTC(unittest.TestCase):
+class ConsolePanelTC(unittest.TestCase):
 
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
-        self.feature = _command.CommandPanel(mgr=self.mgr)
+        self.feature = _console.ConsolePanel(mgr=self.mgr)
         self.feature.populate_menu()
         self.panel = self.feature.panel
         self.widget = self.mgr.add2DWidget()
@@ -103,7 +103,7 @@ class CommandPanelTC(unittest.TestCase):
     def test_a_feature_message_lands_as_a_note(self):
         pilot.base.write_message("mesh: 8 cells\n")
         block = self.panel.blocks()[-1]
-        self.assertEqual(block.kind, _command.NOTE)
+        self.assertEqual(block.kind, _console.NOTE)
         self.assertEqual(block._input.text(), "mesh: 8 cells")
 
     def test_python_block_holds_its_output(self):
@@ -123,8 +123,8 @@ class CommandPanelTC(unittest.TestCase):
         self.assertIn("Show all 5000 characters", toggles)
 
     def test_huge_output_shows_only_its_ends(self):
-        block = self.panel.add_block(_command.PYTHON, "")
-        block.add_output("HEAD" + "x" * _command.KEEP_CHARS + "TAIL")
+        block = self.panel.add_block(_console.PYTHON, "")
+        block.add_output("HEAD" + "x" * _console.KEEP_CHARS + "TAIL")
         [toggle] = [b for b in block.findChildren(QToolButton)
                     if b.text().startswith("Show all")]
         toggle.click()
@@ -132,7 +132,7 @@ class CommandPanelTC(unittest.TestCase):
                    if "characters omitted" in label.text()]
         self.assertTrue(shown.startswith("HEAD"))
         self.assertTrue(shown.endswith("TAIL"))
-        self.assertLess(len(shown), _command.KEEP_CHARS + 100)
+        self.assertLess(len(shown), _console.KEEP_CHARS + 100)
 
     def test_a_dock_tabbed_behind_another_stays_open(self):
         dock = self.feature._dock
@@ -159,12 +159,12 @@ class CommandPanelTC(unittest.TestCase):
         composer = self.panel.composer
         for source in ("a = 1", "b = 2", "c = 3"):
             self.feature.submit(source)
-        composer.set_mode(_command.AGENT)
-        self.feature._remember(_command.AGENT, "draw a circle")
-        composer.set_mode(_command.PYTHON)
+        composer.set_mode(_console.AGENT)
+        self.feature._remember(_console.AGENT, "draw a circle")
+        composer.set_mode(_console.PYTHON)
         self.feature._navigate(-1)
         self.assertEqual(composer.toPlainText(), "c = 3")
-        composer.set_mode(_command.AGENT)
+        composer.set_mode(_console.AGENT)
         self.feature._navigate(-1)
         self.assertEqual(composer.toPlainText(), "draw a circle")
 
@@ -174,7 +174,7 @@ class CommandPanelTC(unittest.TestCase):
         self._finish()
         self.assertEqual(self.world.nshape, 2)
         rows = [label.text() for label in block.findChildren(QLabel)
-                if label.text().startswith(_command._CHECK)]
+                if label.text().startswith(_console._CHECK)]
         self.assertEqual(len(rows), 2)
 
     def test_undo_turn_reverts_the_whole_turn(self):
@@ -268,7 +268,7 @@ class CommandPanelTC(unittest.TestCase):
         self._finish()
         self._buttons(block)["As Python"].click()
         composer = self.panel.composer
-        self.assertEqual(composer.mode, _command.PYTHON)
+        self.assertEqual(composer.mode, _console.PYTHON)
         self.feature.run_python(composer.toPlainText())
         self.assertEqual(self.world.nshape, 4)
 
@@ -278,7 +278,7 @@ class CompletionPopupTC(unittest.TestCase):
 
     def setUp(self):
         self.mgr = pilot.RManager.instance.setUp()
-        self.feature = _command.CommandPanel(mgr=self.mgr)
+        self.feature = _console.ConsolePanel(mgr=self.mgr)
         self.feature.populate_menu()
         self.composer = self.feature.panel.composer
         self.popup = self.composer._completer.popup()
@@ -338,7 +338,7 @@ class ConsoleNoteTC(unittest.TestCase):
         self.assertEqual(len(note.splitlines()), 1)
         self.assertIn("help_pilot()", note)
 
-        block = _gui.controller.command_panel.run_python("help_pilot()")
+        block = _gui.controller.console_panel.run_python("help_pilot()")
         [label] = [label for label in block.findChildren(QLabel)
                    if "Handles in scope:" in label.text()]
         self.assertIn("show_mesh(m)", label.text())
