@@ -1,0 +1,178 @@
+name: release
+
+# Build, package, and unbox-test the release artifacts. A pushed version tag
+# runs the whole pipeline and drafts a GitHub release from it; a manual run
+# exercises the same stages on any ref without publishing anything.
+#
+# Each stage is a `make bundle*` target, so it can be rerun by hand.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or commit to build (default: the run ref)'
+        default: ''
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+
+  build:
+
+    name: build_package_${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: ${{ fromJSON(vars.SCGH_TIMEOUT_RELEASE || '90') }}
+
+    strategy:
+      matrix:
+        # The aqt bundler supports Apple Silicon only. platform is the OS and
+        # the architecture the DMG runs on; it names the artifact and, at
+        # publish, the release asset.
+        include:
+          - os: macos-26
+            platform: macos-arm64
+
+      fail-fast: false
+
+    steps:
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 1
+
+      - name: setup
+        run: |
+          make bundle-prepare
+          make bundle-precheck
+
+      # rcc embeds each resource's modification time, which is the checkout
+      # time for a source and the build time for a generated shader; it uses
+      # SOURCE_DATE_EPOCH instead when set, so two builds of a commit match.
+      - name: build
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          make bundle RELEASE_OUTPUT=dist
+
+      # The DMG keeps the plain name pilot.dmg until publish names it after
+      # the release.
+      - name: package
+        run: |
+          (cd dist && shasum -a 256 pilot.dmg > pilot.dmg.sha256)
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/
+          if-no-files-found: error
+
+  unbox_test:
+
+    # Install nothing beyond the runner image, so the test sees the artifact
+    # the way a user's clean machine would and catches a missing dependency
+    # that the build host happened to provide.
+    needs: [build]
+
+    name: unbox_test_${{ matrix.os }}
+
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        include:
+          - os: macos-26
+            platform: macos-arm64
+
+      fail-fast: false
+
+    steps:
+
+      # The tests need the Makefile, the bundler, and the GUI tests only.
+      # Leaving solvcon/ out keeps the GUI tests on the bundled package. Cone
+      # mode matches directories, not files, hence off.
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          sparse-checkout: |
+            Makefile
+            contrib/bundle/bundle-with-aqt.sh
+            tests/conftest.py
+            tests/gui/
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/
+
+      - name: unbox test
+        run: |
+          (cd dist && shasum -a 256 -c pilot.dmg.sha256)
+          make bundle-test RELEASE_OUTPUT=dist
+
+      # Run the GUI tests in the app even when the verification above failed,
+      # so each check reports on its own.
+      - name: gui test
+        if: success() || failure()
+        run: |
+          make bundle-guitest RELEASE_OUTPUT=dist
+
+  publish:
+
+    # Only a tag push publishes, and only as a draft, so a maintainer reviews
+    # the notes and the assets before the release becomes public.
+    needs: [unbox_test]
+
+    if: github.ref_type == 'tag'
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+
+      # Each artifact lands in dist/release-<platform>/, so the pilot.dmg of
+      # every platform stays apart.
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist/
+
+      # Name each DMG after the tag and its platform only for the release
+      # assets, and write the checksum of the renamed file.
+      - name: name
+        run: |
+          mkdir assets
+          for dir in dist/release-*; do
+            (cd "$dir" && shasum -a 256 -c pilot.dmg.sha256)
+            name="pilot-$GITHUB_REF_NAME-${dir#dist/release-}.dmg"
+            mv "$dir/pilot.dmg" "assets/$name"
+            (cd assets && shasum -a 256 "$name" > "$name.sha256")
+          done
+          ls -l assets
+
+      - name: draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" assets/* \
+            --repo "${{ github.repository }}" \
+            --draft --verify-tag --generate-notes \
+            --title "${{ github.ref_name }}"
