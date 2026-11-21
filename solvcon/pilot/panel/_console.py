@@ -506,8 +506,10 @@ class ConsoleBlock(QFrame):
         if text is None:
             text = "%s %.2f s" % (state, self.elapsed())
         self._status.setText(text)
-        self._status.setProperty("state", state)
-        _repolish(self._status)
+        # The running ticker sets the same state ten times a second.
+        if self._status.property("state") != state:
+            self._status.setProperty("state", state)
+            _repolish(self._status)
 
     def add_output(self, text, error=False, warning=False):
         """Add captured output; long text folds, and huge text keeps only its
