@@ -218,10 +218,9 @@ def run_cell(source, appenv=None):
             contextlib.redirect_stdout(_OrderedCapture(runs, False)), \
             contextlib.redirect_stderr(_OrderedCapture(runs, True)):
         try:
-            for refresh in appenv.namespace_refreshers:
-                refresh(appenv.globals)
+            appenv.refresh_namespace()
         except Exception:
-            console.showtraceback()
+            _show_traceback(console)
             source = None
             raised = True
         tree = None
@@ -250,10 +249,21 @@ def _exec_tree(tree, namespace, console):
     except SystemExit:
         console.write("SystemExit: use the window controls to quit.\n")
     except BaseException:
-        console.showtraceback()
+        _show_traceback(console)
     else:
         return False
     return True
+
+
+def _show_traceback(console):
+    # A replaced sys.excepthook, such as Ubuntu's apport hook, takes the
+    # report from console.write(), and Python 3.12 also hands it the host's
+    # frames.
+    hook, sys.excepthook = sys.excepthook, sys.__excepthook__
+    try:
+        console.showtraceback()
+    finally:
+        sys.excepthook = hook
 
 
 def python_completions(prefix):
@@ -262,8 +272,7 @@ def python_completions(prefix):
     appenv = apputil.get_current_appenv()
     # A failed refresh is reported when a cell runs; a key press stays quiet.
     with contextlib.suppress(Exception):
-        for refresh in appenv.namespace_refreshers:
-            refresh(appenv.globals)
+        appenv.refresh_namespace()
     # Looking up an attribute can run anything, such as a lazy import.
     try:
         names = apputil.get_completions(prefix)

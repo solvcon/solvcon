@@ -17,6 +17,7 @@ try:
     from solvcon import pilot
     from solvcon.pilot import base
     from solvcon.pilot.base import _capture
+    from solvcon.pilot.panel import _console
     from PySide6.QtCore import QEventLoop, QObject, QSize, Qt, QTimer, Signal
     from PySide6.QtGui import QImage, QPainter, QPixmap
     from PySide6.QtWidgets import QDockWidget, QLabel
@@ -166,7 +167,7 @@ class ScreenCaptureTC(unittest.TestCase):
         banner = apputil.install_pilot_namespace(
             self.mgr, env, extra=self.capture.console_handles())
         self.assertIn('capture(target)', banner)
-        env.run_code("path = capture('main', 'console')")
+        _console.run_cell("path = capture('main', 'console')", env)
         path = os.path.join(self.folder, 'console.png')
         self.assertEqual(path, env.globals['path'])
         self.assertTrue(os.path.isfile(path))
