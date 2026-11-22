@@ -166,9 +166,13 @@ class RunStrip(QFrame):
             strip.dirty or 'ready' != state or strip.step > 0))
         pilot.set_style_property(self._reset, "attention",
                                  "true" if strip.dirty else "false")
-        self._reset.setToolTip(
-            "Apply the edits and rebuild the run at t = 0 (R)" if strip.dirty
-            else "Rebuild the run at t = 0 from the inputs in the column (R)")
+        if not strip.can_reset:
+            tip = "Fix the outlined values in the column to apply the edits"
+        elif strip.dirty:
+            tip = "Apply the edits and rebuild the run at t = 0 (R)"
+        else:
+            tip = "Rebuild the run at t = 0 from the inputs in the column (R)"
+        self._reset.setToolTip(tip)
         text, tone = self.PILL[state]
         self._pill.setText(text)
         pilot.set_style_property(self._pill, "tone", tone)

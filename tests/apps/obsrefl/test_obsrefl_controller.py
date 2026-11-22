@@ -181,6 +181,10 @@ class ReflectionControllerTC(unittest.TestCase):
         self.assertIn("1.1 to 20", freestream.error_text())
         self.assertNotIn("nx", freestream.error_text())
         self.assertFalse(self._enabled()['reset'])
+        # The groups may be folded, so the strip and the heads say it too.
+        self.assertIn("Free stream and Numerics",
+                      self.strip._failure.full_text)
+        self.assertTrue(freestream.summary().endswith("(invalid)"))
         self.assertFalse(ctl.reset())
         self.assertIs(session, ctl.session)
         self.assertEqual('paused', ctl.state)
@@ -254,6 +258,9 @@ class ReflectionControllerTC(unittest.TestCase):
         self.assertEqual('paused', ctl.state)
         self.assertEqual(10, ctl.setup.angle)
         self.assertIn("no mesh", self.strip._failure.full_text)
+        # An edit after it leaves the message behind.
+        _type(self.column.freestream.fields['angle'], "12")
+        self.assertEqual('', self.strip._failure.full_text)
 
     def test_a_density_no_longer_finite_fails_the_run(self):
         ctl = self.ctl

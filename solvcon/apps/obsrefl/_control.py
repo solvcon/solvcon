@@ -63,6 +63,7 @@ class ReflectionController(object):
         #: Owner-supplied callback fired with the window title after a build.
         self.title_changed = None
         self._build_error = ''
+        self._edit_error = ''
         self._dirty = False
         self._can_reset = True
         self._timer = QTimer()
@@ -248,15 +249,27 @@ class ReflectionController(object):
         column = self.column
         _, errors = self._edited_setup()
         self._dirty = False
+        # The message of a build that failed no longer applies to the edit.
+        self._build_error = ''
+        wrong = []
         for group, summary in (
                 (column.freestream, _presenter.freestream_summary),
                 (column.numerics, _presenter.numerics_summary)):
             group.show_errors(errors)
             dirty = group.is_dirty()
-            group.set_dirty_hint(dirty and not group.invalid_fields())
-            group.set_summary(summary(self.setup, dirty), dirty)
+            invalid = bool(group.invalid_fields())
+            group.set_dirty_hint(dirty and not invalid)
+            group.set_summary(summary(self.setup, dirty, invalid), dirty)
             self._dirty = self._dirty or dirty
+            if invalid:
+                wrong.append(group.title)
         self._can_reset = not errors
+        self._edit_error = ''
+        # The strip names the groups that hold a wrong value, as they may be
+        # folded and hide the outline.
+        if wrong:
+            self._edit_error = (f"Fix the outlined value in "
+                                f"{' and '.join(wrong)} to apply the edits.")
         self._show_strip()
 
     def _on_run_changed(self, max_steps, steps_per_frame):
@@ -285,7 +298,7 @@ class ReflectionController(object):
         self._show()
 
     def _show_strip(self):
-        failure = self.error or self._build_error
+        failure = self.error or self._build_error or self._edit_error
         self.window.strip.show_state(_presenter.strip_state(
             self.session, self.state, failure, self._dirty, self._can_reset))
 

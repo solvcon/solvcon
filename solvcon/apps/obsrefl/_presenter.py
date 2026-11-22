@@ -241,23 +241,28 @@ def strip_state(session, state, failure='', dirty=False, can_reset=True):
         failure=failure, dirty=dirty, can_reset=can_reset)
 
 
-def _pending(text, dirty):
-    """Return ``text``, marked when its edits wait for Reset."""
+def _pending(text, dirty, invalid):
+    """Return ``text``, marked when its edits wait for Reset or hold a
+    value the setup rejects."""
+    if invalid:
+        return text + "  (invalid)"
     return text + "  (pending)" if dirty else text
 
 
-def freestream_summary(setup, dirty):
+def freestream_summary(setup, dirty, invalid=False):
     """Return the summary of the free-stream group of ``setup``, ``Mach 3,
-    10 deg, gamma 1.4``, and whether its edits wait for Reset."""
+    10 deg, gamma 1.4``, marked when its edits wait for Reset or are
+    wrong."""
     return _pending(f"Mach {setup.mach:g}, {setup.angle:g} deg, gamma "
-                    f"{setup.gamma:g}", dirty)
+                    f"{setup.gamma:g}", dirty, invalid)
 
 
-def numerics_summary(setup, dirty):
+def numerics_summary(setup, dirty, invalid=False):
     """Return the summary of the numerics group of ``setup``, ``64 x 16
-    unstructured, dt 0.002``, and whether its edits wait for Reset."""
+    unstructured, dt 0.002``, marked when its edits wait for Reset or are
+    wrong."""
     return _pending(f"{setup.nx:g} x {setup.ny:g} {setup.cell_type}, dt "
-                    f"{setup.time_increment:g}", dirty)
+                    f"{setup.time_increment:g}", dirty, invalid)
 
 
 def display_summary(display):
