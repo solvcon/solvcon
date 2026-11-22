@@ -195,11 +195,16 @@ class ReflectionWindow(_widgets.Styled, QWidget):
     :param figure: The widget to show under the strip, any :class:`QWidget`.
     """
 
+    #: The strip button each run key presses.
+    KEYS = {Qt.Key_Space: 'run', Qt.Key_Right: 'step', Qt.Key_R: 'reset'}
     ROLES = ("strip", "buttons", "pill", "progress")
 
     def __init__(self, figure, parent=None):
         super().__init__(parent)
         self.setObjectName("obsrefl")
+        # The run keys reach the window through the focus, so a click on
+        # its ground has to give it the focus.
+        self.setFocusPolicy(Qt.ClickFocus)
         #: The :class:`RunStrip`.
         self.strip = RunStrip()
         #: The widget under the strip, any :class:`QWidget`.
@@ -218,5 +223,27 @@ class ReflectionWindow(_widgets.Styled, QWidget):
     def restyle(self):
         """Draw the icons and the numbers of the strip anew."""
         self.strip.restyle()
+
+    def keyPressEvent(self, event):
+        if not self.press_key(event):
+            super().keyPressEvent(event)
+
+    def press_key(self, event):
+        """Press the strip button a run key names.
+
+        :param event: The key event.
+        :return: Whether the event holds a run key, which then goes no
+            further.
+        """
+        name = self.KEYS.get(event.key())
+        if name is None or event.modifiers() & ~Qt.KeypadModifier:
+            return False
+        event.accept()
+        if event.isAutoRepeat() and 'step' != name:
+            return True
+        button = self.strip.buttons[name]
+        if button.isEnabled():
+            button.click()
+        return True
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
