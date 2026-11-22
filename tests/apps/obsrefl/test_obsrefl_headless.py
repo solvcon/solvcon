@@ -72,12 +72,18 @@ with open(os.path.join(folder, 'report.json'), 'w') as stream:
 class HeadlessTC(unittest.TestCase):
 
     def test_the_run_reads_out_without_qt(self):
-        if os.path.basename(sys.executable).lower() in ('pilot', 'pilot.exe'):
-            self.skipTest('requires a Python interpreter, not the Pilot')
-        root = os.path.dirname(os.path.dirname(solvcon.__file__))
+        # The pilot builds the extension into its own binary, so a child
+        # Python started from inside it has no extension file to import,
+        # whatever `sys.executable` names.
+        impl = solvcon.core._impl
+        if getattr(impl, '__file__', None) is None:
+            self.skipTest('the extension is built into the Pilot')
+        paths = [os.path.dirname(os.path.dirname(solvcon.__file__))]
+        if '_solvcon' == impl.__name__:
+            paths.append(os.path.dirname(impl.__file__))
         env = dict(os.environ)
         env['PYTHONPATH'] = os.pathsep.join(
-            [root] + [part for part in [env.get('PYTHONPATH')] if part])
+            paths + [part for part in [env.get('PYTHONPATH')] if part])
         with tempfile.TemporaryDirectory() as folder:
             done = subprocess.run(
                 [sys.executable, '-c', CHILD, folder, *HEADLESS], env=env,
