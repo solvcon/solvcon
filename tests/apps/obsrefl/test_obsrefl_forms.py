@@ -38,12 +38,19 @@ class SetupGroupTC(unittest.TestCase):
         self.setup = _setup.ReflectionSetup()
         self.free = _forms.FreeStreamGroup()
         self.free.show_setup(self.setup)
+        self.numerics = _forms.NumericsGroup()
+        self.numerics.show_setup(self.setup)
 
     def test_the_groups_read_back_the_setup_they_show(self):
         values, errors = self.free.read()
         self.assertEqual({}, errors)
         self.assertEqual(dict(gamma=1.4, density=1.0, pressure=1.0,
                               mach=3.0, angle=10.0), values)
+        values, errors = self.numerics.read()
+        self.assertEqual({}, errors)
+        self.assertEqual(dict(nx=64, ny=16, time_increment=2e-3,
+                              cell_type='unstructured'), values)
+        self.assertIsInstance(values['nx'], int)
         self.assertEqual(list(_setup.ReflectionSetup.FREE_STREAM),
                          list(self.free.fields))
 
@@ -53,19 +60,40 @@ class SetupGroupTC(unittest.TestCase):
         self.assertEqual(['mach'], list(errors))
         self.assertIn("not a number", errors['mach'])
         self.assertNotIn('mach', values)
+        _type(self.numerics, 'nx', "inf")
+        self.assertEqual(['nx'], list(self.numerics.read()[1]))
 
     def test_an_edit_reads_dirty_until_shown_again(self):
         self.assertFalse(self.free.is_dirty())
+        self.assertFalse(self.numerics.is_dirty())
         _type(self.free, 'angle', "15")
         self.assertTrue(self.free.is_dirty())
+        self.numerics._cells.setCurrentText('quad')
+        self.assertTrue(self.numerics.is_dirty())
         # Typed back, the edit is gone; text that is no number is an edit.
         _type(self.free, 'angle', "10.0")
         self.assertFalse(self.free.is_dirty())
         _type(self.free, 'angle', "")
         self.assertTrue(self.free.is_dirty())
-        applied = self.setup.replace(angle=15.0)
+        applied = self.setup.replace(angle=15.0, cell_type='quad')
         self.free.show_setup(applied)
+        self.numerics.show_setup(applied)
         self.assertFalse(self.free.is_dirty())
+        self.assertFalse(self.numerics.is_dirty())
         self.assertEqual("15", self.free.fields['angle'].text())
+
+    def test_the_run_settings_apply_at_once(self):
+        numerics = self.numerics
+        changed = []
+        numerics.run_changed = lambda *args: changed.append(args)
+        self.assertEqual((2000, 5), numerics.run_settings())
+        numerics._cap.setValue(300)
+        numerics._frame.setValue(2)
+        self.assertEqual([(300, 5), (300, 2)], changed)
+        # Nor are they edits that wait for Reset.
+        self.assertFalse(numerics.is_dirty())
+        numerics.set_run_settings(100, 1)
+        self.assertEqual((100, 1), numerics.run_settings())
+        self.assertEqual(2, len(changed))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

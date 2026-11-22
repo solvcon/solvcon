@@ -8,15 +8,18 @@ parameters."""
 import math
 
 from PySide6.QtCore import QSignalBlocker, Qt
-from PySide6.QtWidgets import QLineEdit, QSizePolicy
+from PySide6.QtWidgets import (QComboBox, QLabel, QLineEdit, QSizePolicy,
+                               QSpinBox)
 
 from ... import pilot
 
+from . import _session
 from . import _setup
 from . import _widgets
 
 __all__ = [
     'FreeStreamGroup',
+    'NumericsGroup',
 ]
 
 
@@ -215,5 +218,88 @@ class FreeStreamGroup(_SetupGroup):
     def __init__(self, parent=None):
         super().__init__("Free stream", parent)
         self._add_messages()
+
+
+class NumericsGroup(_SetupGroup):
+    """The mesh and the time step the next Reset builds, and the step cap
+    and the steps per frame, which apply to the standing run at once.
+    """
+
+    KEYS = _SETUP.NUMERICS
+    LABELS = {
+        'nx': ("nx", "Mesh intervals along x; the domain is four units "
+                     "long, so nx = 4 ny keeps the cells square"),
+        'ny': ("ny", "Mesh intervals along y, over a domain one unit "
+                     "tall"),
+        'time_increment': ("time step", "The time a step marches; a finer "
+                                        "mesh needs a shorter one"),
+    }
+    #: The highest step cap offered, past any run worth watching.
+    STEP_CAP_MAX = 1000000
+
+    def __init__(self, parent=None):
+        super().__init__("Numerics", parent)
+        #: Owner-supplied callback fired with the step cap and the steps per
+        #: frame when either changes.
+        self.run_changed = None
+        self._cells = QComboBox()
+        self._cells.addItems(_SETUP.CELL_TYPES)
+        self._cells.setToolTip("The cells the mesh is cut into")
+        self._cells.currentIndexChanged.connect(self._on_edit)
+        self._add_row("cell type", self._cells, self._cells.toolTip())
+        self._add_messages()
+        now = QLabel("These apply at once:")
+        now.setObjectName("note")
+        self._grid.addWidget(now, self._row, 0, 1, 2)
+        self._row += 1
+        self._cap = QSpinBox()
+        self._cap.setRange(1, self.STEP_CAP_MAX)
+        self._cap.setToolTip("The step the run stops at")
+        self._frame = QSpinBox()
+        self._frame.setRange(1, 1000)
+        self._frame.setToolTip("Steps marched between two drawn frames")
+        self._add_row("step cap", self._cap, self._cap.toolTip())
+        self._add_row("steps / frame", self._frame, self._frame.toolTip())
+        self.set_run_settings(_session.ReflectionSession.MAX_STEPS,
+                              _session.ReflectionSession.STEPS_PER_CHUNK)
+        self._cap.valueChanged.connect(self._on_run)
+        self._frame.valueChanged.connect(self._on_run)
+
+    def show_setup(self, setup):
+        """Fill the fields and the cell type from a setup and take it as
+        the applied one.
+
+        :param setup: The :class:`~._setup.ReflectionSetup` to show.
+        """
+        with QSignalBlocker(self._cells):
+            self._cells.setCurrentText(setup.cell_type)
+        super().show_setup(setup)
+
+    def read(self):
+        """Read the group as :meth:`_SetupGroup.read` does, with the cell
+        type, which always holds one of the types."""
+        values, errors = super().read()
+        values['cell_type'] = self._cells.currentText()
+        return values, errors
+
+    def run_settings(self):
+        """Return the step cap and the steps per frame."""
+        return self._cap.value(), self._frame.value()
+
+    def set_run_settings(self, max_steps, steps_per_frame):
+        """Show the step cap and the steps per frame without firing the
+        callback.
+
+        :param max_steps: The step cap of the run.
+        :param steps_per_frame: The steps marched between two frames.
+        """
+        for spin, value in ((self._cap, max_steps),
+                            (self._frame, steps_per_frame)):
+            with QSignalBlocker(spin):
+                spin.setValue(value)
+
+    def _on_run(self, _value):
+        if self.run_changed is not None:
+            self.run_changed(*self.run_settings())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
