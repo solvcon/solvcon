@@ -4,17 +4,20 @@
 
 """The window of the reflection app: the run strip over the figure."""
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QProgressBar,
-                               QPushButton, QSizePolicy, QVBoxLayout)
+                               QPushButton, QSizePolicy, QVBoxLayout,
+                               QWidget)
 
 from ... import pilot
 
+from . import _column
 from . import _viewmodel
 from . import _widgets
 
 __all__ = [
+    'ReflectionWindow',
     'RunStrip',
 ]
 
@@ -183,5 +186,37 @@ class RunStrip(QFrame):
     def pill(self):
         """Return the text and the tone of the state pill."""
         return self._pill.text(), self._pill.property("tone")
+
+
+class ReflectionWindow(_widgets.Styled, QWidget):
+    """The reflection window: the run strip over the figure it is handed.
+    The control column docks beside it as a panel of its own.
+
+    :param figure: The widget to show under the strip, any :class:`QWidget`.
+    """
+
+    ROLES = ("strip", "buttons", "pill", "progress")
+
+    def __init__(self, figure, parent=None):
+        super().__init__(parent)
+        self.setObjectName("obsrefl")
+        #: The :class:`RunStrip`.
+        self.strip = RunStrip()
+        #: The widget under the strip, any :class:`QWidget`.
+        self.figure = figure
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.strip)
+        layout.addWidget(self.figure, 1)
+        self._styling = False
+        self._apply_style()
+
+    def sizeHint(self):
+        return QSize(1000 - _column.ControlColumn.WIDTH, 560)
+
+    def restyle(self):
+        """Draw the icons and the numbers of the strip anew."""
+        self.strip.restyle()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
