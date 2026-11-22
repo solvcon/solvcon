@@ -41,8 +41,8 @@ jobs:
 
     - name: dependency by apt
       run: |
-        sudo contrib/ci/apt-update.sh -qq
-        sudo apt-get -qy install \
+        sudo contrib/ci/retry-apt-get.sh -qq update
+        sudo contrib/ci/retry-apt-get.sh -qy install \
             python3-dev libopenblas-dev doxygen ghostscript imagemagick \
             texlive-latex-base texlive-latex-recommended \
             texlive-latex-extra texlive-plain-generic texlive-pstricks \
