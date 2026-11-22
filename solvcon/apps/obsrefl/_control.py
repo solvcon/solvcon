@@ -263,19 +263,21 @@ class ReflectionController(object):
         """Put the step cap and the steps per frame on the standing run.
 
         A cap at or under the step the run stands at ends the run there,
-        since the session marches no chunk past its cap.
+        and a higher cap lets a run the cap ended go on, paused.  A failed
+        run stays failed.
 
         :param max_steps: The step cap of the run.
         :param steps_per_frame: The steps marched between two frames.
         """
         session = self.session
-        if session is None:
+        if session is None or 'failed' == self.state:
             return
-        session.max_steps = max_steps
         session.steps_per_chunk = steps_per_frame
-        if session.step >= max_steps and not session.finished:
-            session.stop()
+        session.set_max_steps(max_steps)
+        if session.finished:
             self._settle()
+        elif 'finished' == self.state:
+            self.state = 'paused'
         self._show_strip()
 
     def _on_display(self, display):

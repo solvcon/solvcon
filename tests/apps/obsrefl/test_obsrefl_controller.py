@@ -129,6 +129,31 @@ class ReflectionControllerTC(unittest.TestCase):
         self.assertEqual('finished', ctl.state)
         self.assertEqual(5, ctl.session.step)
 
+    def test_a_higher_cap_lets_a_finished_run_go_on(self):
+        ctl = self.ctl
+        numerics = self.column.numerics
+        numerics._cap.setValue(5)
+        ctl.step()
+        self.assertEqual('finished', ctl.state)
+        session = ctl.session
+        numerics._cap.setValue(20)
+        self.assertEqual('paused', ctl.state)
+        self.assertTrue(self._enabled()['step'])
+        ctl.step()
+        self.assertIs(session, ctl.session)
+        self.assertEqual(10, session.step)
+
+    def test_a_cap_change_keeps_a_failed_run_failed(self):
+        ctl = self.ctl
+        ctl.run()
+        with mock.patch.object(ctl.session, 'advance',
+                               side_effect=RuntimeError("blew up")), \
+                mock.patch('sys.excepthook'):
+            ctl._tick()
+        self.column.numerics._cap.setValue(1)
+        self.assertEqual('failed', ctl.state)
+        self.assertEqual(('Failed', 'bad'), self.strip.pill())
+
     def test_a_cap_applies_once_typed_whole(self):
         ctl = self.ctl
         ctl.step()
