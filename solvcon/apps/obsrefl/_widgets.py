@@ -12,13 +12,15 @@ None of it knows the reflection; the style sheet comes from the rules of
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (QFont, QGuiApplication, QIcon, QPainter,
                            QPainterPath, QPen, QPixmap)
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QSizePolicy
 
 from ... import pilot
 
 from . import _style
 
 __all__ = [
+    'ElidedLabel',
+    'Fitted',
     'GLYPHS',
     'Styled',
     'form_label',
@@ -136,6 +138,17 @@ def message(role):
     return label
 
 
+def _room(label, text):
+    """Return the width a label takes to show a text whole.
+
+    :param label: The label whose font and margins count.
+    :param text: The text to measure.
+    """
+    margins = label.contentsMargins()
+    return (label.fontMetrics().horizontalAdvance(text) + margins.left()
+            + margins.right())
+
+
 def say(label, text):
     """Show a text in a label, or hide the label for an empty one.
 
@@ -188,5 +201,98 @@ class Styled(pilot.PaletteStyle):
             self.restyle()
         finally:
             self._styling = False
+
+
+class ElidedLabel(QLabel):
+    """A one-line label that elides its text to the room it gets, and
+    keeps the whole of it in the tip."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        #: The text before eliding.
+        self.full_text = ""
+        #: A text as wide as the least the label shows of its text.
+        self.shortest = "M..."
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+    def set_full_text(self, text):
+        """Show a text, elided to the width the label gets.
+
+        :param text: The whole text, which the tooltip carries.
+        """
+        if text == self.full_text:
+            return
+        # The width it asks for is all that can move the layout, and a
+        # relayout every frame would cost more than the frame's text.
+        refit = (self.fontMetrics().horizontalAdvance(text)
+                 != self.fontMetrics().horizontalAdvance(self.full_text))
+        self.full_text = text
+        self.setToolTip(text)
+        if refit:
+            self.updateGeometry()
+        self._elide()
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        hint.setWidth(_room(self, self.full_text) + 4)
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setWidth(min(self.sizeHint().width(),
+                          _room(self, self.shortest)))
+        return hint
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._elide()
+
+    def _elide(self):
+        self.setText(self.fontMetrics().elidedText(
+            self.full_text, Qt.ElideRight,
+            max(0, self.contentsRect().width())))
+
+
+class Fitted(QLabel):
+    """A one-line label that shows the longest of its forms the room it
+    gets holds, so a readout gives up words before a digit is cut."""
+
+    #: The longest form, which the tip carries.
+    full_text = ""
+    _forms = _widest = ("",)
+
+    def set_forms(self, forms, widest):
+        """Show the longest of the forms that fits, and size the label by
+        the widest of them, so the strip holds still while the numbers run.
+
+        :param forms: The forms of the readout, longest first.
+        :param widest: The same forms at their widest numbers.
+        """
+        if tuple(widest) != self._widest:
+            self._widest = tuple(widest)
+            self.updateGeometry()
+        self._forms = tuple(forms)
+        self.full_text = forms[0]
+        self.setToolTip(forms[0])
+        self._fit()
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        hint.setWidth(_room(self, self._widest[0]))
+        return hint
+
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        hint.setWidth(_room(self, self._widest[-1]))
+        return hint
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._fit()
+
+    def _fit(self):
+        self.setText(next((form for form in self._forms
+                           if _room(self, form) <= self.width()),
+                          self._forms[-1]))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
