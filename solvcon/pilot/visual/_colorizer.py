@@ -7,7 +7,7 @@
 import numpy as np
 
 from PySide6.QtCore import Qt, QRect
-from PySide6.QtGui import QPainter, QLinearGradient, QColor, QPen
+from PySide6.QtGui import QPainter, QLinearGradient, QColor, QPen, QPalette
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 from ... import core
@@ -230,6 +230,8 @@ class ColorBar(QWidget):
     :ivar lo: Low end of the pinned range, or None with nothing to show.
     :ivar hi: High end of the pinned range.
     :ivar vertical: Whether the ramp runs up the widget instead of across.
+    :ivar themed: Whether to draw the frame and the labels in the text color
+        of the palette, with no ground of its own, instead of dark on white.
     """
 
     #: Colors sampled across the ramp to build the gradient.  The map is
@@ -253,11 +255,12 @@ class ColorBar(QWidget):
     #: dark theme's near-white text would vanish on it.
     INK = (0.1, 0.1, 0.1)
 
-    def __init__(self, vertical=False, parent=None):
+    def __init__(self, vertical=False, parent=None, themed=False):
         super().__init__(parent)
         self.lo = None
         self.hi = None
         self.vertical = vertical
+        self.themed = themed
         if vertical:
             self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
             self.setMinimumWidth(self.thickness())
@@ -292,10 +295,14 @@ class ColorBar(QWidget):
         painter = QPainter(self)
         if None is self.lo:
             return
-        painter.fillRect(self.rect(), QColor.fromRgbF(*self.BACKGROUND))
+        if self.themed:
+            ink = self.palette().color(QPalette.Text)
+        else:
+            painter.fillRect(self.rect(), QColor.fromRgbF(*self.BACKGROUND))
+            ink = QColor.fromRgbF(*self.INK)
         bar = self._bar_rect()
         painter.fillRect(bar, self._ramp(bar))
-        painter.setPen(QPen(QColor.fromRgbF(*self.INK)))
+        painter.setPen(QPen(ink))
         painter.drawRect(bar)
         self._draw_ends(painter, bar)
 
