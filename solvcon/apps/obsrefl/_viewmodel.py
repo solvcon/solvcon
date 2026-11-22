@@ -9,6 +9,7 @@ read them.  Nothing here imports Qt, so the view data are built and checked
 without the pilot.
 """
 
+import math
 import typing
 
 import numpy as np
@@ -23,6 +24,12 @@ __all__ = [
     'Results',
     'STATES',
     'StripState',
+    'clock',
+    'format_error',
+    'format_number',
+    'format_sci',
+    'format_signed',
+    'tone_of',
 ]
 
 #: The states a run can be in, in the order a run passes them.
@@ -160,5 +167,76 @@ class ProfileFrame(typing.NamedTuple):
     #: What the frame is a frame of, compared with ``==``: a frame of
     #: another key resets the zoom, and no other change does.
     key: object = None
+
+
+def format_sci(value, digits=3):
+    """Return ``value`` in short scientific notation, ``2.71e-3`` rather
+    than ``2.71e-03``; a value that is not finite reads "undefined"."""
+    if not math.isfinite(value):
+        return "undefined"
+    if 0 == value:
+        return "0"
+    mantissa, exponent = f"{value:.{digits - 1}e}".split("e")
+    return f"{mantissa}e{int(exponent)}"
+
+
+def format_number(value, digits=4):
+    """Return ``value`` to ``digits`` significant digits, in scientific
+    notation where a fixed one would run long, and "undefined" like
+    :func:`format_sci`."""
+    if not math.isfinite(value):
+        return format_sci(value)
+    magnitude = abs(value)
+    if magnitude and (magnitude >= 1e5 or magnitude < 1e-3):
+        return format_sci(value, digits)
+    return f"{value:.{digits}g}"
+
+
+def format_signed(value, digits=2):
+    """Return ``value`` like :func:`format_sci` with its sign spelled out,
+    so a drift reads which way it went."""
+    if not math.isfinite(value) or 0 == value:
+        return format_sci(value, digits)
+    return ("+" if value > 0 else "") + format_sci(value, digits)
+
+
+def format_error(value):
+    """Return the relative error ``value`` in percent with its sign,
+    ``0.0123`` as ``+1.23%``.
+
+    An error too small or too large for two decimals of a percent goes
+    scientific rather than reading ``+0.00%`` or running long; a value that
+    is not finite reads "undefined".
+    """
+    if not math.isfinite(value):
+        return "undefined"
+    percent = 100.0 * value
+    if 0 == percent:
+        return "0%"
+    if abs(percent) < 0.01 or abs(percent) >= 1e4:
+        return format_signed(percent) + "%"
+    return f"{percent:+.2f}%"
+
+
+def tone_of(error, good=0.01, poor=0.05):
+    """Return the tone of a relative error: 'good' within ``good``, 'bad'
+    beyond ``poor``, plain between, and 'muted' where it is undefined."""
+    if not math.isfinite(error):
+        return 'muted'
+    magnitude = abs(error)
+    if magnitude <= good:
+        return 'good'
+    return 'bad' if magnitude > poor else ''
+
+
+def clock(time, t_end):
+    """Return the time readout ``t = time / t_end``, the time to the
+    decimals four digits of the end time take and padded to the width of
+    the end time, so its width holds while the time runs."""
+    if not (math.isfinite(t_end) and t_end > 0):
+        return f"t = {time:.4g} / {t_end:.4g}"
+    decimals = max(0, 3 - math.floor(math.log10(t_end)))
+    width = len(f"{t_end:.{decimals}f}")
+    return f"t = {time:{width}.{decimals}f} / {t_end:.4g}"
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
