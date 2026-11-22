@@ -5,7 +5,8 @@
 """The small widgets and helpers the reflection window and its control
 column share.
 
-None of it knows the reflection.
+None of it knows the reflection; the style sheet comes from the rules of
+:mod:`._style`.
 """
 
 from PySide6.QtCore import QPointF, QRectF, Qt
@@ -15,8 +16,11 @@ from PySide6.QtWidgets import QLabel
 
 from ... import pilot
 
+from . import _style
+
 __all__ = [
     'GLYPHS',
+    'Styled',
     'form_label',
     'head_font',
     'icon',
@@ -153,5 +157,36 @@ def head_font(font):
     head.setWeight(QFont.DemiBold)
     head.setLetterSpacing(QFont.PercentageSpacing, 110)
     return head
+
+
+class Styled(pilot.PaletteStyle):
+    """Carry the style sheet of the roles a widget and its children draw.
+
+    The subclass names the roles in :attr:`ROLES` and sets its fonts and
+    icons in ``restyle()``; the sheet and ``restyle()`` run again on a
+    theme switch, once its children exist and it has turned
+    :attr:`_styling` off.
+    """
+
+    #: The roles of :class:`._style.Rules` the sheet carries.
+    ROLES = ()
+    _styling = True
+
+    def restyle(self):
+        """Set the fonts and the icons the sheet cannot."""
+
+    def _apply_style(self):
+        # Setting the sheet re-polishes the children, whose palette events
+        # come back here; one pass is all a palette change needs.
+        if self._styling:
+            return
+        self._styling = True
+        try:
+            sheet = _style.Rules.sheet(self, *self.ROLES)
+            if sheet != self.styleSheet():
+                self.setStyleSheet(sheet)
+            self.restyle()
+        finally:
+            self._styling = False
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
