@@ -58,7 +58,7 @@ class RunStrip(QFrame):
         self._run.clicked.connect(lambda: self._call(self.run_clicked))
         self._step = QPushButton("Step")
         self._step.setObjectName("secondary")
-        self._step.setToolTip("March one frame (Right arrow)")
+        self._step.setToolTip("March the steps of one frame (Right arrow)")
         self._step.clicked.connect(lambda: self._call(self.step_clicked))
         self._reset = QPushButton("Reset")
         self._reset.setObjectName("secondary")

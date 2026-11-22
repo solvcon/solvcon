@@ -155,7 +155,8 @@ class ReflectionController(object):
             session = setup.session(max_steps=cap, steps_per_chunk=per_frame)
         except BUILD_ERRORS as exc:
             self._build_error = (f"No run can be built of "
-                                 f"{setup.summary()}: {exc}")
+                                 f"{setup.summary()}: {exc}.  Change the "
+                                 f"inputs and press Reset.")
             return False
         self._timer.stop()
         self._build_error = ''
@@ -205,8 +206,9 @@ class ReflectionController(object):
         """
         self._timer.stop()
         self.state = 'failed'
-        self.error = (f"The march raised {type(exc).__name__} at step "
-                      f"{self.session.step}: {exc}")
+        self.error = (f"The run failed at step {self.session.step}: {exc} "
+                      f"({type(exc).__name__}).  Run again or Reset "
+                      f"rebuilds it from the column.")
         sys.excepthook(type(exc), exc, exc.__traceback__)
         try:
             self._show()
