@@ -37,4 +37,12 @@ class FoldGroupTC(unittest.TestCase):
         self.assertEqual([group], clicked)
         self.assertFalse(group.is_open)
 
+    def test_a_summary_marks_edits_that_wait(self):
+        group = panel.FoldGroup("Grid")
+        group.set_summary("201 on [-10, 10]", dirty=True)
+        self.assertEqual("201 on [-10, 10]", group.summary())
+        self.assertEqual("true", group._summary.property("dirty"))
+        group.set_summary("201 on [-10, 10]")
+        self.assertEqual("false", group._summary.property("dirty"))
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

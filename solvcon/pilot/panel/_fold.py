@@ -10,6 +10,8 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QGridLayout, QLabel, QPushButton, QSizePolicy,
                                QVBoxLayout, QWidget)
 
+from .. import _style
+
 __all__ = [
     'FoldGroup',
 ]
@@ -25,7 +27,8 @@ class FoldGroup(QWidget):
     holds.
 
     The head and the summary are named ``foldHead`` and ``foldSummary`` for
-    a style sheet.
+    a style sheet, and the summary carries a ``dirty`` property while edits
+    wait.
 
     :ivar is_open: Whether the body shows.
     :ivar toggled: Owner-supplied callback fired with the group when its
@@ -82,10 +85,13 @@ class FoldGroup(QWidget):
         """Return the text on the right of the head."""
         return self._summary.text()
 
-    def set_summary(self, text):
-        """Say ``text`` on the right of the head."""
+    def set_summary(self, text, dirty=False):
+        """Say ``text`` on the right of the head, marked ``dirty`` while
+        edits wait."""
         self._summary.setText(text)
         self._head.setToolTip(text)
+        _style.set_style_property(self._summary, "dirty",
+                                  "true" if dirty else "false")
 
     def _on_head(self):
         if self.toggled is not None:
