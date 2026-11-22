@@ -11,6 +11,8 @@ __all__ = [
     'Rules',
 ]
 
+#: The size of a form label, in device-independent pixels.
+_LABEL_PX = 12
 #: The step from the panel toward the text of a rule between sections.
 _RULE_MIX = 0.13
 
@@ -123,6 +125,79 @@ class Rules(pilot.AppRules):
             }}
             """)
         return "".join(rules)
+
+    @staticmethod
+    def fold(shades):
+        """Style the head of a folded group of the control column.
+
+        :param shades: The :class:`~solvcon.pilot.Shades` of the widget.
+        """
+        dirty = pilot.legible(shades, shades.accent, shades.panel)
+        return f"""
+            QPushButton#foldHead {{
+                border: none;
+                border-top: 1px solid {shades.raised(_RULE_MIX).name()};
+                border-radius: 0px;
+                padding: 5px 4px 5px 4px;
+                text-align: left;
+                color: {shades.muted.name()};
+                background: transparent;
+            }}
+            QPushButton#foldHead:hover {{
+                background: {shades.raised(pilot.HOVER_MIX).name()};
+                color: {shades.text.name()};
+            }}
+            QLabel#foldSummary {{
+                color: {shades.muted.name()};
+                font-size: {pilot.SMALL_PX}px;
+            }}
+            QLabel#foldSummary[dirty="true"] {{ color: {dirty.name()}; }}
+            """
+
+    @staticmethod
+    def form(shades):
+        """Style the form grid of the groups: muted labels, uniform fields,
+        and the outline of a field whose value is wrong.
+
+        :param shades: The :class:`~solvcon.pilot.Shades` of the widget.
+        """
+        edge = pilot.legible(shades, shades.border, shades.base,
+                             shades.panel, floor=pilot.GRAPHIC_CONTRAST)
+        focus = pilot.legible(shades, shades.accent, shades.base,
+                              shades.panel, floor=pilot.GRAPHIC_CONTRAST)
+        hint = pilot.legible(shades, shades.accent, shades.panel)
+        wrong = pilot.legible(shades, shades.bright_text, shades.base,
+                              shades.panel)
+        return f"""
+            QLabel#formLabel {{
+                color: {shades.muted.name()};
+                font-size: {_LABEL_PX}px;
+            }}
+            QLabel#formLabel:disabled {{ color: {shades.greyed.name()}; }}
+            QLabel#note, QLabel#hint, QLabel#fieldError {{
+                color: {shades.muted.name()};
+                font-size: {pilot.SMALL_PX}px;
+            }}
+            QLabel#hint {{ color: {hint.name()}; }}
+            QLabel#fieldError {{ color: {wrong.name()}; }}
+            QLineEdit#number {{
+                border: 1px solid {edge.name()};
+                border-radius: 5px;
+                padding: 0px 5px;
+                min-height: 20px; max-height: 20px;
+                background: {shades.base.name()};
+                color: {shades.on_base.name()};
+                font-size: {_LABEL_PX}px;
+            }}
+            QLineEdit#number:focus {{
+                border-color: {focus.name()};
+            }}
+            QLineEdit#number:disabled {{ color: {shades.greyed.name()}; }}
+            QCheckBox {{ font-size: {_LABEL_PX}px; }}
+            QLineEdit#number[invalid="true"] {{
+                border-color: {wrong.name()};
+            }}
+            """
 
     @staticmethod
     def configuration_error(shades):
