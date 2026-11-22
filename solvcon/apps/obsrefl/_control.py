@@ -45,6 +45,7 @@ class ReflectionController(object):
         None for the defaults.
     """
 
+    #: The interval of the frame timer, in milliseconds.
     INTERVAL_MS = 40
 
     def __init__(self, window, column, setup=None):
@@ -66,7 +67,8 @@ class ReflectionController(object):
         self._edit_error = ''
         self._dirty = False
         self._can_reset = True
-        self._timer = QTimer()
+        # Owned by the window, so no tick outlives the widgets it draws.
+        self._timer = QTimer(window)
         self._timer.setInterval(self.INTERVAL_MS)
         self._timer.timeout.connect(self._tick)
 
@@ -209,8 +211,8 @@ class ReflectionController(object):
         try:
             self._show()
         except Exception:
-            # The read-out raised, and was reported; the strip still says
-            # why the march stopped.
+            # The read-out raised again, and is left unreported; the strip
+            # still says why the march stopped.
             self._show_strip()
 
     def _settle(self):

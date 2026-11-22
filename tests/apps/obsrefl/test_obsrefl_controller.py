@@ -232,6 +232,9 @@ class ReflectionControllerTC(unittest.TestCase):
             self.figure.profile.frame.computed)
         self.assertEqual(5, ctl.session.step)
 
+    def test_the_timer_goes_with_the_window(self):
+        self.assertIs(self.window, self.ctl._timer.parent())
+
     def test_a_raising_march_fails_the_run(self):
         ctl = self.ctl
         ctl.run()
