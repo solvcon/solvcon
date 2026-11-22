@@ -9,12 +9,20 @@ None of it knows the reflection.
 """
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import (QGuiApplication, QIcon, QPainter, QPainterPath,
-                           QPen, QPixmap)
+from PySide6.QtGui import (QFont, QGuiApplication, QIcon, QPainter,
+                           QPainterPath, QPen, QPixmap)
+from PySide6.QtWidgets import QLabel
+
+from ... import pilot
 
 __all__ = [
     'GLYPHS',
+    'form_label',
+    'head_font',
     'icon',
+    'message',
+    'reserve_width',
+    'say',
 ]
 
 #: The glyphs of the run buttons on a 12 by 12 grid: a filled polygon, a
@@ -80,5 +88,70 @@ def icon(name, color, size=14, ratio=None):
                             span * 16)
     painter.end()
     return QIcon(pixmap)
+
+
+def reserve_width(widget, texts):
+    """Hold a widget at the width of the widest text it swaps through, so
+    the swap neither shifts the row around it nor moves its least width.
+
+    :param widget: A widget with ``text()`` and ``setText()``.
+    :param texts: The texts it shows.
+    """
+    keep = widget.text()
+    width = 0
+    for text in texts:
+        widget.setText(text)
+        width = max(width, widget.sizeHint().width())
+    widget.setText(keep)
+    widget.setMinimumWidth(width)
+
+
+def form_label(text, tip=""):
+    """Return the muted label of a row of a form.
+
+    :param text: What the label reads.
+    :param tip: Its tooltip, or empty for none.
+    """
+    label = QLabel(text)
+    label.setObjectName("formLabel")
+    if tip:
+        label.setToolTip(tip)
+    return label
+
+
+def message(role):
+    """Return a hidden, wrapping label for a message.
+
+    :param role: The object name the sheet styles it by: ``'note'``,
+        ``'hint'``, or ``'fieldError'`` for what is wrong.
+    """
+    label = QLabel("")
+    label.setObjectName(role)
+    label.setWordWrap(True)
+    label.hide()
+    return label
+
+
+def say(label, text):
+    """Show a text in a label, or hide the label for an empty one.
+
+    :param label: The label to show the text in.
+    :param text: The text, or empty to hide the label.
+    """
+    label.setText(text)
+    label.setVisible(bool(text))
+
+
+def head_font(font):
+    """Return a copy of a font as small, bold, and spaced out as a section
+    head names its section.
+
+    :param font: The font to copy.
+    """
+    head = QFont(font)
+    head.setPixelSize(pilot.SMALL_PX)
+    head.setWeight(QFont.DemiBold)
+    head.setLetterSpacing(QFont.PercentageSpacing, 110)
+    return head
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
