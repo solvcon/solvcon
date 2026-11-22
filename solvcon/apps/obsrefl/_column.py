@@ -6,14 +6,17 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QVBoxLayout
+from PySide6.QtWidgets import (QFrame, QGridLayout, QLabel, QScrollArea,
+                               QVBoxLayout, QWidget)
 
 from ... import pilot
 
+from . import _forms
 from . import _viewmodel
 from . import _widgets
 
 __all__ = [
+    'ControlColumn',
     'ResultsCard',
 ]
 
@@ -206,5 +209,65 @@ class ResultsCard(QFrame):
     def note(self):
         """Return what the note under the tables says."""
         return "" if self._note.isHidden() else self._note.text()
+
+
+class ControlColumn(_widgets.Styled, QScrollArea):
+    """The control column: the results card over the folded groups.
+
+    The column is a plain widget, which the app docks as a panel beside
+    the window.  Edits to the free stream and the numerics wait for Reset,
+    which the run strip marks while they wait.
+
+    The column and its children are passive: they show what they are handed
+    and call back into their owner.
+    """
+
+    WIDTH = 300
+    ROLES = ("buttons", "card", "fold", "form")
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("controlColumn")
+        self.card = ResultsCard()
+        self.freestream = _forms.FreeStreamGroup()
+        self.numerics = _forms.NumericsGroup()
+        self.display = _forms.DisplayGroup()
+        self.groups = (self.freestream, self.numerics, self.display)
+        for group in self.groups:
+            group.toggled = self._on_group
+            group.set_open(group is self.display)
+
+        inner = QWidget()
+        inner.setObjectName("column")
+        layout = QVBoxLayout(inner)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(0)
+        layout.addWidget(self.card)
+        layout.addSpacing(8)
+        for group in self.groups:
+            layout.addWidget(group)
+        layout.addStretch(1)
+        self.setWidget(inner)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setFixedWidth(self.WIDTH)
+        self._styling = False
+        self._apply_style()
+
+    def _on_group(self, group):
+        """Open the clicked group and fold the others, or fold it.
+
+        :param group: The group whose head was clicked.
+        """
+        opening = not group.is_open
+        for other in self.groups:
+            other.set_open(opening and other is group)
+
+    def restyle(self):
+        """Set the fonts of the card and of every group."""
+        self.card.restyle()
+        for group in self.groups:
+            group.restyle()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

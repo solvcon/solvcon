@@ -2,7 +2,7 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The results card of the reflection control column.
+"""The control column of the reflection app.
 
 The widgets are passive, so these checks hand them what to show and read
 the controls back; none needs a window on screen.
@@ -79,5 +79,24 @@ class ResultsCardTC(unittest.TestCase):
         self.assertEqual("No run", card.note())
         self.assertIsNone(card.cell('zones', 0, 0))
         self.assertIsNone(card.row_text("CFL"))
+
+
+@testing.requires_pilot
+class ControlColumnTC(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_one_group_folds_open_at_a_time(self):
+        column = _column.ControlColumn()
+        self.assertEqual([False, False, True],
+                         [group.is_open for group in column.groups])
+        column.freestream._head.click()
+        self.assertEqual([True, False, False],
+                         [group.is_open for group in column.groups])
+        column.freestream._head.click()
+        self.assertEqual([False] * 3,
+                         [group.is_open for group in column.groups])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
