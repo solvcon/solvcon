@@ -8,7 +8,8 @@ A group of a config column that folds behind its head.
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QGridLayout, QLabel, QPushButton, QSizePolicy,
-                               QVBoxLayout, QWidget)
+                               QStyle, QStyleOptionButton, QVBoxLayout,
+                               QWidget)
 
 from .. import _style
 
@@ -38,12 +39,16 @@ class FoldGroup(QWidget):
     #: The style of the head; a subclass styled by a sheet of its own
     #: clears it.
     HEAD_SHEET = "text-align: left; padding: 4px 2px;"
+    #: The least room between the title and the summary, which elides
+    #: where it would run over; None lets the summary run.
+    GAP = None
 
     def __init__(self, title, parent=None):
         super().__init__(parent)
         self.title = title
         self.is_open = True
         self.toggled = None
+        self._text = ""
         self._head = QPushButton()
         self._head.setObjectName("foldHead")
         self._head.setFlat(True)
@@ -83,15 +88,38 @@ class FoldGroup(QWidget):
 
     def summary(self):
         """Return the text on the right of the head."""
-        return self._summary.text()
+        return self._text
 
     def set_summary(self, text, dirty=False):
         """Say ``text`` on the right of the head, marked ``dirty`` while
         edits wait."""
-        self._summary.setText(text)
+        self._text = text
         self._head.setToolTip(text)
         _style.set_style_property(self._summary, "dirty",
                                   "true" if dirty else "false")
+        self._fit_summary()
+
+    def _fit_summary(self):
+        text = self._text
+        if self.GAP is not None:
+            # The padding before the title is read off the style rather
+            # than repeated from the sheet.
+            option = QStyleOptionButton()
+            option.initFrom(self._head)
+            left = self._head.style().subElementRect(
+                QStyle.SE_PushButtonContents, option, self._head).left()
+            margins = self._summary.contentsMargins()
+            room = (self.width() - left - self.GAP - margins.left()
+                    - margins.right() - self._head.fontMetrics()
+                    .horizontalAdvance(self._head.text()))
+            text = self._summary.fontMetrics().elidedText(
+                text, Qt.ElideRight, max(0, room))
+        self._summary.setText(text)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.GAP is not None:
+            self._fit_summary()
 
     def _on_head(self):
         if self.toggled is not None:
