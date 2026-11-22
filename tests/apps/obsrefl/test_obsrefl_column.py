@@ -47,6 +47,7 @@ class ResultsCardTC(unittest.TestCase):
 
     def test_the_card_fills_every_cell(self):
         card = _column.ResultsCard()
+        self.addCleanup(testing.dispose_widget, card)
         card.show_results(_results())
         self.assertEqual(_viewmodel.Cell("+0.42%", 'good',
                                          "relative to the exact value"),
@@ -63,6 +64,7 @@ class ResultsCardTC(unittest.TestCase):
 
     def test_a_field_without_an_exact_value_says_so(self):
         card = _column.ResultsCard()
+        self.addCleanup(testing.dispose_widget, card)
         card.show_results(_results(field="CFL number", zones=0))
         self.assertIsNone(card.cell('zones', 0, 0))
         self.assertIn("CFL number", card._values[('zones', 'empty')].text())
@@ -73,6 +75,7 @@ class ResultsCardTC(unittest.TestCase):
 
     def test_no_run_blanks_the_card(self):
         card = _column.ResultsCard()
+        self.addCleanup(testing.dispose_widget, card)
         self.assertEqual("No run", card.note())
         card.show_results(_results())
         card.show_results(None)
@@ -90,6 +93,7 @@ class ControlColumnTC(unittest.TestCase):
 
     def test_one_group_folds_open_at_a_time(self):
         column = _column.ControlColumn()
+        self.addCleanup(testing.dispose_widget, column)
         self.assertEqual([False, False, True],
                          [group.is_open for group in column.groups])
         column.freestream._head.click()

@@ -43,6 +43,8 @@ class ReflectionControllerTC(unittest.TestCase):
         self.figure = _figure.ReflectionFigure(mgr=self.mgr)
         self.window = _window.ReflectionWindow(self.figure)
         self.column = _column.ControlColumn()
+        self.addCleanup(testing.dispose_widget, self.window)
+        self.addCleanup(testing.dispose_widget, self.column)
         self.ctl = _control.ReflectionController(
             self.window, self.column, _setup.ReflectionSetup(nx=10, ny=4))
         self.addCleanup(self.ctl.shutdown)

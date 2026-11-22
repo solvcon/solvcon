@@ -73,7 +73,7 @@ class ReflectionFigureTC(unittest.TestCase):
     def _figure(self):
         figure = _figure.ReflectionFigure(mgr=self.mgr)
         figure.resize(800, 600)
-        self.addCleanup(figure.deleteLater)
+        self.addCleanup(testing.dispose_widget, figure)
         figure.set_mesh(self.session.shock.mesh,
                         self.session.shock.shock_path())
         return figure

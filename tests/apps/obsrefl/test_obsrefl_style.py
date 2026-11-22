@@ -48,7 +48,7 @@ class StyledWidgetsTC(unittest.TestCase):
         widgets = (_window.ReflectionWindow(QWidget()),
                    _column.ControlColumn())
         for widget in widgets:
-            self.addCleanup(widget.deleteLater)
+            self.addCleanup(testing.dispose_widget, widget)
         messages = []
         qInstallMessageHandler(lambda mode, context, text:
                                messages.append(text))
