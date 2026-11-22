@@ -20,6 +20,9 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
+        from PySide6.QtCore import QEvent, Qt
+        from PySide6.QtGui import QKeyEvent
+        from PySide6.QtWidgets import QApplication
         from solvcon.apps.obsrefl import (_column, _control, _figure,
                                           _presenter, _setup, _window)
 except ImportError:
@@ -30,6 +33,14 @@ def _type(field, text):
     """Type ``text`` into the number ``field`` as the user would."""
     field.setText(text)
     field.textEdited.emit(text)
+
+
+def _key(widget, key, text=""):
+    """Press and release ``key`` on ``widget``.  QtTest is not in every
+    PySide6 build, so the events are sent as it would send them."""
+    for kind in (QEvent.KeyPress, QEvent.KeyRelease):
+        QApplication.sendEvent(widget, QKeyEvent(kind, key, Qt.NoModifier,
+                                                 text))
 
 
 @testing.requires_pilot
@@ -117,6 +128,21 @@ class ReflectionControllerTC(unittest.TestCase):
         self.column.numerics._cap.setValue(3)
         self.assertEqual('finished', ctl.state)
         self.assertEqual(5, ctl.session.step)
+
+    def test_a_cap_applies_once_typed_whole(self):
+        ctl = self.ctl
+        ctl.step()
+        ctl.step()
+        cap = self.column.numerics._cap
+        cap.lineEdit().selectAll()
+        for digit in "5000":
+            # The code of a digit key is the digit's character code.
+            _key(cap, ord(digit), digit)
+        self.assertEqual('paused', ctl.state)
+        self.assertEqual(2000, ctl.session.max_steps)
+        _key(cap, Qt.Key_Return)
+        self.assertEqual(5000, ctl.session.max_steps)
+        self.assertEqual('paused', ctl.state)
 
     def test_an_invalid_mach_keeps_the_standing_run(self):
         ctl = self.ctl
