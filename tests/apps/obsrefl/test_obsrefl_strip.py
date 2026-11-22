@@ -27,6 +27,12 @@ def _state(state, step=0, max_steps=2000, **kw):
                                  0.002 * max_steps, **kw)
 
 
+def _clock(strip):
+    """Return the time and the end time the strip reads."""
+    time, t_end = strip._time.text().removeprefix("t = ").split(" / ")
+    return float(time), float(t_end)
+
+
 @testing.requires_pilot
 class RunStripTC(unittest.TestCase):
 
@@ -79,5 +85,16 @@ class RunStripTC(unittest.TestCase):
                 strip.show_state(_state(state, 20, dirty=True,
                                         can_reset=False))
                 self.assertEqual((False, False, False), self._enabled(strip))
+
+    def test_the_strip_reads_time_steps_and_progress(self):
+        strip = _window.RunStrip()
+        strip.show_state(_state('running', 500))
+        self.assertEqual((1.0, 4.0), _clock(strip))
+        self.assertEqual("step 500 / 2000", strip._steps.full_text)
+        self.assertEqual(250, strip._progress.value())
+        # No cap reads no progress rather than divide by it.
+        strip.show_state(_state('ready', 0, 0))
+        self.assertEqual(0, strip._progress.value())
+
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

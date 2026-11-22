@@ -5,8 +5,9 @@
 """The window of the reflection app: the run strip over the figure."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
-                               QVBoxLayout)
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QProgressBar,
+                               QPushButton, QSizePolicy, QVBoxLayout)
 
 from ... import pilot
 
@@ -22,7 +23,7 @@ class RunStrip(QFrame):
     """The strip across the top of the window that drives the run.
 
     It shows the problem it marches, an action accent that runs and pauses,
-    Step and Reset, and the state of the march.
+    Step and Reset, and the state, the time, and the progress of the march.
     """
 
     #: The accent action reads by the state of the run.
@@ -69,6 +70,19 @@ class RunStrip(QFrame):
         self._pill = QLabel("Ready")
         self._pill.setObjectName("pill")
         self._pill.setAlignment(Qt.AlignCenter)
+        self._failure = _widgets.ElidedLabel()
+        self._failure.setObjectName("failure")
+        self._time = QLabel("")
+        self._time.setObjectName("stripTime")
+        self._steps = _widgets.Fitted()
+        self._steps.setObjectName("stripCaption")
+        self._progress = QProgressBar()
+        self._progress.setObjectName("progress")
+        self._progress.setRange(0, 1000)
+        self._progress.setTextVisible(False)
+        self._progress.setMaximumWidth(260)
+        # The bar repeats the time readout, so it gives up its room first.
+        self._progress.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
 
         row = QHBoxLayout()
         row.setSpacing(8)
@@ -80,9 +94,16 @@ class RunStrip(QFrame):
         row.addSpacing(10)
         row.addWidget(self._pill)
         row.addStretch(1)
+        row.addWidget(self._time)
+        row.addWidget(self._steps)
+        row.addWidget(self._progress, 1)
+        # A failure takes a line of its own, so it never widens the strip.
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 8, 14, 8)
+        layout.setSpacing(4)
         layout.addLayout(row)
+        layout.addWidget(self._failure)
+        self._failure.hide()
         self.restyle()
         self.show_state(_viewmodel.StripState('ready', 0, 0, 0.0, 0.0))
 
@@ -91,8 +112,8 @@ class RunStrip(QFrame):
             callback()
 
     def restyle(self):
-        """Draw the icons, at the scale of the screen, in the current
-        palette."""
+        """Draw the icons, at the scale of the screen, and the numbers in
+        the current palette."""
         shades, ratio = pilot.Shades(self), self.devicePixelRatioF()
         # Drawn once per palette and scale; a frame only picks one.
         self._run_icons = {name: _widgets.icon(name, shades.on_accent, 11,
@@ -101,6 +122,9 @@ class RunStrip(QFrame):
         self._step.setIcon(_widgets.icon('step', shades.on_base, 11, ratio))
         self._reset.setIcon(_widgets.icon('reset', shades.on_base, 12,
                                           ratio))
+        self._time.setFont(pilot.number_font(self.font(), 13,
+                                             QFont.DemiBold))
+        self._steps.setFont(pilot.number_font(self.font(), 11))
         self._set_run_icon()
         # The widths come from the styled fonts, so they are measured here.
         _widgets.reserve_width(self._run, list(self.RUN_TEXT.values()))
@@ -145,6 +169,16 @@ class RunStrip(QFrame):
         text, tone = self.PILL[state]
         self._pill.setText(text)
         pilot.set_style_property(self._pill, "tone", tone)
+        failure = " ".join(strip.failure.split())
+        self._failure.set_full_text(failure)
+        self._failure.setVisible(bool(failure))
+        self._time.setText(_viewmodel.clock(strip.time, strip.t_end))
+        nstep = strip.max_steps
+        self._steps.set_forms(*((f"step {count} / {nstep}",
+                                 f"{count} / {nstep}", f"{count}")
+                                for count in (strip.step, nstep)))
+        self._progress.setValue(round(1000 * strip.step / nstep) if nstep
+                                else 0)
 
     def pill(self):
         """Return the text and the tone of the state pill."""
