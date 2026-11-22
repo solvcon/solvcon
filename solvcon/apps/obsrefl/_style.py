@@ -5,13 +5,41 @@
 
 from ... import pilot
 
+from . import _ink
+
 __all__ = [
     'Rules',
 ]
 
 
-class Rules(pilot.RuleCatalog):
-    """Style roles used by the reflection controls."""
+class Rules(pilot.AppRules):
+    """Style roles used by the reflection controls, one method per role.
+
+    The run buttons and the state pill are the roles of the pilot's
+    :class:`~solvcon.pilot.AppRules`.  Every color is mixed from the palette
+    of the widget the sheet is built for, through the pilot and
+    :mod:`._ink`, so no color outlives a theme switch.
+    """
+
+    #: The buttons carry an icon on the left of the label.
+    PADDING = ("4px 14px 4px 10px", "3px 10px 3px 8px")
+    #: The tones the state pill takes, with 'bad' for a failed run.
+    TONES = ('muted', 'accent', 'good', 'bad')
+    #: The roles drawn on the base ground, which read :class:`_ink.Ink`
+    #: where the others read :class:`pilot.Shades`.
+    ON_BASE = ('card',)
+
+    @classmethod
+    def sheet(cls, widget, *roles):
+        """Return the sheet a widget carries for the roles it draws.
+
+        :param widget: The widget whose palette the colors are mixed from.
+        :param roles: The names of the role methods the sheet is built of.
+        """
+        shades = pilot.Shades(widget)
+        ink = _ink.Ink(widget) if set(roles) & set(cls.ON_BASE) else None
+        return "".join(getattr(cls, role)(ink if role in cls.ON_BASE
+                                          else shades) for role in roles)
 
     @staticmethod
     def configuration_error(shades):
