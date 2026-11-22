@@ -2,95 +2,128 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""Pilot feature that runs the 2D Euler oblique-shock reflection and draws a
-selected solution field as a flat color map.
+"""The pilot feature of the oblique-shock reflection."""
 
-The feature is the composition root of the app: a toggle in the View
-"Panels" submenu owns the dock, and building the dock builds the control
-panel from :mod:`._panel`, the domain viewer from :mod:`solvcon.pilot.visual`,
-and the :class:`~._control.RunController` that wires the two around the run
-session.  The feature itself holds no run logic; it only composes the parts
-and forwards the inspector nudge to the outer GUI.
-"""
+from PySide6.QtCore import QTimer
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget
+from ...pilot import base
 
-from ...pilot import base, visual
+from . import _column
+from . import _control
+from . import _figure
+from . import _window
 
-from ._control import RunController
-from ._panel import SolutionPanel
-from ._viewer import LinePlotViewer
-
-__all__ = [  # noqa: F822
+__all__ = [
     'ObsreflApp',
     'build_app',
 ]
 
 
 class ObsreflApp(base.PilotFeature):
-    """Oblique shock reflection panel, toggled from the View "Panels" submenu.
+    """The reflection app, opened from "App > Oblique shock reflection".
 
-    The panel owns two sub-windows and one solver run: the domain viewer
-    the field is colored into, and the analysis plots that judge it.  The
-    controller between them starts, pauses, steps, and ends the march.
+    The app is a sub-window, opened maximized, and the control column in
+    the pilot's "App config" panel: a second pick of the menu item brings
+    the window back instead of building another, and closing the window
+    takes the column along.  The feature holds no run logic: it composes
+    the window, the column, and the :class:`~._control.ReflectionController`
+    that wires them, and forwards the inspector nudge to the outer GUI.
     """
 
-    #: The text of the menu entry and the title of the domain viewer.
-    NAME = "Oblique shock reflection"
-
     def __init__(self, *args, **kw):
+        #: The pilot's :class:`~solvcon.pilot.panel.AppConfig` that holds
+        #: :attr:`column`.
+        self.app_config = kw.pop('app_config')
         super().__init__(*args, **kw)
-        # Fired after a run sets the viewer mesh, so the inspector can refresh.
-        self.viewer_updated = None
-        self._action = None
-        self._dock = None
-        self._panel = None
-        self._control = None
-        self._viewer = visual.DomainViewer(self._mgr, title=self.NAME)
-        self._viewer.mesh_updated = self._notify_viewer_updated
-        self._lineplots = LinePlotViewer(self._mgr)
+        #: The open :class:`~._window.ReflectionWindow`, or None.
+        self.window = None
+        #: The :class:`~._column.ControlColumn` beside it, or None.
+        self.column = None
+        #: Their :class:`~._control.ReflectionController`, or None.
+        self.controller = None
+        #: The MDI sub-window holding :attr:`window`, or None.
+        self.subwindow = None
+        #: Owner-supplied callback fired after the figure shows a new mesh, so
+        #: the inspector can read it.
+        self.mesh_updated = None
+        self._close_filter = None
 
     def populate_menu(self):
-        self._action = self.add_action(
-            "View/Panels", self.NAME,
-            "Toggle the oblique shock reflection panel",
-            None, id="panel.obsrefl", weight=15, checkable=True)
-        self._action.toggled.connect(self._on_toggled)
+        self.add_action(
+            "App", "Oblique shock reflection",
+            "March the 2D Euler solver through a shock reflecting off a "
+            "wall and compare it with the exact solution", self.open,
+            id="app.obsrefl", weight=20)
 
-    def _on_toggled(self, checked):
-        if checked:
-            self._ensure_panel()
-            self._dock.show()
-        elif self._dock is not None:
-            self._dock.hide()
-
-    def _ensure_panel(self):
-        if self._panel is not None:
+    def open(self):
+        """Open the window maximized, or bring it back."""
+        if self.subwindow is not None:
+            self._mgr.mdiArea.setActiveSubWindow(self.subwindow)
+            self.subwindow.showMaximized()
             return
-        self._panel = SolutionPanel()
-        self._control = RunController(self._panel, self._viewer,
-                                      self._lineplots)
-        self._control.reported = self._report
-        self._dock = QDockWidget("oblique shock reflection")
-        self._dock.setWidget(self._panel)
-        self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea, self._dock)
-        self._dock.visibilityChanged.connect(self._action.setChecked)
-        self._control.preview()
+        figure = _figure.ReflectionFigure(mgr=self._mgr)
+        figure.domain.viewer.mesh_updated = self._notify_mesh_updated
+        self.window = _window.ReflectionWindow(figure)
+        self.column = _column.ControlColumn()
+        self.controller = _control.ReflectionController(self.window,
+                                                        self.column)
+        self.controller.title_changed = self._set_title
+        self.column.key_pressed = self.window.press_key
+        self.subwindow = self._mgr.addSubWindow(self.window)
+        self._set_title(self.controller.setup.title())
+        self._close_filter = base.SubWindowCloseFilter(self._on_closed,
+                                                       self.subwindow)
+        self.subwindow.installEventFilter(self._close_filter)
+        self.subwindow.showMaximized()
+        self.app_config.add(self.subwindow, self.column)
+        self.window.setFocus()
+        # The mesh went in before the view had its size, so it is framed
+        # again once the maximized window is laid out; the inspector reads
+        # the view only now that its sub-window is the active one.
+        QTimer.singleShot(0, self._frame_domain)
+        self._notify_mesh_updated()
 
-    def _notify_viewer_updated(self):
-        if self.viewer_updated is not None:
-            self.viewer_updated()
+    def close(self):
+        """Close the window, which stops its run."""
+        if self.subwindow is not None:
+            self.subwindow.close()
 
-    def _report(self, message):
-        """Show the controller's report, prefixed, in the Console panel."""
-        self._write_message(f"obsrefl {message}\n")
+    def _frame_domain(self):
+        if self.window is not None:
+            domain = self.window.figure.domain
+            if domain.available:
+                domain.view.fitCameraToScene()
+
+    def _set_title(self, title):
+        if self.subwindow is not None:
+            self.subwindow.setWindowTitle(title)
+
+    def _notify_mesh_updated(self):
+        if self.mesh_updated is not None:
+            self.mesh_updated()
+
+    def _on_closed(self):
+        # The sub-window deletes itself and the window inside on the next
+        # turn of the event loop, so the timer stops before that.
+        if self.controller is not None:
+            self.controller.shutdown()
+        self.app_config.remove(self.subwindow)
+        self.controller = None
+        self.window = None
+        self.column = None
+        self.subwindow = None
+        self._close_filter = None
 
 
 def build_app(controller):
-    """Build the app on the pilot and wire it to the inspector."""
-    app = ObsreflApp(mgr=controller.mgr)
-    app.viewer_updated = controller.tree_panel.resync
+    """Build the app on the pilot and wire it to the inspector.
+
+    :param controller: The pilot controller, which holds the manager and
+        the App config panel.
+    """
+    app = ObsreflApp(mgr=controller.mgr,
+                     app_config=controller.app_config)
+    app.mesh_updated = controller.tree_panel.resync
     return app
 
-# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

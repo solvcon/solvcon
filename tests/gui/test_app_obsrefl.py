@@ -2,852 +2,143 @@
 # BSD 3-Clause License, see COPYING
 
 
-import os
-import tempfile
-import unittest
-from unittest import mock
+"""The oblique-shock reflection app in the live pilot window.
 
-import numpy as np
+These checks need the pilot on screen: the 3D view in the figure draws only
+on a live surface, a run marches and paints on the timer, and no pilot
+shortcut takes the run keys.  The wiring that needs no window surface (the
+menu item, the dock, closing) is checked in the fast lane, in
+``tests/apps/obsrefl/test_obsrefl_app.py``, and the controller in
+``tests/apps/obsrefl/test_obsrefl_controller.py``.
+"""
+
+import time
+import unittest
 
 from solvcon import testing
 
 try:
+    from PySide6.QtCore import QEvent, QEventLoop, Qt
+    from PySide6.QtGui import QKeyEvent
+    from PySide6.QtWidgets import QApplication, QDockWidget
     from solvcon import pilot
     from solvcon.pilot.base import _gui
-    from PySide6.QtCore import QEvent
-    from PySide6.QtWidgets import QApplication, QLabel, QSizeGrip
-    from PIL import Image
-    # The app needs the pilot, so import it only with the pilot.
-    if pilot.enable:
-        from solvcon.apps.obsrefl import ReflectionSession, _app
+    # Import the apps as the entry point does, so they are registered
+    # whichever test builds the controller first.
+    from solvcon import apps  # noqa: F401
 except ImportError:
     pilot = None
 
 
+def _settle():
+    """Let the layouts that requested a pass take it."""
+    for _ in range(5):
+        QApplication.processEvents()
+
+
+def _pump(until, seconds=30.0):
+    """Run the event loop until ``until()`` holds or the time runs out."""
+    deadline = time.monotonic() + seconds
+    while not until() and time.monotonic() < deadline:
+        QApplication.processEvents(QEventLoop.AllEvents, 20)
+        time.sleep(0.002)
+    return until()
+
+
+def _press(widget, key, text=""):
+    # Posted rather than sent: a key sent into the pilot binary from a
+    # test crashes it.
+    QApplication.postEvent(widget, QKeyEvent(QEvent.KeyPress, key,
+                                             Qt.NoModifier, text))
+    QApplication.postEvent(widget, QKeyEvent(QEvent.KeyRelease, key,
+                                             Qt.NoModifier, text))
+    QApplication.processEvents()
+
+
+def _colored(widget):
+    """Return the count of pixels of a grab of ``widget`` that carry a
+    color rather than a grey, skipping where the grab gives nothing."""
+    image = widget.grab().toImage()
+    if image.isNull() or 0 == image.width():
+        raise unittest.SkipTest("the window gave no frame")
+    count = 0
+    for iy in range(0, image.height(), 3):
+        for ix in range(0, image.width(), 3):
+            color = image.pixelColor(ix, iy)
+            channels = (color.red(), color.green(), color.blue())
+            count += max(channels) - min(channels) > 60
+    return count
+
+
 class _AppFixture(object):
-    """Stand the app feature up, for the window classes that drive it."""
-
-    def _feature(self):
-        feature = _app.ObsreflApp(mgr=self.mgr)
-        feature.populate_menu()
-        feature._action.setChecked(True)  # builds the dock and panel
-        self.addCleanup(self._dispose, feature)
-        return feature
-
-    @staticmethod
-    def _dispose(feature):
-        """Delete the windows the feature built.
-
-        Every test builds a feature on the one main window, and a later
-        theme switch repolishes every widget still alive, so thousands left
-        behind here slow the theme tests several times over.
-        """
-        if feature._control is not None:
-            feature._control.reset()  # stops the march, closes the viewer
-        feature._viewer.close()
-        feature._lineplots.close()
-        feature._lineplots.lineplots.deleteLater()
-        if feature._dock is not None:
-            feature._mgr.mainWindow.removeDockWidget(feature._dock)
-            feature._dock.deleteLater()
-        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-
-    @staticmethod
-    def _coarsen(feature, nx=10, ny=4):
-        """Cut the mesh down to what a window test can march quickly."""
-        feature._panel._numerics._nx.setValue(nx)
-        feature._panel._numerics._ny.setValue(ny)
-
-
-@testing.requires_live_window
-class ObsreflAppTC(_AppFixture, unittest.TestCase):
-    def setUp(self):
-        self.mgr = pilot.RManager.instance.setUp()
-
-    @staticmethod
-    def _status(feature):
-        """The run readout of the panel, as ``{label: text}``."""
-        run = feature._panel._run
-        return {"step": run._progress.text(), "state": run._state.text()}
-
-    def test_the_app_goes_by_its_own_name(self):
-        # "Euler solver" is the one-dimensional shock-tube app, so the
-        # reflection app names itself wherever the user meets it.
-        feature = self._feature()
-        action = self.mgr.menu_model.action("panel.obsrefl")
-        self.assertIs(feature._action, action)
-        self.assertEqual("Oblique shock reflection", action.text())
-        self.assertEqual("oblique shock reflection",
-                         feature._dock.windowTitle())
-        self.assertEqual("Oblique shock reflection",
-                         feature._viewer._subwin.windowTitle())
-        with mock.patch.object(type(feature), '_write_message') as write:
-            feature._report("recording a movie")
-        write.assert_called_once_with("obsrefl recording a movie\n")
-
-    def test_panel_opens_with_a_paused_preview(self):
-        feature = self._feature()
-        # Opening the panel opens the viewer on the configured run's
-        # initial state, and the march waits for Start, Resume, or Step.
-        sess = feature._control.session
-        self.assertIsNotNone(sess)
-        self.assertEqual(0, sess.step)
-        self.assertTrue(feature._viewer.is_open)
-        self.assertIsNotNone(self.mgr.currentR3DWidget())
-        self.assertFalse(feature._control._timer.isActive())
-        self.assertTrue(feature._panel._run._pause.isChecked())
-        self.assertEqual("paused", self._status(feature)["state"])
-        QApplication.processEvents()
-
-    def test_start_builds_session_and_viewer(self):
-        feature = self._feature()
-        feature._panel._freestream._mach.setValue(2.5)
-        feature._control.start()
-        # Stop the timer so the heavy march does not run during the test.
-        feature._control._timer.stop()
-        self.assertIsInstance(feature._control.session, ReflectionSession)
-        self.assertEqual(feature._control.session.step, 0)
-        self.assertEqual(feature._control.session.shock.mach, 2.5)
-        self.assertIsNotNone(self.mgr.currentR3DWidget())
-        self.assertEqual(f"0 / {feature._control.session.max_steps}",
-                         self._status(feature)["step"])
-
-    def test_invalid_configuration_keeps_the_standing_run(self):
-        feature = self._feature()
-        control = feature._control
-        panel = feature._panel
-        session = control.session
-        viewer = self.mgr.currentR3DWidget()
-        error = panel._freestream._configuration_error
-
-        panel._freestream._angle.setValue(22.0)
-
-        control.start()
-        self.assertIs(session, control.session)
-        self.assertIs(viewer, self.mgr.currentR3DWidget())
-        self.assertFalse(control._timer.isActive())
-        self.assertFalse(error.isHidden())
-        title = error.findChild(QLabel, "configurationErrorTitle")
-        self.assertEqual("Invalid configuration", title.text())
-
-        control.remesh()
-        self.assertIs(session, control.session)
-        self.assertIs(viewer, self.mgr.currentR3DWidget())
-        self.assertFalse(error.isHidden())
-
-        panel._freestream._angle.setValue(10.0)
-        control.start()
-        control._timer.stop()
-
-        self.assertIsNot(session, control.session)
-        self.assertTrue(error.isHidden())
-
-    def test_the_resolution_reaches_the_mesh(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        mesher = feature._control.session.shock.mesher
-        self.assertEqual((10, 4), (mesher.nx, mesher.ny))
-        # The viewer draws the mesh the spin boxes asked for, not the one
-        # the preview was built on.
-        self.assertEqual(feature._control.session.shock.mesh.ncell,
-                         self.mgr.currentR3DWidget().mesh.ncell)
-        QApplication.processEvents()
-
-    def test_remesh_rebuilds_the_run_at_the_new_resolution(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._on_step()
-        self.assertGreater(feature._control.session.step, 0)
-        self._coarsen(feature, nx=14, ny=6)
-        feature._panel._numerics._remesh.click()
-        # The mesh is fixed when a session is built, so a new resolution is
-        # a new run: it waits on its initial state instead of marching on.
-        mesher = feature._control.session.shock.mesher
-        self.assertEqual((14, 6), (mesher.nx, mesher.ny))
-        self.assertEqual(0, feature._control.session.step)
-        self.assertFalse(feature._control._timer.isActive())
-        self.assertTrue(feature._panel._run._pause.isChecked())
-        self.assertEqual(feature._control.session.shock.mesh.ncell,
-                         self.mgr.currentR3DWidget().mesh.ncell)
-        QApplication.processEvents()
-
-    def test_stop_ends_the_run_and_keeps_the_field(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._control._on_step()
-        step = feature._control.session.step
-        feature._panel._run._stop.click()
-        sess = feature._control.session
-        self.assertEqual('stopped', sess.stop_reason)
-        self.assertEqual(step, sess.step)
-        self.assertFalse(feature._control._timer.isActive())
-        # The field the march reached is still on screen to be read.
-        self.assertTrue(feature._viewer.is_open)
-        self.assertEqual("stopped", self._status(feature)["state"])
-        QApplication.processEvents()
-
-    def test_reset_drops_the_run_and_the_viewer(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._panel._run._reset.click()
-        self.assertIsNone(feature._control.session)
-        self.assertFalse(feature._viewer.is_open)
-        self.assertFalse(feature._control._timer.isActive())
-        self.assertFalse(feature._panel._run._viewer_btn.isChecked())
-        self.assertEqual("not started", self._status(feature)["state"])
-        # What was dropped is built again from the controls.
-        feature._control.start()
-        feature._control._timer.stop()
-        self.assertIsNotNone(feature._control.session)
-        self.assertTrue(feature._viewer.is_open)
-        QApplication.processEvents()
-
-    def test_reopening_the_viewer_draws_the_run_back(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._control._on_step()
-        sess = feature._control.session
-        feature._viewer.close()
-        # Closing deletes the sub-window and the viewer inside it.  The run
-        # is not the viewer's, so reopening has to draw it again.
-        self.assertFalse(feature._viewer.is_open)
-        self.assertIs(sess, feature._control.session)
-        drawn = []
-        real = feature._viewer.draw_field
-
-        def spy(*args):
-            drawn.append(args)
-            real(*args)
-
-        feature._viewer.draw_field = spy
-        feature._panel._run._viewer_btn.click()
-        self.assertTrue(feature._viewer.is_open)
-        self.assertEqual(sess.shock.mesh.ncell,
-                         self.mgr.currentR3DWidget().mesh.ncell)
-        self.assertEqual(1, len(drawn))
-        self.assertEqual(sess.step, feature._control.session.step)
-        QApplication.processEvents()
-
-    def test_a_closed_viewer_still_reports_the_run(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._viewer.close()
-        feature._panel._run._stop.click()
-        # The readout belongs to the run, not to the viewer that was drawing
-        # it, so closing the viewer does not leave the panel stale.
-        self.assertEqual("stopped", self._status(feature)["state"])
-        QApplication.processEvents()
-
-    def test_running_keeps_the_view_the_user_set(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        viewer = self.mgr.currentR3DWidget()
-        viewer.zoomCamera(3.0)
-        zoom = viewer.cameraZoom
-        self.assertNotAlmostEqual(1.0, zoom)
-        # Neither marching a frame nor restarting the run at another
-        # resolution may pull the view back to where it was framed.
-        feature._control._on_step()
-        self.assertAlmostEqual(zoom, viewer.cameraZoom)
-        self._coarsen(feature, nx=12, ny=5)
-        feature._control.start()
-        feature._control._timer.stop()
-        self.assertAlmostEqual(zoom, self.mgr.currentR3DWidget().cameraZoom)
-        QApplication.processEvents()
-
-    def test_start_sets_viewer_mesh_for_inspector(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        # The inspector reads the active viewer's mesh; the solver viewer must
-        # carry the run's mesh so the mesh panel is not empty during a run.
-        self.assertIsNotNone(self.mgr.currentR3DWidget().mesh)
-        QApplication.processEvents()
-
-    def test_start_notifies_viewer_updated(self):
-        feature = self._feature()
-        calls = []
-        feature.viewer_updated = lambda: calls.append(1)
-        # Opening the viewer first and then starting reuses it, which raises no
-        # sub-window activation, so start must notify the inspector itself.
-        feature._panel._run._viewer_btn.setChecked(True)
-        feature._control.start()
-        feature._control._timer.stop()
-        self.assertEqual(len(calls), 1)
-        QApplication.processEvents()
-
-    def test_step_advances_one_frame(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._panel.set_paused(True)
-        feature._panel._run._steps.setValue(3)
-        feature._control._on_step()
-        self.assertEqual(feature._control.session.step, 3)
-        status = self._status(feature)
-        self.assertEqual(f"3 / {feature._control.session.max_steps}",
-                         status["step"])
-        # The manual step happened under the pause, which still holds.
-        self.assertEqual("paused", status["state"])
-
-    def test_the_frame_timer_follows_the_session_to_its_end(self):
-        feature = self._feature()
-        feature._control.start()
-        # The frame timer stops on the session's decision instead of counting
-        # steps of its own.
-        feature._control.session.stop()
-        feature._control._advance()
-        self.assertFalse(feature._control._timer.isActive())
-        self.assertTrue(feature._panel._run._pause.isChecked())
-        feature._control._draw_frame()
-        self.assertEqual("stopped", self._status(feature)["state"])
-        QApplication.processEvents()
-
-    def test_pause_toggle_controls_timer_and_state(self):
-        feature = self._feature()
-        feature._control.start()
-        # Pausing stops the frames, so no redraw reports it; the state cell
-        # has to follow the button itself.
-        feature._panel._run._pause.setChecked(True)
-        self.assertFalse(feature._control._timer.isActive())
-        self.assertEqual("paused", self._status(feature)["state"])
-        feature._panel._run._pause.setChecked(False)
-        self.assertTrue(feature._control._timer.isActive())
-        self.assertEqual("running", self._status(feature)["state"])
-        feature._control._timer.stop()
-
-    def test_field_change_redraws_without_marching(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._panel._run._pause.setChecked(True)
-        step = feature._control.session.step
-        feature._panel._field._selector.setCurrentText('pressure')
-        # Picking a field recolors the current frame; it must not march.
-        self.assertEqual(feature._control.session.step, step)
-        self.assertEqual("pressure", feature._panel.field())
-
-    def test_viewer_button_opens_and_closes_subwindow(self):
-        feature = self._feature()
-        # The preview already opened the viewer, and the button says so.
-        self.assertTrue(feature._panel._run._viewer_btn.isChecked())
-        self.assertTrue(feature._viewer.is_open)
-        feature._panel._run._viewer_btn.setChecked(False)
-        self.assertFalse(feature._viewer.is_open)
-        feature._panel._run._viewer_btn.setChecked(True)
-        self.assertTrue(feature._viewer.is_open)
-        self.assertIsNotNone(self.mgr.currentR3DWidget())
-        QApplication.processEvents()
-
-    def test_closing_viewer_stops_run_without_drawing(self):
-        feature = self._feature()
-        feature._control.start()
-        # Closing the domain sub-window while marching must stop the timer,
-        # drop the viewer, and leave later frames as no-ops rather than
-        # drawing into the freed widget.
-        feature._viewer.close()
-        self.assertFalse(feature._viewer.is_open)
-        self.assertFalse(feature._control._timer.isActive())
-        self.assertFalse(feature._panel._run._viewer_btn.isChecked())
-        step = feature._control.session.step
-        feature._control._advance()
-        feature._control._draw_frame()
-        self.assertEqual(feature._control.session.step, step)
-        QApplication.processEvents()
-
-    def test_start_reopens_a_closed_viewer(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._viewer.close()
-        feature._control.start()
-        feature._control._timer.stop()
-        self.assertTrue(feature._viewer.is_open)
-        self.assertTrue(feature._panel._run._viewer_btn.isChecked())
-        QApplication.processEvents()
-
-    def test_the_legend_stands_against_the_edge_the_panel_names(self):
-        # The legend explains the colors, so it belongs over the field and
-        # not in the control panel: it rides on the sub-window's host
-        # widget, above the 3D view that fills it, against whichever edge
-        # the Field box names.
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        host = feature._viewer._subwin.widget()
-        host.resize(400, 300)
-        QApplication.processEvents()
-        for placement in ('left', 'right', 'upper', 'lower'):
-            feature._panel._field._placement.setCurrentText(placement)
-            bar = feature._viewer._bar
-            self.assertIs(host, bar.parent())
-            self.assertTrue(bar.isVisibleTo(host))
-            # Left and right run the ramp up the view; the other two run it
-            # across, and each sits against its own edge.
-            self.assertEqual(placement in ('left', 'right'), bar.vertical)
-            box = bar.geometry()
-            if 'left' == placement:
-                self.assertEqual(0, box.left())
-            elif 'right' == placement:
-                self.assertEqual(host.width(), box.right() + 1)
-            elif 'upper' == placement:
-                self.assertEqual(0, box.top())
-            else:
-                self.assertEqual(host.height(), box.bottom() + 1)
-        QApplication.processEvents()
-
-    def test_the_legend_is_pinned_to_the_field_the_viewer_colors(self):
-        # The legend and the viewer have to be reading one range, or the
-        # legend explains colors that are not on screen.  Each field pins
-        # its own, so a field switched under the bar has to redraw it
-        # rather than leave the range it was standing on.
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        sess = feature._control.session
-        before = (feature._viewer._bar.lo, feature._viewer._bar.hi)
-        feature._panel._field._selector.setCurrentText('pressure')
-        bar = feature._viewer._bar
-        self.assertNotEqual(before, (bar.lo, bar.hi))
-        field = sess.field.field('pressure')
-        self.assertEqual(
-            sess.analysis.color_range('pressure', float(field.min()),
-                                      float(field.max())),
-            (bar.lo, bar.hi))
-        QApplication.processEvents()
-
-    def test_switching_the_legend_off_takes_it_away(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._panel._field._placement.setCurrentText('off')
-        self.assertIsNone(feature._viewer._bar)
-        # A run drawn with no legend must not go looking for one.
-        feature._control._on_step()
-        self.assertIsNone(feature._viewer._bar)
-        # Naming an edge again brings it back on the standing scale.
-        feature._panel._field._placement.setCurrentText('right')
-        self.assertIsNotNone(feature._viewer._bar.lo)
-        QApplication.processEvents()
-
-    def test_the_reopened_viewer_carries_the_legend_back(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._viewer.close()
-        # Closing deletes the sub-window and the legend laid over it, so
-        # reopening has to stand a new one up on the same scale.
-        self.assertIsNone(feature._viewer._bar)
-        feature._panel._run._viewer_btn.click()
-        bar = feature._viewer._bar
-        self.assertIsNotNone(bar)
-        self.assertIs(feature._viewer._subwin.widget(), bar.parent())
-        self.assertIsNotNone(bar.lo)
-        QApplication.processEvents()
-
-
-@testing.requires_live_window
-class SolutionGaugeTC(_AppFixture, unittest.TestCase):
-    """The gauge that marks the profile cut on the domain."""
+    """Open the app on the pilot on screen, on a coarse mesh."""
 
     def setUp(self):
-        self.mgr = pilot.RManager.instance.setUp()
+        self.mgr = _gui.controller.build()
+        self.mgr.show()
+        self.area = self.mgr.mdiArea
+        self.area.closeAllSubWindows()
+        QApplication.processEvents()
+        self.app = _gui.controller.apps['obsrefl']
 
-    def _feature(self, nx=10, ny=4):
-        feature = super()._feature()
-        self._coarsen(feature, nx, ny)
-        return feature
-
-    @staticmethod
-    def _gauge_colors(colorizer, session):
-        """The gauge's share of one frame of vertex colors."""
-        field = session.field.field('density')
-        cut = int(colorizer._counts.sum())
-        return colorizer.colors(field, 0.0, 1.0).ndarray[cut:]
-
-    @staticmethod
-    def _count(colors, color):
-        """How many vertices carry one color.
-
-        The colors are held as float32, so they are matched against the
-        constants cast the same way rather than against the exact
-        literals, which do not survive the narrowing.
-        """
-        return int((colors == np.array(color, dtype='float32')
-                    ).all(axis=1).sum())
-
-    def test_each_mark_switches_on_its_own(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        colorizer = feature._control._colorizer
-        session = feature._control.session
-        gauge = feature._panel._gauge
-
-        def drawn():
-            colors = self._gauge_colors(colorizer, session)
-            return (self._count(colors, colorizer.OUTLINE_COLOR),
-                    self._count(colors, colorizer.BAR_COLOR))
-
-        self.assertEqual((0, 0), drawn())
-        # Each layer hides some of the field it lies over, so one switches
-        # without dragging the other along.
-        gauge._cells.setChecked(True)
-        rings, bar = drawn()
-        self.assertGreater(rings, 0)
-        self.assertEqual(0, bar)
-        gauge._line.setChecked(True)
-        rings, bar = drawn()
-        self.assertGreater(bar, 0)
-        gauge._cells.setChecked(False)
-        self.assertEqual((0, bar), drawn())
-        # The cut carries its marks with it when the control moves it,
-        # onto whichever cells it crosses there.
-        gauge._cells.setChecked(True)
-        held = colorizer.verts.ndarray.copy()
-        gauge._height.setValue(gauge._height.value() + 0.2)
-        self.assertGreater(drawn()[0], 0)
-        self.assertEqual(bar, drawn()[1])
-        self.assertFalse(np.array_equal(held, colorizer.verts.ndarray))
+    def tearDown(self):
+        self.app.close()
+        self.area.closeAllSubWindows()
         QApplication.processEvents()
 
-    def test_the_gauge_outlines_the_cells_and_bars_the_cut(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._panel._gauge._cells.setChecked(True)
-        feature._panel._gauge._line.setChecked(True)
-        colorizer = feature._control._colorizer
-        verts = colorizer.verts.ndarray
-        sess = feature._control.session
-        height = sess.analysis.cut_height(feature._panel.cut_fraction())
-        marked = sess.analysis.profile_cells(height)
-        self.assertGreater(marked.sum(), 0)
-        # The gauge is lifted off the field plane, which is what lets it
-        # draw over the field instead of z-fighting into it.
-        gauge = verts[verts[:, 2] > 0.0]
-        self.assertGreater(len(gauge), 0)
-        self.assertEqual(0.0, verts[:len(verts) - len(gauge), 2].max())
-        # It carries both parts: rings around the marked cells, in the
-        # outline color, and one bar along the cut, in the bar color.
-        colors = self._gauge_colors(colorizer, sess)
-        outline = self._count(colors, colorizer.OUTLINE_COLOR)
-        bar = self._count(colors, colorizer.BAR_COLOR)
-        self.assertEqual(6, bar)
-        self.assertGreaterEqual(outline, 6 * 3 * marked.sum())
-        QApplication.processEvents()
-
-    def test_the_gauge_holds_the_framing_box_still(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        colorizer = feature._control._colorizer
-        plain = colorizer.verts.ndarray
-        box = (plain.min(axis=0), plain.max(axis=0))
-        feature._panel._gauge._cells.setChecked(True)
-        feature._panel._gauge._line.setChecked(True)
-        gauged = colorizer.verts.ndarray
-        # Installing a field refits the camera when its box changes, so the
-        # gauge is pinned inside a box that does not move with it.
-        for was, now in zip(box, (gauged.min(axis=0), gauged.max(axis=0))):
-            self.assertEqual(list(was), list(now))
-        feature._panel._gauge._height.setValue(0.8)
-        moved = feature._control._colorizer.verts.ndarray
-        self.assertEqual(list(box[0]), list(moved.min(axis=0)))
-        self.assertEqual(list(box[1]), list(moved.max(axis=0)))
-        # The gauge is sized off the cell, so a run rebuilt at another
-        # resolution changes its width; the box it is pinned in may not
-        # follow, or the remesh would refit the camera.
-        feature._panel._numerics._nx.setValue(18)
-        feature._panel._numerics._ny.setValue(7)
-        feature._control.start()
-        feature._control._timer.stop()
-        remeshed = feature._control._colorizer.verts.ndarray
-        self.assertEqual(list(box[0]), list(remeshed.min(axis=0)))
-        self.assertEqual(list(box[1]), list(remeshed.max(axis=0)))
-        QApplication.processEvents()
+    def _open(self, nx=10, ny=4):
+        self.mgr.menu_model.action("app.obsrefl").trigger()
+        _settle()
+        numerics = self.app.column.numerics
+        numerics.fields['nx'].setText(str(nx))
+        numerics.fields['ny'].setText(str(ny))
+        self.assertTrue(self.app.controller.reset())
+        _settle()
+        return self.app.controller
 
 
 @testing.requires_live_window
-class SolutionLinePlotsTC(_AppFixture, unittest.TestCase):
-    """The analysis plot sub-window and the lines it draws."""
+class ReflectionAppTC(_AppFixture, unittest.TestCase):
 
-    def setUp(self):
-        self.mgr = pilot.RManager.instance.setUp()
+    def test_a_run_marches_on_the_timer_and_finishes(self):
+        ctl = self._open()
+        self.app.column.numerics._cap.setValue(20)
+        ctl.run_or_pause()
+        self.assertTrue(_pump(lambda: 'finished' == ctl.state))
+        self.assertEqual(20, ctl.session.step)
+        strip = self.app.window.strip
+        self.assertEqual(("Finished", 'good'), strip.pill())
+        self.assertEqual("Run again", strip.buttons['run'].text())
+        self.assertTrue(self.app.window.figure.caption.text().startswith(
+            "density, step 20:"))
 
-    def _feature(self, nx=10, ny=4):
-        feature = super()._feature()
-        self._coarsen(feature, nx, ny)
-        return feature
+    def test_no_pilot_shortcut_takes_the_run_keys(self):
+        # A posted key is offered to the shortcuts of the pilot first, as a
+        # typed one is, so this is where a menu shortcut would steal it.
+        ctl = self._open()
+        window = self.app.window
+        _press(window, Qt.Key_Space, " ")
+        self.assertTrue(_pump(lambda: 'running' == ctl.state, 5.0))
+        _press(window, Qt.Key_Space, " ")
+        self.assertTrue(_pump(lambda: 'paused' == ctl.state, 5.0))
+        step = ctl.session.step
+        _press(window, Qt.Key_Right)
+        self.assertTrue(_pump(lambda: ctl.session.step > step, 5.0))
+        _press(window, Qt.Key_R, "r")
+        self.assertTrue(_pump(lambda: 'ready' == ctl.state, 5.0))
+        self.assertEqual(0, ctl.session.step)
 
-    @staticmethod
-    def _series_xy(series):
-        return ([series.x(it) for it in range(series.size)],
-                [series.y(it) for it in range(series.size)])
+    def test_the_figure_draws_the_field_in_the_window(self):
+        # A dock an earlier test left open can squeeze the figure to a
+        # sliver.
+        for dock in self.mgr.mainWindow.findChildren(QDockWidget):
+            if not dock.isHidden() and not dock.isFloating():
+                dock.hide()
+                self.addCleanup(dock.show)
+        self._open()
+        domain = self.app.window.figure.domain
+        if not domain.available:
+            self.skipTest("the pilot builds no 3D view")
+        self.assertTrue(_pump(lambda: _colored(domain) > 50, 5.0))
 
-    def test_the_button_opens_and_closes_the_lineplot_window(self):
-        feature = self._feature()
-        self.assertFalse(feature._lineplots.is_open)
-        feature._panel._run._lineplots_btn.click()
-        self.assertTrue(feature._lineplots.is_open)
-        # The window has to actually hold the plots: a sub-window that
-        # opened empty would look the same from every other check here.
-        self.assertIs(feature._lineplots.lineplots,
-                      feature._lineplots._subwin.widget())
-        # A close from any source has to reach the button, or the panel
-        # would offer to close a window that is already gone.
-        feature._lineplots.close()
-        self.assertFalse(feature._lineplots.is_open)
-        self.assertFalse(feature._panel._run._lineplots_btn.isChecked())
-        QApplication.processEvents()
-
-    def test_the_lineplot_window_carries_a_size_grip(self):
-        # What the grip then does is the manager's, and RManagerSubWindow
-        # GripTC pins it; the window only has to ask for one.
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        subwin = feature._lineplots._subwin
-        self.assertEqual(1, len(subwin.findChildren(QSizeGrip)))
-        QApplication.processEvents()
-
-    def test_the_reopened_window_holds_the_same_lineplots(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        lineplots = feature._lineplots.lineplots
-        feature._lineplots.close()
-        QApplication.processEvents()
-        feature._panel._run._lineplots_btn.click()
-        # The plots outlive the window they were shown in, so reopening
-        # installs the same widget rather than building another.
-        self.assertIs(lineplots, feature._lineplots.lineplots)
-        QApplication.processEvents()
-
-    def test_the_profile_tracks_the_marching_session(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        feature._control.start()
-        feature._control._timer.stop()
-        before = self._series_xy(feature._lineplots.lineplots._computed)[1]
-        feature._control._on_step()
-        feature._control._on_step()
-        # The line is read off the session every frame, so a march that
-        # moves the field has to move the curve with it.
-        after = self._series_xy(feature._lineplots.lineplots._computed)[1]
-        self.assertNotEqual(before, after)
-        QApplication.processEvents()
-
-    def test_the_profile_draws_the_field_against_the_analytic_step(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        feature._control.start()
-        feature._control._timer.stop()
-        lineplots = feature._lineplots.lineplots
-        session = feature._control.session
-        cut = session.profile(
-            session.analysis.cut_height(feature._panel.cut_fraction()),
-            'density')
-        computed_x, computed_y = self._series_xy(lineplots._computed)
-        analytic_x, analytic_y = self._series_xy(lineplots._analytic)
-        self.assertEqual(list(cut.x), computed_x)
-        self.assertEqual(list(cut.computed), computed_y)
-        self.assertEqual(list(cut.analytic), analytic_y)
-        # Both curves are sampled at the same abscissae, so the gap between
-        # them at a station is the error there and not a sampling artifact.
-        self.assertEqual(computed_x, analytic_x)
-        QApplication.processEvents()
-
-    def test_moving_the_cut_redraws_the_profile(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        feature._control.start()
-        feature._control._timer.stop()
-        lineplots = feature._lineplots.lineplots
-        before = self._series_xy(lineplots._analytic)[1]
-        # The shocks lean, so a cut at another height crosses them at other
-        # abscissae and the step has to move with it.
-        feature._panel._gauge._height.setValue(0.8)
-        self.assertNotEqual(before, self._series_xy(lineplots._analytic)[1])
-        QApplication.processEvents()
-
-    def test_the_lineplot_draws_a_cut_nothing_marks(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        feature._control.start()
-        feature._control._timer.stop()
-        lineplots = feature._lineplots.lineplots
-        gauge = feature._panel._gauge
-        # The marks start off.  The window is opened deliberately, so it
-        # draws the cut it was opened for rather than waiting on a box in
-        # another fold of the panel.
-        self.assertFalse(gauge.marking_cells())
-        self.assertFalse(gauge.marking_line())
-        self.assertGreater(lineplots._computed.size, 0)
-        self.assertIsNotNone(lineplots._profile.limits())
-        drawn = self._series_xy(lineplots._computed)
-        # Marking the cut on the domain says where the curve was read; it
-        # does not change what was read.
-        gauge._cells.setChecked(True)
-        gauge._line.setChecked(True)
-        self.assertEqual(drawn, self._series_xy(lineplots._computed))
-        QApplication.processEvents()
-
-    def test_a_closed_lineplot_window_is_not_drawn_into(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        feature._control.start()
-        feature._control._timer.stop()
-        held = self._series_xy(feature._lineplots.lineplots._computed)
-        feature._lineplots.close()
-        feature._control._on_step()
-        # The plots outlive their window, so what they hold is left alone
-        # rather than followed into a widget Qt has freed.
-        self.assertEqual(
-            held, self._series_xy(feature._lineplots.lineplots._computed))
-        QApplication.processEvents()
-
-    def test_reopening_the_window_draws_the_standing_run_back(self):
-        feature = self._feature()
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._control._on_step()
-        # The window opens on a run already under way, so it has to be
-        # filled from the session rather than wait for the next frame.
-        feature._panel._run._lineplots_btn.click()
-        lineplots = feature._lineplots.lineplots
-        session = feature._control.session
-        cut = session.profile(
-            session.analysis.cut_height(feature._panel.cut_fraction()),
-            'density')
-        self.assertEqual(list(cut.computed),
-                         self._series_xy(lineplots._computed)[1])
-        QApplication.processEvents()
-
-    def test_resetting_the_run_blanks_the_lineplots(self):
-        feature = self._feature()
-        feature._panel._run._lineplots_btn.click()
-        feature._control.start()
-        feature._control._timer.stop()
-        feature._control._on_step()
-        feature._control.reset()
-        # A dropped run leaves no run to plot; a stale curve would read as
-        # if one were still standing.
-        self.assertEqual(0, feature._lineplots.lineplots._computed.size)
-        self.assertEqual(0, feature._lineplots.lineplots._analytic.size)
-        QApplication.processEvents()
-
-
-@testing.requires_live_window
-class SolutionMovieTC(_AppFixture, unittest.TestCase):
-    """Recording a run into an animated movie."""
-
-    def setUp(self):
-        self.mgr = pilot.RManager.instance.setUp()
-        self.folder = tempfile.TemporaryDirectory()
-        self.addCleanup(self.folder.cleanup)
-
-    def _recording_feature(self):
-        """A started run recording into the scratch folder.
-
-        The first drawn frame is also the first capture, so a viewer with
-        nothing to grab drops the recording right there; skip instead of
-        failing, as the domain-widget capture tests do.
-        """
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._panel._movie._path.setText(self._movie_path('{cell_type}'))
-        feature._panel._movie._record.setChecked(True)
-        feature._control.start()
-        feature._control._timer.stop()
-        if feature._control.movie is None:
-            self.skipTest("the viewer gave no frame to record")
-        return feature
-
-    def _movie_path(self, cell_type='unstructured'):
-        return os.path.join(self.folder.name, f"run_{cell_type}.webp")
-
-    def test_a_run_records_nothing_unless_asked(self):
-        feature = self._feature()
-        self._coarsen(feature)
-        feature._control.start()
-        feature._control._timer.stop()
-        self.assertIsNone(feature._control.movie)
-
-    def test_a_recorded_run_writes_what_the_viewer_drew(self):
-        feature = self._recording_feature()
-        # The box names the destination before there is a movie in it, and
-        # the file once there is one; the console scrolls away under the
-        # run's own output.
-        self.assertIn(self._movie_path(),
-                      feature._panel._movie._status.text())
-        feature._panel._run._steps.setValue(1)
-        feature._control._on_step()
-        # One frame per draw: the state the run started from, and the one
-        # the step marched to.
-        self.assertEqual(2, feature._control.movie.nframe)
-
-        feature._panel._movie._record.setChecked(False)
-        self.assertIsNone(feature._control.movie)
-        note = feature._panel._movie._status.text()
-        self.assertIn(self._movie_path(), note)
-        self.assertIn("frames", note)
-        # The suffix typed into the box is what the movie is written as.
-        self.assertEqual('WEBP', Image.open(self._movie_path()).format)
-        QApplication.processEvents()
-
-    def test_every_way_a_run_ends_writes_the_movie(self):
-        # No frame can follow any of these, so each has to write out what
-        # the recording holds rather than leave it to be dropped.
-        endings = {'the viewer closes': lambda ft: ft._viewer.close(),
-                   'the run stops': lambda ft: ft._control.stop(),
-                   'the run resets': lambda ft: ft._control.reset()}
-        for ending, end_it in endings.items():
-            with self.subTest(ending=ending):
-                feature = self._recording_feature()
-                end_it(feature)
-                self.assertIsNone(feature._control.movie)
-                self.assertTrue(os.path.exists(self._movie_path()))
-                # The next ending writes to the same name, and an old file
-                # would answer for it.
-                os.remove(self._movie_path())
-                QApplication.processEvents()
-
-
-@testing.requires_live_window
-class SolutionInspectorTC(unittest.TestCase):
-    """The wired controller refreshes the inspector when a run sets the
-    mesh."""
-
-    def test_open_viewer_then_start_populates_inspector(self):
-        ctl = _gui.controller
-        ctl.build()
-        ctl.tree_panel._action.setChecked(True)
-        sol = ctl.apps["obsrefl"]
-        sol._action.setChecked(True)
-        # Open the viewer first, then start: the reused viewer raises no
-        # activation, so only the wired refresh keeps the inspector from
-        # standing on "No mesh loaded".
-        sol._panel._run._viewer_btn.setChecked(True)
-        QApplication.processEvents()
-        sol._control.start()
-        sol._control._timer.stop()
-        QApplication.processEvents()
-        root = ctl.tree_panel._mesh_tree._tree.topLevelItem(0)
-        self.assertEqual(root.text(0), "StaticMesh (2D)")
-
-
-# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
+# vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
