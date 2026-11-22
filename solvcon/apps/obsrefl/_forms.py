@@ -78,6 +78,7 @@ class _SetupGroup(_widgets.FoldGroup):
         super().__init__(title, parent)
         #: Owner-supplied callback fired on any edit.
         self.edited = None
+        self._applied = None
         #: The number fields by setup field name.
         self.fields = {}
         self._grid = self._body_grid(labels=_LABEL_WIDTH)
@@ -96,10 +97,12 @@ class _SetupGroup(_widgets.FoldGroup):
         self._row += 1
 
     def _add_messages(self):
-        """Put the error under the rows."""
+        """Put the hint and the error under the rows."""
+        self._hint = _widgets.message("hint")
         self._error = _widgets.message("fieldError")
-        self._grid.addWidget(self._error, self._row, 0, 1, 2)
-        self._row += 1
+        for label in (self._hint, self._error):
+            self._grid.addWidget(label, self._row, 0, 1, 2)
+            self._row += 1
 
     def _parse(self, key, text):
         """Return the number a field holds.
@@ -120,10 +123,11 @@ class _SetupGroup(_widgets.FoldGroup):
         return value
 
     def show_setup(self, setup):
-        """Fill the fields from a setup.
+        """Fill the fields from a setup and take it as the applied one.
 
         :param setup: The :class:`~._setup.ReflectionSetup` to show.
         """
+        self._applied = setup
         for key, field in self.fields.items():
             field.set_value(getattr(setup, key))
         self.show_errors({})
@@ -166,9 +170,33 @@ class _SetupGroup(_widgets.FoldGroup):
         return [key for key, field in self.fields.items()
                 if "true" == field.property("invalid")]
 
+    def is_dirty(self):
+        """Return whether the group differs from the setup last applied."""
+        if self._applied is None:
+            return False
+        values, errors = self.read()
+        if errors:
+            return True
+        return any(not _same(values[key], getattr(self._applied, key))
+                   for key in values)
+
+    def set_dirty_hint(self, dirty):
+        """Say that edits wait for Reset, or nothing.
+
+        :param dirty: Whether edits wait.
+        """
+        _widgets.say(self._hint, "Edited: Reset applies the changes."
+                     if dirty else "")
+
     def _on_edit(self, *_args):
         if self.edited is not None:
             self.edited()
+
+
+def _same(value, applied):
+    if isinstance(value, str) or isinstance(applied, str):
+        return value == applied
+    return math.isclose(value, applied, rel_tol=1e-9, abs_tol=1e-12)
 
 
 class FreeStreamGroup(_SetupGroup):

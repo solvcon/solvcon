@@ -54,4 +54,18 @@ class SetupGroupTC(unittest.TestCase):
         self.assertIn("not a number", errors['mach'])
         self.assertNotIn('mach', values)
 
+    def test_an_edit_reads_dirty_until_shown_again(self):
+        self.assertFalse(self.free.is_dirty())
+        _type(self.free, 'angle', "15")
+        self.assertTrue(self.free.is_dirty())
+        # Typed back, the edit is gone; text that is no number is an edit.
+        _type(self.free, 'angle', "10.0")
+        self.assertFalse(self.free.is_dirty())
+        _type(self.free, 'angle', "")
+        self.assertTrue(self.free.is_dirty())
+        applied = self.setup.replace(angle=15.0)
+        self.free.show_setup(applied)
+        self.assertFalse(self.free.is_dirty())
+        self.assertEqual("15", self.free.fields['angle'].text())
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
