@@ -5,8 +5,7 @@
 """What the widgets of the reflection app draw, and the words they show.
 
 The presenter (:mod:`._presenter`) fills the records, and the widgets only
-read them.  Nothing here imports Qt, so the view data are built and checked
-without the pilot.
+read them.
 """
 
 import math

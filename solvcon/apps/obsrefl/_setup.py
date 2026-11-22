@@ -3,7 +3,7 @@
 
 
 """The parameters of a reflection run, and the checks that keep them
-valid.  Nothing here imports Qt.
+valid.
 """
 
 import dataclasses
