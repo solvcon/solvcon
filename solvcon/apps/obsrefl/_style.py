@@ -11,6 +11,9 @@ __all__ = [
     'Rules',
 ]
 
+#: The step from the panel toward the text of a rule between sections.
+_RULE_MIX = 0.13
+
 
 class Rules(pilot.AppRules):
     """Style roles used by the reflection controls, one method per role.
@@ -40,6 +43,52 @@ class Rules(pilot.AppRules):
         ink = _ink.Ink(widget) if set(roles) & set(cls.ON_BASE) else None
         return "".join(getattr(cls, role)(ink if role in cls.ON_BASE
                                           else shades) for role in roles)
+
+    @staticmethod
+    def strip(shades):
+        """Style the run strip across the top of the window.
+
+        :param shades: The :class:`~solvcon.pilot.Shades` of the widget.
+        """
+        failure = pilot.legible(shades, shades.bright_text, shades.panel)
+        return f"""
+            QFrame#runStrip {{
+                background: {shades.panel.name()};
+                border: none;
+                border-bottom: 1px solid {shades.raised(_RULE_MIX).name()};
+            }}
+            QLabel#stripProblem {{
+                color: {shades.text.name()};
+                font-weight: 600;
+            }}
+            QLabel#stripCaption, QLabel#failure {{
+                color: {shades.muted.name()};
+                font-size: {pilot.SMALL_PX}px;
+            }}
+            QLabel#failure {{ color: {failure.name()}; }}
+            """
+
+    @staticmethod
+    def progress(shades):
+        """Style the thin determinate bar beside the time readout.
+
+        :param shades: The :class:`~solvcon.pilot.Shades` of the widget.
+        """
+        track = shades.raised(pilot.FILL_MIX)
+        chunk = pilot.legible(shades, shades.accent, track, shades.panel,
+                              floor=pilot.GRAPHIC_CONTRAST)
+        return f"""
+            QProgressBar#progress {{
+                border: none;
+                border-radius: 2px;
+                background: {track.name()};
+                max-height: 4px; min-height: 4px;
+            }}
+            QProgressBar#progress::chunk {{
+                border-radius: 2px;
+                background: {chunk.name()};
+            }}
+            """
 
     @staticmethod
     def configuration_error(shades):
