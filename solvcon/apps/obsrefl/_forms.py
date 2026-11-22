@@ -3,21 +3,23 @@
 
 
 """The groups of the reflection control column, which edit the run
-parameters."""
+parameters and what the figure shows."""
 
 import math
 
 from PySide6.QtCore import QSignalBlocker, Qt
-from PySide6.QtWidgets import (QComboBox, QLabel, QLineEdit, QSizePolicy,
-                               QSpinBox)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QLabel,
+                               QLineEdit, QSizePolicy, QSpinBox)
 
 from ... import pilot
 
 from . import _session
 from . import _setup
+from . import _viewmodel
 from . import _widgets
 
 __all__ = [
+    'DisplayGroup',
     'FreeStreamGroup',
     'NumericsGroup',
 ]
@@ -301,5 +303,79 @@ class NumericsGroup(_SetupGroup):
     def _on_run(self, _value):
         if self.run_changed is not None:
             self.run_changed(*self.run_settings())
+
+
+class DisplayGroup(_widgets.FoldGroup):
+    """What the figure shows of the run: the field, the color bar, the
+    marks of the profile cut, and its height.  None of it marches the run,
+    so an edit applies at once.  The group is passive: it shows what it is
+    handed and calls back into its owner.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__("Display", parent)
+        #: Owner-supplied callback fired with the
+        #: :class:`~._viewmodel.Display` on any change.
+        self.display_changed = None
+        grid = self._body_grid(labels=_LABEL_WIDTH)
+        self._field = QComboBox()
+        for name, label in _viewmodel.FIELD_LABELS.items():
+            self._field.addItem(label, name)
+        self._field.setToolTip("The field the cells are colored by")
+        self._bar = QCheckBox("color bar")
+        self._bar.setToolTip("The scale of the colors, right of the domain")
+        self._cells = QCheckBox("mark cells")
+        self._cells.setToolTip("Outline the cells the profile samples")
+        self._line = QCheckBox("mark line")
+        self._line.setToolTip("Draw the line the profile runs along")
+        self._cut = QDoubleSpinBox()
+        self._cut.setRange(0.0, 1.0)
+        self._cut.setSingleStep(0.05)
+        self._cut.setDecimals(2)
+        self._cut.setToolTip("The height of the profile, a fraction of the "
+                             "domain height; the default crosses both "
+                             "shocks")
+        grid.addWidget(_widgets.form_label("field", self._field.toolTip()),
+                       0, 0)
+        grid.addWidget(self._field, 0, 1, 1, 2)
+        grid.addWidget(self._bar, 1, 0, 1, 2)
+        grid.addWidget(self._cells, 2, 0)
+        grid.addWidget(self._line, 2, 1, 1, 2)
+        grid.addWidget(_widgets.form_label("cut height", self._cut.toolTip()),
+                       3, 0)
+        grid.addWidget(self._cut, 3, 1, 1, 2)
+        grid.setColumnStretch(1, 1)
+        self._controls = (self._field, self._bar, self._cells, self._line,
+                          self._cut)
+        self.show_display(_viewmodel.Display())
+        self._field.currentIndexChanged.connect(self._on_change)
+        for box in (self._bar, self._cells, self._line):
+            box.toggled.connect(self._on_change)
+        self._cut.valueChanged.connect(self._on_change)
+
+    def display(self):
+        """Return the :class:`~._viewmodel.Display` the controls hold."""
+        return _viewmodel.Display(
+            field=self._field.currentData(), bar=self._bar.isChecked(),
+            mark_cells=self._cells.isChecked(),
+            mark_line=self._line.isChecked(), cut=self._cut.value())
+
+    def show_display(self, display):
+        """Set the controls from a display without firing the callback.
+
+        :param display: The :class:`~._viewmodel.Display` to show.
+        """
+        blockers = [QSignalBlocker(widget) for widget in self._controls]
+        self._field.setCurrentIndex(self._field.findData(display.field))
+        self._bar.setChecked(display.bar)
+        self._cells.setChecked(display.mark_cells)
+        self._line.setChecked(display.mark_line)
+        self._cut.setValue(display.cut)
+        for blocker in blockers:
+            blocker.unblock()
+
+    def _on_change(self, *_args):
+        if self.display_changed is not None:
+            self.display_changed(self.display())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

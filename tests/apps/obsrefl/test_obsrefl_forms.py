@@ -4,8 +4,8 @@
 
 """The groups of the reflection control column.
 
-The groups are passive, so these checks hand them a setup and read the
-controls back; none needs a window on screen.
+The groups are passive, so these checks hand them a setup or a display and
+read the controls back; none needs a window on screen.
 """
 
 import unittest
@@ -15,7 +15,7 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
-        from solvcon.apps.obsrefl import _forms, _setup
+        from solvcon.apps.obsrefl import _forms, _setup, _viewmodel
 except ImportError:
     pilot = None
 
@@ -95,5 +95,37 @@ class SetupGroupTC(unittest.TestCase):
         numerics.set_run_settings(100, 1)
         self.assertEqual((100, 1), numerics.run_settings())
         self.assertEqual(2, len(changed))
+
+
+@testing.requires_pilot
+class DisplayGroupTC(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        pilot.RManager.instance.setUp()
+
+    def test_the_group_reads_back_the_display_it_shows(self):
+        group = _forms.DisplayGroup()
+        self.assertEqual(_viewmodel.Display(), group.display())
+        shown = _viewmodel.Display(field='pressure', bar=False,
+                                   mark_cells=True, mark_line=True, cut=0.25)
+        group.show_display(shown)
+        self.assertEqual(shown, group.display())
+        self.assertEqual("pressure", group._field.currentText())
+
+    def test_every_change_reaches_the_owner(self):
+        group = _forms.DisplayGroup()
+        changed = []
+        group.display_changed = changed.append
+        group._field.setCurrentIndex(group._field.findData('mach'))
+        group._bar.setChecked(False)
+        group._cells.setChecked(True)
+        group._line.setChecked(True)
+        group._cut.setValue(0.75)
+        self.assertEqual(5, len(changed))
+        self.assertEqual(_viewmodel.Display('mach', False, True, True, 0.75),
+                         changed[-1])
+        group.show_display(_viewmodel.Display())
+        self.assertEqual(5, len(changed))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
