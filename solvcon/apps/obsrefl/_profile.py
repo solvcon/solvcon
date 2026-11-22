@@ -23,6 +23,10 @@ class ProfilePlot(pilot.PaletteStyle, QWidget):
     circles in their data color, in a
     :class:`~solvcon.pilot.visual.LinePlotWidget`, so the gap between them
     is the error at that station.
+
+    A zoomed or panned view holds over the frames of one
+    :attr:`~._viewmodel.ProfileFrame.key`, a blank included, and a new key
+    drops it.
     """
 
     EXACT_WIDTH = 1.25
@@ -32,6 +36,7 @@ class ProfilePlot(pilot.PaletteStyle, QWidget):
         super().__init__(parent)
         #: The :class:`~._viewmodel.ProfileFrame` shown, or None.
         self.frame = None
+        self._key = None
         #: The :class:`~solvcon.pilot.visual.LinePlotWidget` drawn.
         self.plot = visual.LinePlotWidget(title="line profile", xlabel="x")
         #: The series of the exact solution.
@@ -68,6 +73,9 @@ class ProfilePlot(pilot.PaletteStyle, QWidget):
             self.exact.clear_data()
             self.computed.clear_data()
         else:
+            if frame.key != self._key:
+                self._key = frame.key
+                self.plot.reset_view()
             x = visual.plot_array(frame.x)
             self.exact.set_data(x, visual.plot_array(frame.exact))
             self.computed.set_data(x, visual.plot_array(frame.computed))

@@ -3,7 +3,8 @@
 
 
 """The profile plot of the reflection figure: the exact solution as a line
-and the computed values as markers."""
+and the computed values as markers, and a zoom that holds over the frames
+of one field."""
 
 import unittest
 
@@ -14,6 +15,9 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+        from PySide6.QtWidgets import QApplication
         from solvcon.apps.obsrefl import _ink, _profile, _viewmodel
 except ImportError:
     pilot = None
@@ -33,6 +37,15 @@ def _plot():
     plot = _profile.ProfilePlot()
     plot.resize(600, 300)
     return plot
+
+
+def _wheel(plot, notches):
+    widget = plot.plot
+    at = QPointF(widget._lineplot_rect().center())
+    event = QWheelEvent(at, widget.mapToGlobal(at), QPoint(),
+                        QPoint(0, int(120 * notches)), Qt.NoButton,
+                        Qt.NoModifier, Qt.NoScrollPhase, False)
+    QApplication.sendEvent(widget, event)
 
 
 def _rgb(color):
@@ -78,5 +91,19 @@ class ProfilePlotTC(unittest.TestCase):
         self.assertEqual(0, plot.exact.size)
         self.assertEqual(0, plot.computed.size)
         self.assertIsNone(plot.plot.limits())
+
+    def test_the_zoom_holds_over_one_key_and_resets_on_a_new_one(self):
+        plot = _plot()
+        plot.show_profile(_frame())
+        _wheel(plot, 3)
+        view = plot.plot.limits()
+        self.assertFalse(plot.plot.model.auto_view)
+        plot.show_profile(_frame(step=1.5))
+        plot.show_profile(None)
+        plot.show_profile(_frame(step=1.2))
+        self.assertFalse(plot.plot.model.auto_view)
+        self.assertEqual(view.xmin, plot.plot.limits().xmin)
+        plot.show_profile(_frame(key='pressure'))
+        self.assertTrue(plot.plot.model.auto_view)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
