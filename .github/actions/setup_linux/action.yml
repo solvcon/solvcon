@@ -54,19 +54,19 @@ runs:
         echo "::group::dependency by apt"
         # To update the cmake version > 4, install the latest cmake by kitware apt repository.
         # Reference: https://apt.kitware.com/
-        sudo contrib/ci/apt-update.sh -y
-        sudo apt-get -qy install ca-certificates gpg wget
+        sudo contrib/ci/retry-apt-get.sh -y update
+        sudo contrib/ci/retry-apt-get.sh -qy install ca-certificates gpg wget
         test -f /usr/share/doc/kitware-archive-keyring/copyright || \
             wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | \
             gpg --dearmor - | \
             sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
         echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | \
             sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-        sudo contrib/ci/apt-update.sh -qq
+        sudo contrib/ci/retry-apt-get.sh -qq update
         test -f /usr/share/doc/kitware-archive-keyring/copyright || \
             sudo rm /usr/share/keyrings/kitware-archive-keyring.gpg
-        sudo apt-get -qy install kitware-archive-keyring
-        sudo apt-get -qy install \
+        sudo contrib/ci/retry-apt-get.sh -qy install kitware-archive-keyring
+        sudo contrib/ci/retry-apt-get.sh -qy install \
             sudo curl git build-essential make cmake libc6-dev gcc g++ \
             libopenblas-dev \
             python3 python3-dev python3-venv
@@ -99,8 +99,8 @@ runs:
         # Install clang-tidy-22 from LLVM repository for full C++23 support
         wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
         echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" | sudo tee /etc/apt/sources.list.d/llvm.list
-        sudo contrib/ci/apt-update.sh -qq
-        sudo apt-get -qy install clang-tidy-22
+        sudo contrib/ci/retry-apt-get.sh -qq update
+        sudo contrib/ci/retry-apt-get.sh -qy install clang-tidy-22
         sudo ln -fs "$(which clang-tidy-22)" "/usr/local/bin/clang-tidy"
         # --no-deps: ctcache declares flask as a dependency, 
         # and installing it can drag in a blinker version that conflicts 
@@ -116,8 +116,8 @@ runs:
       run: |
         echo "::group::Install and configure gcc-16"
         sudo contrib/ci/add-ppa.sh ppa:ubuntu-toolchain-r/test
-        sudo contrib/ci/apt-update.sh -qq
-        sudo apt-get -qy install gcc-16 g++-16
+        sudo contrib/ci/retry-apt-get.sh -qq update
+        sudo contrib/ci/retry-apt-get.sh -qy install gcc-16 g++-16
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-16 100
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-16 100
         sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-16 100
@@ -132,8 +132,8 @@ runs:
         wget -qO cuda-keyring_1.1-1_all.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
         echo "d2a6b11c096396d868758b86dab1823b25e14d70333f1dfa74da5ddaf6a06dba  cuda-keyring_1.1-1_all.deb" | sha256sum --check -
         sudo dpkg -i cuda-keyring_1.1-1_all.deb
-        sudo contrib/ci/apt-update.sh -qq
-        sudo apt-get -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
+        sudo contrib/ci/retry-apt-get.sh -qq update
+        sudo contrib/ci/retry-apt-get.sh -qy install cuda-nvcc-13-0 cuda-cudart-dev-13-0 g++-14
         echo "/usr/local/cuda-13.0/bin" >> "${GITHUB_PATH}"
         echo "::endgroup::"
 
@@ -161,7 +161,7 @@ runs:
         # libraries are the runtime counterparts of the -dev packages the scdv
         # build installs (contrib/dependency/build-scdv.sh, scdv_apt_qt_cmd);
         # keep the two sets in sync.
-        sudo apt-get -qy install \
+        sudo contrib/ci/retry-apt-get.sh -qy install \
             xvfb x11-utils \
             libgl1 libglx-mesa0 libgl1-mesa-dri libegl1 libopengl0 \
             libxkbcommon-x11-0 libx11-xcb1 \
