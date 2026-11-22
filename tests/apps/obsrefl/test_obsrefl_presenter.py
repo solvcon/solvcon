@@ -6,11 +6,13 @@
 
 The run marches on a mesh coarse enough to take milliseconds.  The card
 compares three zones and toned errors, and a fit that has not formed says
-so.
+so.  The colors span the pinned range of the analysis.
 """
 
 import math
 import unittest
+
+import numpy as np
 
 from solvcon.apps.obsrefl import ReflectionSession
 from solvcon.apps.obsrefl import _presenter
@@ -116,5 +118,37 @@ class ResultsTC(unittest.TestCase):
                 res = _presenter.results(_session(angle=angle), 'density')
                 self.assertEqual(note, res.note and res.note[1])
         self.assertIn("top inlet", res.note[0])
+
+
+class FieldFrameTC(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sess = _session(chunks=3)
+
+    def test_the_colors_span_the_pinned_range(self):
+        for name in ('density', 'pressure', 'cfl'):
+            with self.subTest(name=name):
+                frame = _presenter.field_frame(
+                    self.sess, _viewmodel.Display(field=name))
+                values = self.sess.field.field(name)
+                np.testing.assert_array_equal(values, frame.values)
+                self.assertEqual(self.sess.analysis.color_range(
+                    name, float(values.min()), float(values.max())),
+                    (frame.lo, frame.hi))
+                self.assertEqual(_viewmodel.FIELD_LABELS[name],
+                                 frame.label)
+
+    def test_the_gauge_marks_only_what_the_display_asks_for(self):
+        bare = _presenter.field_frame(self.sess, _viewmodel.Display())
+        self.assertIsNone(bare.gauge_cells)
+        self.assertIsNone(bare.gauge_height)
+        frame = _presenter.field_frame(self.sess, _viewmodel.Display(
+            mark_cells=True, mark_line=True, cut=0.25))
+        height = self.sess.analysis.cut_height(0.25)
+        self.assertEqual(height, frame.gauge_height)
+        np.testing.assert_array_equal(
+            np.nonzero(self.sess.analysis.profile_cells(height))[0],
+            frame.gauge_cells)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

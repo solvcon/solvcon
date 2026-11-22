@@ -14,9 +14,12 @@ shows.
 
 import math
 
+import numpy as np
+
 from . import _viewmodel
 
 __all__ = [
+    'field_frame',
     'results',
 ]
 
@@ -145,5 +148,32 @@ def results(session, name):
                               fits=_fit_rows(session),
                               rows=_run_rows(session), caption=caption,
                               note=note)
+
+
+def field_frame(session, display):
+    """Return the :class:`~._viewmodel.FieldFrame` of ``session`` that the
+    :class:`~._viewmodel.Display` ``display`` asks for.
+
+    The colors span :meth:`~._analytic.Reflection.color_range`, so a color
+    reads the same value over the run; the caption reads the range of the
+    frame itself.
+    """
+    analysis = session.analysis
+    name = display.field
+    label = _viewmodel.FIELD_LABELS[name]
+    values = np.array(session.field.field(name), dtype='float64')
+    vmin, vmax = float(values.min()), float(values.max())
+    lo, hi = analysis.color_range(name, vmin, vmax)
+    height = analysis.cut_height(display.cut)
+    cells = None
+    if display.mark_cells:
+        cells = np.nonzero(analysis.profile_cells(height))[0].astype('int64')
+    caption = (f"{label}, step {session.step}: "
+               f"{_viewmodel.format_number(vmin, 3)} to "
+               f"{_viewmodel.format_number(vmax, 3)}")
+    return _viewmodel.FieldFrame(
+        name=name, label=label, values=values, lo=lo, hi=hi,
+        caption=caption, gauge_cells=cells,
+        gauge_height=height if display.mark_line else None)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
