@@ -228,6 +228,9 @@ class ControlColumn(_widgets.Styled, QScrollArea):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("controlColumn")
+        #: Owner-supplied callback offered every key the controls of the column
+        #: leave; it returns whether it took the key.
+        self.key_pressed = None
         self.card = ResultsCard()
         self.freestream = _forms.FreeStreamGroup()
         self.numerics = _forms.NumericsGroup()
@@ -269,5 +272,9 @@ class ControlColumn(_widgets.Styled, QScrollArea):
         self.card.restyle()
         for group in self.groups:
             group.restyle()
+
+    def keyPressEvent(self, event):
+        if self.key_pressed is None or not self.key_pressed(event):
+            super().keyPressEvent(event)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
