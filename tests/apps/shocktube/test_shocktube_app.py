@@ -30,7 +30,10 @@ class AppTC(unittest.TestCase):
         # The app is built on the bare manager rather than through the
         # controller, which later tests expect to build last.
         cls.mgr = pilot.RManager.instance.setUp()
-        cls.app = shocktube.ShockTubeApp(mgr=cls.mgr)
+        cls.app_config = pilot.panel.AppConfig(mgr=cls.mgr)
+        cls.app_config.populate_menu()
+        cls.app = shocktube.ShockTubeApp(mgr=cls.mgr,
+                                         app_config=cls.app_config)
         cls.app.populate_menu()
         cls.item = cls.mgr.menu_model.action("app.shocktube")
 
@@ -242,10 +245,11 @@ class AppTC(unittest.TestCase):
 
     def test_the_config_panel_sets_the_problem_anew(self):
         self._open()
-        dock = self.app.dock
+        dock = self.app_config.dock
         self.assertEqual("App config", dock.windowTitle())
         self.assertFalse(dock.isHidden())
-        column = dock.widget()
+        column = self.app.column
+        self.assertIs(column, dock.widget().currentWidget())
         self.assertEqual((self.app.config, {}), column.read())
         self.app.window.buttons['step'].click()
         field = column.fields['max_steps']
@@ -262,12 +266,11 @@ class AppTC(unittest.TestCase):
         self.assertEqual(20, self.app.config['max_steps'])
 
     def test_the_view_menu_toggles_the_config_panel(self):
-        action = self.mgr.menu_model.action("panel.shocktube_config")
-        self.assertIs(self.app.dock_action, action)
+        action = self.app_config.action
         # Without the window there is no panel to show.
         self.assertFalse(action.isEnabled())
         self._open()
-        dock = self.app.dock
+        dock = self.app_config.dock
         self.assertTrue(action.isEnabled())
         self.assertTrue(action.isChecked())
         action.trigger()
@@ -290,7 +293,7 @@ class AppTC(unittest.TestCase):
         self.assertIsNone(self.app.subwindow)
         self.assertIsNone(self.app.window)
         # The config panel goes with the window it edits.
-        self.assertIsNone(self.app.dock)
+        self.assertIsNone(self.app_config.dock)
         self._open()
         self.assertIn(self.app.subwindow, self.area.subWindowList())
 

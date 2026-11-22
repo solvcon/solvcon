@@ -75,6 +75,7 @@ class _Controller(metaclass=_Singleton):
         self.gmsh_dialog = None
         self.svg_dialog = None
         self.tree_panel = None
+        self.app_config = None
         self.apps = {}
         self._app_factories = {}
         self.sample_mesh = None
@@ -167,6 +168,7 @@ class _Controller(metaclass=_Singleton):
         self.capture = _capture.ScreenCapture(mgr=self._rmgr)
         self.capture_widget = panel.CaptureWidget(
             mgr=self._rmgr, capture=self.capture)
+        self.app_config = panel.AppConfig(mgr=self._rmgr)
         self.ui_state = _ui_state.UiState(mgr=self._rmgr)
         self.populate_menu()
         self._start_apps()
@@ -218,6 +220,7 @@ class _Controller(metaclass=_Singleton):
         self.window_manager.populate_menu()
         self.capture.populate_menu()
         self.capture_widget.populate_menu()
+        self.app_config.populate_menu()
 
         close = _gui_common.build_action(
             wm.mainWindow, "Close",

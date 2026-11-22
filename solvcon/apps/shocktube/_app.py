@@ -4,8 +4,7 @@
 
 import numpy as np
 
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QDockWidget
+from PySide6.QtCore import QTimer
 
 from ...pilot import base
 
@@ -22,12 +21,16 @@ class ShockTubeApp(base.PilotFeature):
     The shock-tube app on App > Shock tube: the numerical solution of Sod's
     problem marched over the analytic one, with the config panel docked
     beside it.
+
+    :ivar app_config: The pilot's :class:`~solvcon.pilot.panel.AppConfig`
+        that holds :attr:`column`.
     """
 
     #: Points the analytic solution is drawn through.
     EXACT_POINTS = 801
 
     def __init__(self, *args, **kw):
+        self.app_config = kw.pop('app_config')
         super().__init__(*args, **kw)
         self.solver_config = base.SolverConfig([
             ["gamma", 1.4, "The ratio of the specific heats."],
@@ -54,8 +57,7 @@ class ShockTubeApp(base.PilotFeature):
         self.timer.timeout.connect(self.step)
         self.window = None
         self.subwindow = None
-        self.dock = None
-        self.dock_action = None
+        self.column = None
         self._close_filter = None
 
     @property
@@ -77,14 +79,6 @@ class ShockTubeApp(base.PilotFeature):
             id="app.shocktube",
             weight=10,
         )
-        # The panel lives as long as the window it configures, so its
-        # toggle waits for the window to open.
-        self.dock_action = self.add_action(
-            "View/Panels", "App config",
-            "Toggle the config panel of the shock-tube app", None,
-            id="panel.shocktube_config", weight=16, checkable=True)
-        self.dock_action.setEnabled(False)
-        self.dock_action.toggled.connect(self._on_dock_toggled)
 
     def open(self):
         """Open the window maximized, or bring it back."""
@@ -104,34 +98,16 @@ class ShockTubeApp(base.PilotFeature):
                                                        self.subwindow)
         self.subwindow.installEventFilter(self._close_filter)
         self.subwindow.showMaximized()
-        self.dock = self._build_dock()
-        self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea, self.dock)
-        self.dock.visibilityChanged.connect(self._sync_dock_action)
-        self.dock_action.setEnabled(True)
-        self._sync_dock_action()
-
-    def _build_dock(self):
-        column = _panel.ConfigColumn()
-        column.show_values(self.config)
-        column.applied = self._on_applied
-        dock = QDockWidget("App config")
-        dock.setWidget(column)
-        return dock
+        self.column = _panel.ConfigColumn()
+        self.column.show_values(self.config)
+        self.column.applied = self._on_applied
+        self.app_config.add(self.subwindow, self.column)
 
     def _on_applied(self, values):
         cfg = self.solver_config
         for row in range(cfg.rowCount()):
             cfg.setData(row, 1, values[cfg.data(row, 0)])
         self.init_solver()
-
-    def _on_dock_toggled(self, checked):
-        if self.dock is not None:
-            self.dock.setVisible(checked)
-
-    def _sync_dock_action(self, _visible=None):
-        # Read the dock rather than the signal, which also says False for
-        # a dock tabbed behind another.
-        self.dock_action.setChecked(not self.dock.isHidden())
 
     def close(self):
         """Close the window."""
@@ -141,14 +117,10 @@ class ShockTubeApp(base.PilotFeature):
     def _on_closed(self):
         # Stop the march before Qt deletes the window it draws in.
         self.timer.stop()
-        if self.dock is not None:
-            self._mgr.mainWindow.removeDockWidget(self.dock)
-            self.dock.deleteLater()
-        self.dock_action.setChecked(False)
-        self.dock_action.setEnabled(False)
+        self.app_config.remove(self.subwindow)
         self.window = None
         self.subwindow = None
-        self.dock = None
+        self.column = None
         self._close_filter = None
 
     def init_solver(self):
@@ -268,6 +240,7 @@ class ShockTubeApp(base.PilotFeature):
 
 def build_app(controller):
     """Build the app on the pilot."""
-    return ShockTubeApp(mgr=controller.mgr)
+    return ShockTubeApp(mgr=controller.mgr,
+                        app_config=controller.app_config)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
