@@ -50,7 +50,7 @@ tar -xzf "$tmp/$PYTHON_ARCHIVE" --strip-components=1 -C "$SDK_PREFIX"
 
 "$TOOLS_PREFIX/bin/python3" -I -m pip --isolated install \
     'pip-system-certs==5.3' 'aqtinstall==3.3.0' 'py7zr==1.1.0' \
-    'cmake==4.4.3' 'pybind11==3.0.1' 'uv==0.6.10'
+    'cmake==4.4.3' 'pybind11==3.0.1' 'uv==0.13.9'
 
 # qtbase supplies Core, Gui, Widgets, plugins, and deployment tools. Svg is a
 # separate base archive, while ShaderTools is an extra module.
