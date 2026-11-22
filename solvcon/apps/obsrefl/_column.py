@@ -20,8 +20,9 @@ __all__ = [
 
 class ResultsCard(QFrame):
     """The verdict of the run: the field computed in each zone against the
-    analytic value and the error between them, and the fitted reflected
-    shock against the exact one.
+    analytic value and the error between them, the fitted reflected shock
+    against the exact one, and the figures of the run, such as the mass
+    drift and the CFL range.
 
     An error is toned by how far it is off, so a glance tells a good match
     from a poor one; the tip of a cell says how it was taken.
@@ -47,6 +48,7 @@ class ResultsCard(QFrame):
         self._labels = []
         self._heads = []
         self._values = {}
+        self._rows = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 7, 12, 7)
@@ -91,7 +93,7 @@ class ResultsCard(QFrame):
             if widget is not None:
                 widget.deleteLater()
         self._labels, self._heads = [], []
-        self._values = {}
+        self._values, self._rows = {}, {}
         self._shape = None
 
     def _rebuild(self, results):
@@ -125,13 +127,24 @@ class ResultsCard(QFrame):
                     cells.append(cell)
                 self._values[(section, it)] = (name, cells)
                 row += 1
+        rule = QFrame()
+        rule.setObjectName("cardRule")
+        self._grid.addWidget(rule, row, 0, 1, 4)
+        row += 1
+        for label, _ in results.rows:
+            self._grid.addWidget(self._label(label, "metric"), row, 0)
+            value = self._label(numeric=True, align=right)
+            self._grid.addWidget(value, row, 1, 1, 3)
+            self._rows[label] = value
+            row += 1
         self._grid.setColumnStretch(0, 1)
         self._shape = self._shape_of(results)
         self.restyle()
 
     @staticmethod
     def _shape_of(results):
-        return (len(results.zones), len(results.fits))
+        return (len(results.zones), len(results.fits),
+                tuple(label for label, _ in results.rows))
 
     def show_results(self, results):
         """Fill the card, or blank it.
@@ -161,6 +174,8 @@ class ResultsCard(QFrame):
                     label.setText(cell.text)
                     label.setToolTip(cell.tip)
                     pilot.set_style_property(label, "tone", cell.tone)
+        for label, text in results.rows:
+            self._rows[label].setText(text)
         text, tone = results.note if results.note else ("", "")
         _widgets.say(self._note, text)
         pilot.set_style_property(self._note, "tone", tone or "muted")
@@ -179,6 +194,14 @@ class ResultsCard(QFrame):
         label = found[1][col]
         return _viewmodel.Cell(label.text(), label.property("tone") or '',
                                label.toolTip())
+
+    def row_text(self, label):
+        """Return the text of a run figure, or None.
+
+        :param label: The label of the figure, such as 'CFL'.
+        """
+        found = self._rows.get(label)
+        return None if found is None else found.text()
 
     def note(self):
         """Return what the note under the tables says."""

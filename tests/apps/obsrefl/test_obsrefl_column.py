@@ -56,6 +56,9 @@ class ResultsCardTC(unittest.TestCase):
                                          "npoint = 1"),
                          card.cell('fits', 1, 0))
         self.assertIsNone(card.cell('zones', 3, 0))
+        self.assertEqual("+1.2e-9", card.row_text("mass drift"))
+        self.assertEqual("0.41-0.52", card.row_text("CFL"))
+        self.assertIsNone(card.row_text("energy drift"))
         self.assertEqual("", card.note())
 
     def test_a_field_without_an_exact_value_says_so(self):
@@ -75,5 +78,6 @@ class ResultsCardTC(unittest.TestCase):
         card.show_results(None)
         self.assertEqual("No run", card.note())
         self.assertIsNone(card.cell('zones', 0, 0))
+        self.assertIsNone(card.row_text("CFL"))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
