@@ -10,11 +10,48 @@ import dataclasses
 import math
 import numbers
 
+from ._driver import check_reflection_solvable
 from ._session import ReflectionSession
 
 __all__ = [
     'ReflectionSetup',
+    'max_deflection',
 ]
+
+#: The deflection angle, in degrees, the bisection of
+#: :func:`max_deflection` brackets from above; no gas reflects past it.
+_ANGLE_CEILING = 90.0
+
+
+def _attached(gamma, mach, angle):
+    """Return whether both shocks stay attached at ``angle``.
+
+    The shock relations take square roots that go negative where the
+    deflection is out of reach, so an arithmetic error reads as detached.
+    """
+    try:
+        return check_reflection_solvable(gamma, mach, angle)
+    except (ValueError, ZeroDivisionError):
+        return False
+
+
+def max_deflection(gamma, mach, tol=1e-3):
+    """Return the largest deflection angle, in degrees, at which the
+    reflection of a ``mach`` stream of ``gamma`` keeps both shocks attached,
+    to within ``tol`` below the true bound.
+
+    The reflected shock turns a slower stream than the incident one, so it
+    detaches first, and every angle under the bound attaches both; that is
+    what lets a bisection find it.
+    """
+    lo, hi = 0.0, _ANGLE_CEILING
+    while hi - lo > tol:
+        mid = 0.5 * (lo + hi)
+        if _attached(gamma, mach, mid):
+            lo = mid
+        else:
+            hi = mid
+    return lo
 
 
 def _text(value):
@@ -91,12 +128,21 @@ class ReflectionSetup(object):
     def check(self):
         """Return what is wrong, ``{field: message}`` in :attr:`FIELDS`
         order, or an empty dict for a valid setup.
+
+        Every field is checked on its own first.  The angle is then checked
+        against the bound :func:`max_deflection` gives, but only while the
+        gamma, the Mach number, and the angle are each in range, since the
+        bound of a bad one would mislead.
         """
         errors = {}
         for name in self.FIELDS:
             message = self._check_field(name)
             if message:
                 errors[name] = message
+        if not errors.keys() & {'gamma', 'mach', 'angle'}:
+            message = self._check_attached()
+            if message:
+                errors['angle'] = message
         return errors
 
     def _check_field(self, name):
@@ -119,6 +165,24 @@ class ReflectionSetup(object):
         if not lo <= value <= hi:
             return f"{title} must lie in {span}; got {_text(value)}."
         return ''
+
+    def _check_attached(self):
+        """Return why the angle detaches a shock at this Mach number and
+        gamma, naming the largest angle that does not, or ''."""
+        if _attached(self.gamma, self.mach, self.angle):
+            return ''
+        title = self.TITLES['angle']
+        where = f"at Mach {_text(self.mach)} and gamma {_text(self.gamma)}"
+        # Floored, so the bound read off the message is itself admissible.
+        bound = math.floor(100.0 * max_deflection(self.gamma, self.mach))
+        bound /= 100.0
+        lo, hi = self.RANGES['angle']
+        if bound < lo:
+            return (f"{title} must stay below {bound:.2f} deg {where}, "
+                    f"under its range of {_text(lo)} to {_text(hi)}; raise "
+                    f"Mach or lower gamma.")
+        return (f"{title} must stay below {bound:.2f} deg {where}, or the "
+                f"reflected shock detaches.")
 
     def title(self):
         """Return the window title, ``Oblique shock reflection: Mach 3, 10

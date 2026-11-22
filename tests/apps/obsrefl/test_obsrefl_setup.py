@@ -3,14 +3,33 @@
 
 
 """The parameters of a reflection run say what is wrong with them: a message
-names the field and the range it has to lie in, and every bad field at
-once."""
+names the field and the range it has to lie in, every bad field at once,
+and an angle that detaches the reflected shock reads the largest one that
+does not."""
 
 import math
 import unittest
 
 from solvcon.apps.obsrefl import ReflectionSession
-from solvcon.apps.obsrefl._setup import ReflectionSetup
+from solvcon.apps.obsrefl._driver import check_reflection_solvable
+from solvcon.apps.obsrefl._setup import ReflectionSetup, max_deflection
+
+
+class MaxDeflectionTC(unittest.TestCase):
+
+    def test_the_bound_attaches_and_a_step_past_it_detaches(self):
+        for gamma, mach in ((1.4, 3.0), (1.4, 2.0), (1.4, 20.0),
+                            (3.0, 1.1)):
+            with self.subTest(gamma=gamma, mach=mach):
+                bound = max_deflection(gamma, mach)
+                self.assertTrue(check_reflection_solvable(gamma, mach,
+                                                          bound))
+                self.assertFalse(check_reflection_solvable(gamma, mach,
+                                                           bound + 2e-3))
+
+    def test_a_faster_stream_turns_further(self):
+        bounds = [max_deflection(1.4, mach) for mach in (1.5, 2.0, 3.0)]
+        self.assertEqual(sorted(bounds), bounds)
 
 
 class CheckTC(unittest.TestCase):
@@ -52,6 +71,27 @@ class CheckTC(unittest.TestCase):
         self.assertEqual(['gamma', 'density', 'pressure'], list(errors))
         self.assertIn("0.001 to 1e6", errors['density'])
         self.assertIn("got '1'", errors['pressure'])
+
+    def test_a_detaching_angle_reads_the_largest_attached_one(self):
+        errors = ReflectionSetup(angle=30.0).check()
+        bound = math.floor(100 * max_deflection(1.4, 3.0)) / 100
+        self.assertEqual(['angle'], list(errors))
+        self.assertIn(f"{bound:.2f}", errors['angle'])
+        # The bound read off the message is itself admissible.
+        self.assertEqual({}, ReflectionSetup(angle=bound).check())
+
+    def test_a_stream_too_slow_for_any_angle_reads_its_bound(self):
+        errors = ReflectionSetup(gamma=3.0, mach=1.1, angle=0.5).check()
+        self.assertEqual(['angle'], list(errors))
+        self.assertIn("0.41", errors['angle'])
+
+    def test_the_bound_waits_for_its_inputs_to_be_in_range(self):
+        # A Mach number out of range has no bound worth reading, so the
+        # angle is judged on its own range alone.
+        errors = ReflectionSetup(mach=50.0, angle=30.0).check()
+        self.assertEqual(['mach'], list(errors))
+        errors = ReflectionSetup(angle=50.0).check()
+        self.assertIn("0.5 to 45", errors['angle'])
 
 
 class SetupTC(unittest.TestCase):
