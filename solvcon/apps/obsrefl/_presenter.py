@@ -19,6 +19,7 @@ import numpy as np
 from . import _viewmodel
 
 __all__ = [
+    'ReflectionPresenter',
     'display_summary',
     'field_frame',
     'freestream_summary',
@@ -268,5 +269,42 @@ def display_summary(display):
                                     ("line", display.mark_line)) if on]
     parts.append(f"cut {display.cut:.2f}")
     return ", ".join(parts)
+
+
+class ReflectionPresenter(object):
+    """Read a run out into the figure of the window and the results card
+    of the control column.
+
+    The presenter holds no run: each read-out takes the session and the
+    display the controller decided to show.  Either target may be None,
+    so a test or a script drives the half it has.
+    """
+
+    def __init__(self, window, column):
+        #: What holds the figure, or None.
+        self.window = window
+        #: What holds the results card, or None.
+        self.column = column
+
+    def show(self, session, display):
+        """Read ``session`` out as the :class:`~._viewmodel.Display`
+        ``display`` asks: the field and the profile into the figure, the
+        results of the field into the card."""
+        if self.window is not None:
+            figure = self.window.figure
+            figure.set_bar_visible(display.bar)
+            figure.show_field(field_frame(session, display))
+            figure.show_profile(profile_frame(session, display))
+        if self.column is not None:
+            self.column.card.show_results(results(session, display.field))
+
+    def blank(self):
+        """Clear the figure and the card, for no run to show."""
+        if self.window is not None:
+            figure = self.window.figure
+            figure.show_field(None)
+            figure.show_profile(None)
+        if self.column is not None:
+            self.column.card.show_results(None)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

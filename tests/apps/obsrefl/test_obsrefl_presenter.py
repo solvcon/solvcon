@@ -8,10 +8,12 @@ The run marches on a mesh coarse enough to take milliseconds.  The card
 compares three zones and toned errors, and a fit that has not formed says
 so.  The colors span the pinned range of the analysis.  Both profile series
 share their abscissae.  The clock of the run strip runs on the time
-increment.
+increment.  The presenter hands the frames to whatever window and column it
+is given, here fakes that record the calls.
 """
 
 import math
+import types
 import unittest
 
 import numpy as np
@@ -180,5 +182,52 @@ class StripStateTC(unittest.TestCase):
                                        can_reset=False)
         self.assertEqual(_viewmodel.StripState(
             'paused', 10, 50, 10 * 1e-3, 50 * 1e-3, '', True, False), strip)
+
+
+class _Recorder(object):
+    """Record every method called on it, by name with its argument."""
+
+    def __init__(self, calls):
+        self._calls = calls
+
+    def __getattr__(self, name):
+        return lambda *args: self._calls.append((name,) + args)
+
+
+class ReflectionPresenterTC(unittest.TestCase):
+
+    def setUp(self):
+        self.calls = []
+        recorder = _Recorder(self.calls)
+        self.window = types.SimpleNamespace(figure=recorder)
+        self.column = types.SimpleNamespace(card=recorder)
+
+    def test_show_hands_each_widget_its_frame(self):
+        sess = _session(chunks=2)
+        display = _viewmodel.Display(field='pressure', bar=False, cut=0.25)
+        presenter = _presenter.ReflectionPresenter(self.window, self.column)
+        presenter.show(sess, display)
+        self.assertEqual(['set_bar_visible', 'show_field', 'show_profile',
+                          'show_results'], [call[0] for call in self.calls])
+        bar, field, profile, res = (call[1] for call in self.calls)
+        self.assertFalse(bar)
+        self.assertEqual(_presenter.field_frame(sess, display).caption,
+                         field.caption)
+        self.assertEqual(_presenter.profile_frame(sess, display).key,
+                         profile.key)
+        self.assertEqual(_presenter.results(sess, 'pressure'), res)
+
+    def test_blank_clears_each_widget(self):
+        presenter = _presenter.ReflectionPresenter(self.window, self.column)
+        presenter.blank()
+        self.assertEqual([('show_field', None), ('show_profile', None),
+                          ('show_results', None)], self.calls)
+        del self.calls[:]
+        _presenter.ReflectionPresenter(None, self.column).blank()
+        self.assertEqual([('show_results', None)], self.calls)
+        del self.calls[:]
+        _presenter.ReflectionPresenter(self.window, None).blank()
+        self.assertEqual(['show_field', 'show_profile'],
+                         [call[0] for call in self.calls])
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
