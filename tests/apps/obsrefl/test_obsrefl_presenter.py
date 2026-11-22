@@ -7,7 +7,8 @@
 The run marches on a mesh coarse enough to take milliseconds.  The card
 compares three zones and toned errors, and a fit that has not formed says
 so.  The colors span the pinned range of the analysis.  Both profile series
-share their abscissae.
+share their abscissae.  The clock of the run strip runs on the time
+increment.
 """
 
 import math
@@ -169,5 +170,15 @@ class ProfileFrameTC(unittest.TestCase):
         self.assertNotEqual(frame.key, cfl.key)
         self.assertTrue(np.all(np.isfinite(cfl.computed)))
         self.assertTrue(np.all(np.isnan(cfl.exact)))
+
+
+class StripStateTC(unittest.TestCase):
+
+    def test_the_clock_runs_on_the_time_increment(self):
+        sess = _session(chunks=2, time_increment=1e-3, max_steps=50)
+        strip = _presenter.strip_state(sess, 'paused', dirty=True,
+                                       can_reset=False)
+        self.assertEqual(_viewmodel.StripState(
+            'paused', 10, 50, 10 * 1e-3, 50 * 1e-3, '', True, False), strip)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

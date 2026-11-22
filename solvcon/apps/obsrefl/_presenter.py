@@ -19,9 +19,13 @@ import numpy as np
 from . import _viewmodel
 
 __all__ = [
+    'display_summary',
     'field_frame',
+    'freestream_summary',
+    'numerics_summary',
     'profile_frame',
     'results',
+    'strip_state',
 ]
 
 #: The rows of the fits table, in the order the card shows them.
@@ -219,5 +223,50 @@ def profile_frame(session, display):
         computed=np.array(cut.computed, dtype='float64'),
         exact=np.array(cut.analytic, dtype='float64'), label=label,
         key=name)
+
+
+def strip_state(session, state, failure='', dirty=False, can_reset=True):
+    """Return the :class:`~._viewmodel.StripState` of ``session`` in
+    ``state``; the time is the steps marched times the time increment, and
+    the end time that of the step cap.  Without a session the strip reads
+    step 0 of 0."""
+    if session is None:
+        return _viewmodel.StripState(state, 0, 0, 0.0, 0.0, failure, dirty,
+                                     can_reset)
+    dt = float(session.shock.svr.time_increment)
+    return _viewmodel.StripState(
+        state=state, step=session.step, max_steps=session.max_steps,
+        time=session.step * dt, t_end=session.max_steps * dt,
+        failure=failure, dirty=dirty, can_reset=can_reset)
+
+
+def _pending(text, dirty):
+    """Return ``text``, marked when its edits wait for Reset."""
+    return text + "  (pending)" if dirty else text
+
+
+def freestream_summary(setup, dirty):
+    """Return the summary of the free-stream group of ``setup``, ``Mach 3,
+    10 deg, gamma 1.4``, and whether its edits wait for Reset."""
+    return _pending(f"Mach {setup.mach:g}, {setup.angle:g} deg, gamma "
+                    f"{setup.gamma:g}", dirty)
+
+
+def numerics_summary(setup, dirty):
+    """Return the summary of the numerics group of ``setup``, ``64 x 16
+    unstructured, dt 0.002``, and whether its edits wait for Reset."""
+    return _pending(f"{setup.nx:g} x {setup.ny:g} {setup.cell_type}, dt "
+                    f"{setup.time_increment:g}", dirty)
+
+
+def display_summary(display):
+    """Return the summary of the display group, ``density, bar, cut
+    0.50``: the field, the marks that show, and the cut height."""
+    parts = [_viewmodel.FIELD_LABELS[display.field]]
+    parts += [word for word, on in (("bar", display.bar),
+                                    ("cells", display.mark_cells),
+                                    ("line", display.mark_line)) if on]
+    parts.append(f"cut {display.cut:.2f}")
+    return ", ".join(parts)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
