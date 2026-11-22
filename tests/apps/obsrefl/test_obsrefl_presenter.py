@@ -6,7 +6,8 @@
 
 The run marches on a mesh coarse enough to take milliseconds.  The card
 compares three zones and toned errors, and a fit that has not formed says
-so.  The colors span the pinned range of the analysis.
+so.  The colors span the pinned range of the analysis.  Both profile series
+share their abscissae.
 """
 
 import math
@@ -150,5 +151,23 @@ class FieldFrameTC(unittest.TestCase):
         np.testing.assert_array_equal(
             np.nonzero(self.sess.analysis.profile_cells(height))[0],
             frame.gauge_cells)
+
+
+class ProfileFrameTC(unittest.TestCase):
+
+    def test_both_series_share_the_abscissae_of_the_cut(self):
+        sess = _session(chunks=3)
+        frame = _presenter.profile_frame(sess, _viewmodel.Display(cut=0.5))
+        cut = sess.profile(sess.analysis.cut_height(0.5))
+        np.testing.assert_array_equal(cut.x, frame.x)
+        np.testing.assert_array_equal(cut.computed, frame.computed)
+        np.testing.assert_array_equal(cut.analytic, frame.exact)
+        self.assertTrue(np.all(np.diff(frame.x) >= 0))
+        other = _presenter.profile_frame(sess, _viewmodel.Display(cut=0.3))
+        self.assertEqual(frame.key, other.key)
+        cfl = _presenter.profile_frame(sess, _viewmodel.Display(field='cfl'))
+        self.assertNotEqual(frame.key, cfl.key)
+        self.assertTrue(np.all(np.isfinite(cfl.computed)))
+        self.assertTrue(np.all(np.isnan(cfl.exact)))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

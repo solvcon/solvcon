@@ -20,6 +20,7 @@ from . import _viewmodel
 
 __all__ = [
     'field_frame',
+    'profile_frame',
     'results',
 ]
 
@@ -175,5 +176,48 @@ def field_frame(session, display):
         name=name, label=label, values=values, lo=lo, hi=hi,
         caption=caption, gauge_cells=cells,
         gauge_height=height if display.mark_line else None)
+
+
+class _Unpaired(object):
+    """Stand in for a :class:`~._analytic.Reflection` whose field has no
+    analytic value, so :meth:`~._analytic.Reflection.profile` cuts the
+    computed field and pairs it with NaN.
+
+    The analysis raises for a field it holds no zone value of, and the cut
+    is otherwise the same; a fold-back lets the profile skip the pairing.
+    """
+
+    def __init__(self, analysis):
+        self._analysis = analysis
+
+    def __getattr__(self, name):
+        return getattr(self._analysis, name)
+
+    def analytic_profile(self, xs, height, name='density'):
+        return np.full(len(xs), np.nan, dtype='float64')
+
+
+def profile_frame(session, display):
+    """Return the :class:`~._viewmodel.ProfileFrame` of ``session`` along
+    the cut ``display`` places.
+
+    Both series come off one cut, so they share their abscissae; a field
+    without an analytic value pairs the computed one with NaN.  The frame
+    is keyed by the field, so the plot keeps its zoom while the run
+    marches and drops it for another field.
+    """
+    analysis = session.analysis
+    name = display.field
+    label = _viewmodel.FIELD_LABELS[name]
+    height = analysis.cut_height(display.cut)
+    if name in analysis.zone_fields():
+        cut = analysis.profile(height, name)
+    else:
+        cut = type(analysis).profile(_Unpaired(analysis), height, name)
+    return _viewmodel.ProfileFrame(
+        x=np.array(cut.x, dtype='float64'),
+        computed=np.array(cut.computed, dtype='float64'),
+        exact=np.array(cut.analytic, dtype='float64'), label=label,
+        key=name)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
