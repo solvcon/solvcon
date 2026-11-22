@@ -12,19 +12,15 @@ march.
 import math
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QFrame, QGridLayout, QLabel, QLineEdit,
-                               QPushButton, QScrollArea, QSizePolicy,
-                               QVBoxLayout, QWidget)
+                               QPushButton, QScrollArea, QVBoxLayout, QWidget)
+
+from ...pilot import panel
 
 __all__ = [
     'ConfigColumn',
-    'FoldGroup',
 ]
 
-
-ARROW_OPEN = chr(0x25be)
-ARROW_FOLDED = chr(0x25b8)
 
 #: What a message names each config value by.
 TITLES = {'gamma': "Gamma", 'p_left': "Left pressure",
@@ -59,71 +55,6 @@ def check(values):
     return errors
 
 
-class FoldGroup(QWidget):
-    """A group of the column that folds behind its head.  The head carries
-    a summary on its right, so a folded group still says what it holds.
-
-    :ivar is_open: Whether the body shows.
-    :ivar toggled: Owner-supplied callback fired with the group when its
-        head is clicked.
-    """
-
-    def __init__(self, title, parent=None):
-        super().__init__(parent)
-        self.title = title
-        self.is_open = True
-        self.toggled = None
-        self._head = QPushButton()
-        self._head.setFlat(True)
-        self._head.setStyleSheet("text-align: left; padding: 4px 2px;")
-        self._head.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._head.setCursor(Qt.PointingHandCursor)
-        font = QFont(self.font())
-        font.setWeight(QFont.DemiBold)
-        self._head.setFont(font)
-        self._head.clicked.connect(self._on_head)
-        self._summary = QLabel("")
-        # The summary lets the mouse through to the head under it.
-        self._summary.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self._summary.setEnabled(False)
-        self.body = QWidget()
-        head = QGridLayout()
-        head.setContentsMargins(0, 0, 0, 0)
-        head.addWidget(self._head, 0, 0)
-        head.addWidget(self._summary, 0, 0, Qt.AlignRight | Qt.AlignVCenter)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addLayout(head)
-        layout.addWidget(self.body)
-        self._sync()
-
-    def _sync(self):
-        arrow = ARROW_OPEN if self.is_open else ARROW_FOLDED
-        self._head.setText(f"{arrow}  {self.title.upper()}")
-        self.body.setVisible(self.is_open)
-
-    def set_open(self, open_):
-        """Show the body, or fold it behind the head."""
-        self.is_open = bool(open_)
-        self._sync()
-
-    def summary(self):
-        """Return the text on the right of the head."""
-        return self._summary.text()
-
-    def set_summary(self, text):
-        """Say ``text`` on the right of the head."""
-        self._summary.setText(text)
-        self._head.setToolTip(text)
-
-    def _on_head(self):
-        if self.toggled is not None:
-            self.toggled(self)
-        else:
-            self.set_open(not self.is_open)
-
-
 class ConfigColumn(QScrollArea):
     """The config column: a group each for the problem, the grid, and the
     march, over the button that applies them.
@@ -133,8 +64,8 @@ class ConfigColumn(QScrollArea):
     left.  One group is open at a time, so the column stays short.
 
     :ivar fields: The field of each config value by name.
-    :ivar groups: The :class:`FoldGroup` of the problem, the grid, and the
-        march.
+    :ivar groups: The :class:`~solvcon.pilot.panel.FoldGroup` of the
+        problem, the grid, and the march.
     :ivar applied: Owner-supplied callback fired with the values by name
         when Apply is clicked.
     """
@@ -192,7 +123,7 @@ class ConfigColumn(QScrollArea):
         self.setFixedWidth(self.WIDTH)
 
     def _build_group(self, title, rows):
-        group = FoldGroup(title)
+        group = panel.FoldGroup(title)
         grid = QGridLayout(group.body)
         grid.setContentsMargins(6, 2, 4, 8)
         grid.setHorizontalSpacing(8)

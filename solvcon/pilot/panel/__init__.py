@@ -4,7 +4,8 @@
 
 """
 The dock panels: the entity tree, the window manager, the profiling
-view, screen capture, the Console panel, and the app config.
+view, screen capture, the Console panel, and the app config, with the
+fold group of a config column.
 """
 
 from .. import _pilot_core as _pcore
@@ -13,6 +14,7 @@ __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_app_config': ['AppConfig'],
     '_capture_panel': ['CaptureWidget'],
     '_console': ['ConsolePanel'],
+    '_fold': ['FoldGroup'],
     '_profiling': ['Profiling', 'RunProfiling'],
     '_tree_panel': ['EntityTreeWidget', 'MeshInfoTree', 'TreePanel',
                     'TreePanelBase'],
