@@ -137,6 +137,16 @@ class LinePlotWidgetTC(unittest.TestCase):
         self.assertEqual(pilot.plot_cycle_color(1),
                          widget.add_series("next").color)
 
+    def test_markers_thin_a_plateau_and_keep_a_jump(self):
+        widget = _plot.LinePlotWidget()
+        widget.add_series("line")
+        widget.add_series("marks", marker=4.0)
+        points = [QPointF(float(it), 0.0 if it < 50 else 100.0)
+                  for it in range(100)]
+        marked = widget._marked(points, 4.0)
+        self.assertLess(len(marked), 20)
+        self.assertIn(50.0, [p.x() for p in marked])
+
     def test_the_curve_is_painted_between_the_axes(self):
         # The widget draws rather than lays out, so only rendering says
         # whether it works.  A rising line has to leave ink off the
