@@ -12,15 +12,17 @@ None of it knows the reflection; the style sheet comes from the rules of
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (QFont, QGuiApplication, QIcon, QPainter,
                            QPainterPath, QPen, QPixmap)
-from PySide6.QtWidgets import QLabel, QSizePolicy
+from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy
 
 from ... import pilot
+from ...pilot import panel
 
 from . import _style
 
 __all__ = [
     'ElidedLabel',
     'Fitted',
+    'FoldGroup',
     'GLYPHS',
     'Styled',
     'form_label',
@@ -294,5 +296,45 @@ class Fitted(QLabel):
         self.setText(next((form for form in self._forms
                            if _room(self, form) <= self.width()),
                           self._forms[-1]))
+
+
+class FoldGroup(panel.FoldGroup):
+    """A group of the column that folds behind its head, styled by the
+    sheet of the column, whose summary elides short of the title."""
+
+    #: No sheet of its own: the sheet of the column styles the head.
+    HEAD_SHEET = ""
+    #: The least room, in pixels, between the title and the summary.
+    GAP = 28
+    #: The room around the body of every group, left, top, right, bottom.
+    MARGINS = (6, 2, 4, 10)
+
+    def __init__(self, title, parent=None):
+        super().__init__(title, parent)
+        self._head.setFocusPolicy(Qt.TabFocus)
+        self._summary.setContentsMargins(0, 2, 6, 0)
+        # Not restyle(): a group extends it to the body it builds after
+        # this returns.
+        self._head.setFont(head_font(self.font()))
+
+    def restyle(self):
+        """Set the font of the head; the sheet sizes the summary."""
+        self._head.setFont(head_font(self.font()))
+        self._fit_summary()
+
+    def _body_grid(self, across=8, down=4, labels=0):
+        """Return the grid of the body, inside the margins every group
+        keeps.
+
+        :param across: The pixels between the columns.
+        :param down: The pixels between the rows.
+        :param labels: The least width of the first column, of labels.
+        """
+        grid = QGridLayout(self.body)
+        grid.setContentsMargins(*self.MARGINS)
+        grid.setHorizontalSpacing(across)
+        grid.setVerticalSpacing(down)
+        grid.setColumnMinimumWidth(0, labels)
+        return grid
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
