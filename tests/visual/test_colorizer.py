@@ -359,4 +359,16 @@ class ColorBarTC(unittest.TestCase):
         self.assertEqual(['0.00', '1.23e+03'], drawn.texts)
         self.assertEqual(0, drawn.lines)
 
+    def test_a_named_legend_keeps_room_and_its_name(self):
+        # The room for the name is kept from the start, so the bar holds
+        # its width while a blank range comes and goes.
+        bar = ColorBar(vertical=True, themed=True, label="")
+        self.assertGreater(bar.thickness(), ColorBar(True).thickness())
+        bar.show_scale(1.0, 2.0, "density")
+        bar.show_scale(None, None)
+        self.assertEqual("density", bar.label)
+        bar.show_scale(1.0, 2.0)
+        bar.resize(bar.thickness(), 200)
+        self.assertFalse(bar.grab().isNull())
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
