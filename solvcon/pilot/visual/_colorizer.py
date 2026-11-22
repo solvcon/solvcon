@@ -7,7 +7,7 @@
 import numpy as np
 
 from PySide6.QtCore import Qt, QRect
-from PySide6.QtGui import QPainter, QLinearGradient, QColor, QPen
+from PySide6.QtGui import QPainter, QLinearGradient, QColor, QPen, QPalette
 from PySide6.QtWidgets import QWidget, QSizePolicy
 
 from ... import core
@@ -230,6 +230,10 @@ class ColorBar(QWidget):
     :ivar lo: Low end of the pinned range, or None with nothing to show.
     :ivar hi: High end of the pinned range.
     :ivar vertical: Whether the ramp runs up the widget instead of across.
+    :ivar themed: Whether to draw the frame and the labels in the text color
+        of the palette, with no ground of its own, instead of dark on white.
+    :ivar label: The name written along a vertical ramp, or None to keep no
+        room for a name.
     """
 
     #: Colors sampled across the ramp to build the gradient.  The map is
@@ -253,11 +257,14 @@ class ColorBar(QWidget):
     #: dark theme's near-white text would vanish on it.
     INK = (0.1, 0.1, 0.1)
 
-    def __init__(self, vertical=False, parent=None):
+    def __init__(self, vertical=False, parent=None, themed=False,
+                 label=None):
         super().__init__(parent)
         self.lo = None
         self.hi = None
         self.vertical = vertical
+        self.themed = themed
+        self.label = label
         if vertical:
             self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
             self.setMinimumWidth(self.thickness())
@@ -273,11 +280,14 @@ class ColorBar(QWidget):
         """
         room = self.BAR_THICKNESS + 2 * self.PAD
         if self.vertical:
+            if self.label is not None:
+                room += self.fontMetrics().height()
             return room + self.LABEL_WIDTH
         return room + self.fontMetrics().height()
 
-    def show_scale(self, lo, hi):
-        """Draw the ramp over ``lo`` to ``hi``.
+    def show_scale(self, lo, hi, label=None):
+        """Draw the ramp over ``lo`` to ``hi``, and name it ``label`` if
+        given.
 
         A missing or degenerate range blanks the widget rather than
         dividing by a zero span.
@@ -286,18 +296,26 @@ class ColorBar(QWidget):
             self.lo = self.hi = None
         else:
             self.lo, self.hi = float(lo), float(hi)
+        if label is not None:
+            self.label = label
         self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         if None is self.lo:
             return
-        painter.fillRect(self.rect(), QColor.fromRgbF(*self.BACKGROUND))
+        if self.themed:
+            ink = self.palette().color(QPalette.Text)
+        else:
+            painter.fillRect(self.rect(), QColor.fromRgbF(*self.BACKGROUND))
+            ink = QColor.fromRgbF(*self.INK)
         bar = self._bar_rect()
         painter.fillRect(bar, self._ramp(bar))
-        painter.setPen(QPen(QColor.fromRgbF(*self.INK)))
+        painter.setPen(QPen(ink))
         painter.drawRect(bar)
         self._draw_ends(painter, bar)
+        if self.vertical and self.label:
+            self._draw_label(painter, bar)
 
     def _bar_rect(self):
         """Where the ramp is drawn, with room beside it for the labels."""
@@ -347,6 +365,17 @@ class ColorBar(QWidget):
             painter.drawText(self._label_rect(self._at(value, bar), bar,
                                               height),
                              align | Qt.AlignVCenter, _number(value))
+
+    def _draw_label(self, painter, bar):
+        """Write the label up the far side of the ramp, as an axis title
+        runs."""
+        metrics = self.fontMetrics()
+        height, span = metrics.height(), bar.height()
+        painter.translate(bar.right() + self.PAD + height, bar.center().y())
+        painter.rotate(-90)
+        painter.drawText(QRect(-span // 2, -height, span, height),
+                         Qt.AlignCenter,
+                         metrics.elidedText(self.label, Qt.ElideRight, span))
 
 
 def _number(value):

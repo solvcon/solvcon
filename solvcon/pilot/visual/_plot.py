@@ -76,6 +76,7 @@ class LinePlotWidget(QWidget):
         self._xlabel = xlabel
         self._ylabel = ylabel
         self._limits = None
+        self._markers = {}
         # The axes a left drag moves and the data point it holds under the
         # cursor, or None between drags.
         self._drag = None
@@ -83,12 +84,14 @@ class LinePlotWidget(QWidget):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumSize(240, 160)
 
-    def add_series(self, label, color=None):
+    def add_series(self, label, color=None, marker=0.0):
         """Add one named curve; returns the new series."""
         series = _pcore.RPlotSeries()
         series.label = label
         if color is not None:
             series.color = color
+        if marker > 0.0:
+            self._markers[self.model.size] = marker
         return self.model.add_series(series)
 
     def set_ylabel(self, text):
@@ -359,15 +362,31 @@ class LinePlotWidget(QWidget):
         painter.setClipRect(rect)
         for it in range(self.model.size):
             series = self.model.series(it)
-            points = self._drawn_points(series, rect)
-            if len(points) < 2:
-                continue
+            points = [to_screen(x, y)
+                      for x, y in self._drawn_points(series, rect)]
             pen = QPen(_qcolor(series.color))
             pen.setWidthF(series.line_width)
             painter.setPen(pen)
-            painter.drawPolyline(
-                QPolygonF([to_screen(x, y) for x, y in points]))
+            marker = self._markers.get(it, 0.0)
+            if marker > 0.0:
+                painter.setBrush(Qt.NoBrush)
+                for point in self._marked(points, marker):
+                    painter.drawEllipse(point, marker / 2.0, marker / 2.0)
+            elif len(points) >= 2:
+                painter.drawPolyline(QPolygonF(points))
         painter.restore()
+
+    @staticmethod
+    def _marked(points, marker):
+        """Return the points to mark, skipping each one closer than one and
+        a half marker widths to the last one kept."""
+        out = []
+        for point in points:
+            if out and math.hypot(point.x() - out[-1].x(),
+                                  point.y() - out[-1].y()) < 1.5 * marker:
+                continue
+            out.append(point)
+        return out
 
     def _draw_legend(self, painter, rect):
         """Name each curve in its own color, inside the top right.

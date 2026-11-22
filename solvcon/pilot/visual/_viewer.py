@@ -36,20 +36,23 @@ class DomainViewer(object):
 
     :param title: The sub-window title, kept across a close and reopen.
         None or an empty string gives the default title.
+    :param view: A 3D view its owner built and hosts, which the viewer draws
+        into instead of opening a sub-window of its own, or None to open
+        one.
     """
 
     #: Lift the path overlay off the z = 0 field plane so it is not
     #: z-fought away by the colored triangles.
     PATH_LIFT = 0.01
 
-    def __init__(self, mgr, title=None):
+    def __init__(self, mgr, title=None, view=None):
         self._mgr = mgr
         self._title = title or ""
         # Owner-supplied callbacks: `closed` fires when the sub-window
         # closes from any source, `mesh_updated` after the mesh is set.
         self.closed = None
         self.mesh_updated = None
-        self._viewer = None
+        self._viewer = view
         self._subwin = None
         self._close_filter = None
         # Held for the viewer's lifetime: a throwaway mdiArea wrapper is
