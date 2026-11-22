@@ -130,8 +130,8 @@ def form_label(text, tip=""):
 def message(role):
     """Return a hidden, wrapping label for a message.
 
-    :param role: The object name the sheet styles it by: ``'note'``,
-        ``'hint'``, or ``'fieldError'`` for what is wrong.
+    :param role: The object name the sheet styles it by: ``'hint'``, or
+        ``'fieldError'`` for what is wrong.
     """
     label = QLabel("")
     label.setObjectName(role)

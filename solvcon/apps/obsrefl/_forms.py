@@ -49,8 +49,7 @@ class _NumberField(QLineEdit):
         text = f"{value:.12g}"
         if float(text) != value:
             text = repr(float(value))
-        with QSignalBlocker(self):
-            self.setText(text)
+        self.setText(text)
 
     def set_invalid(self, invalid):
         """Outline the field as wrong, or clear the outline.

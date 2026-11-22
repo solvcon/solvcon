@@ -32,6 +32,7 @@ class RunStrip(QFrame):
     #: The accent action reads by the state of the run.
     RUN_TEXT = {'ready': "Run", 'running': "Pause", 'paused': "Resume",
                 'finished': "Run again", 'failed': "Run again"}
+    #: The text and the tone of the state pill by the state of the run.
     PILL = {'ready': ("Ready", 'muted'), 'running': ("Running", 'accent'),
             'paused': ("Paused", 'muted'), 'finished': ("Finished", 'good'),
             'failed': ("Failed", 'bad')}
