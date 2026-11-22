@@ -91,6 +91,40 @@ class Rules(pilot.AppRules):
             """
 
     @staticmethod
+    def card(ink):
+        """Style the results card at the head of the control column.
+
+        :param ink: The :class:`~._ink.Ink` of the card.
+        """
+        rules = [f"""
+            QFrame#card {{
+                background: {ink.base.name()};
+                border: 1px solid {ink.border.name()};
+                border-radius: 8px;
+            }}
+            QFrame#card QLabel {{
+                background: transparent;
+                color: {ink.ink.name()};
+            }}
+            QFrame#card QLabel#metric, QFrame#card QLabel#caption,
+            QFrame#card QLabel#cardHead {{
+                color: {ink.muted.name()};
+            }}
+            QFrame#card QFrame#cardRule {{
+                background: {ink.raised(_RULE_MIX).name()};
+                border: none;
+                max-height: 1px; min-height: 1px;
+            }}
+            """]
+        for tone in ('good', 'bad', 'muted'):
+            rules.append(f"""
+            QFrame#card QLabel[tone="{tone}"] {{
+                color: {ink.tone(tone).name()};
+            }}
+            """)
+        return "".join(rules)
+
+    @staticmethod
     def configuration_error(shades):
         return f"""
             QFrame#configurationError {{
