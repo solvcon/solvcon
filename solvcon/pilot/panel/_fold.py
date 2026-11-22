@@ -24,10 +24,17 @@ class FoldGroup(QWidget):
     carries a summary on its right, so a folded group still says what it
     holds.
 
+    The head and the summary are named ``foldHead`` and ``foldSummary`` for
+    a style sheet.
+
     :ivar is_open: Whether the body shows.
     :ivar toggled: Owner-supplied callback fired with the group when its
         head is clicked.
     """
+
+    #: The style of the head; a subclass styled by a sheet of its own
+    #: clears it.
+    HEAD_SHEET = "text-align: left; padding: 4px 2px;"
 
     def __init__(self, title, parent=None):
         super().__init__(parent)
@@ -35,8 +42,9 @@ class FoldGroup(QWidget):
         self.is_open = True
         self.toggled = None
         self._head = QPushButton()
+        self._head.setObjectName("foldHead")
         self._head.setFlat(True)
-        self._head.setStyleSheet("text-align: left; padding: 4px 2px;")
+        self._head.setStyleSheet(self.HEAD_SHEET)
         self._head.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._head.setCursor(Qt.PointingHandCursor)
         font = QFont(self.font())
@@ -44,6 +52,7 @@ class FoldGroup(QWidget):
         self._head.setFont(font)
         self._head.clicked.connect(self._on_head)
         self._summary = QLabel("")
+        self._summary.setObjectName("foldSummary")
         # The summary lets the mouse through to the head under it.
         self._summary.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self._summary.setEnabled(False)
