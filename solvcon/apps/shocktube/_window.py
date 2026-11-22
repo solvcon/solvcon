@@ -398,7 +398,7 @@ class ProfilePlot(QWidget):
         return [(texts[index], left, row) for index, row, left in placed]
 
     def _small_font(self):
-        return _style.number_font(self.font(), 10)
+        return pilot.number_font(self.font(), 10)
 
     def yrange(self, name):
         """Return the ``(lo, hi)`` the panel of ``name`` spans."""
@@ -652,7 +652,7 @@ class XtDiagram(QWidget):
         return f"{lo:.3g}", f"{hi:.3g}"
 
     def _small_font(self):
-        return _style.number_font(self.font(), 10)
+        return pilot.number_font(self.font(), 10)
 
     def set_history(self, xlim, x, times, rows):
         """Color ``rows``, a density over ``x`` at each of ``times``."""
