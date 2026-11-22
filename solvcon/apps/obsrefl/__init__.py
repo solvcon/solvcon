@@ -20,10 +20,17 @@ from ... import pilot
 __all__, __getattr__, __dir__ = pilot.lazy_exports(__name__, {
     '_analytic': ['Reflection'],
     '_app': ['ObsreflApp'],
+    '_column': ['ControlColumn'],
+    '_control': ['ReflectionController'],
     '_driver': ['ObliqueShock', 'ObliqueShockRelation'],
-    '_panel': ['SolutionPanel'],
+    '_figure': ['ReflectionFigure'],
+    '_presenter': ['ReflectionPresenter'],
     '_session': ['ReflectionSession'],
-}, ungated=('_analytic', '_driver', '_session'))
+    '_setup': ['ReflectionSetup', 'max_deflection'],
+    '_viewmodel': ['Display', 'FIELD_LABELS'],
+    '_window': ['ReflectionWindow'],
+}, ungated=('_analytic', '_driver', '_presenter', '_session', '_setup',
+            '_viewmodel'))
 
 if pilot.enable:
     from . import _app
