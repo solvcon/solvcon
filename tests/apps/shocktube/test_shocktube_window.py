@@ -35,6 +35,7 @@ class WindowTC(unittest.TestCase):
         values = {'density': sol['rho'], 'velocity': sol['u'],
                   'pressure': sol['p']}
         self.window = _window.ShockTubeWindow()
+        self.addCleanup(testing.dispose_widget, self.window)
         self.window.resize(1000, 700)
         self.plot = self.window.plot
         self.plot.set_data((-10.0, 10.0), (x, values),

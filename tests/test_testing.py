@@ -57,4 +57,21 @@ class RequiresLiveWindowTC(unittest.TestCase):
         self.assertEqual('pilot is not available: No module named PySide6',
                          reason)
 
+
+@testing.requires_pilot
+class DisposeWidgetTC(unittest.TestCase):
+
+    def test_the_widget_and_its_children_go_at_once(self):
+        import shiboken6
+        from PySide6.QtWidgets import QLabel, QWidget
+        pilot.RManager.instance.setUp()
+        widget = QWidget()
+        child = QLabel(widget)
+        testing.dispose_widget(widget)
+        self.assertFalse(shiboken6.isValid(widget))
+        self.assertFalse(shiboken6.isValid(child))
+        # A widget deleted already, by a test or by Qt, is passed over.
+        testing.dispose_widget(widget)
+
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

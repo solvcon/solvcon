@@ -37,8 +37,10 @@ class SetupGroupTC(unittest.TestCase):
     def setUp(self):
         self.setup = _setup.ReflectionSetup()
         self.free = _forms.FreeStreamGroup()
+        self.addCleanup(testing.dispose_widget, self.free)
         self.free.show_setup(self.setup)
         self.numerics = _forms.NumericsGroup()
+        self.addCleanup(testing.dispose_widget, self.numerics)
         self.numerics.show_setup(self.setup)
 
     def test_the_groups_read_back_the_setup_they_show(self):
@@ -106,6 +108,7 @@ class DisplayGroupTC(unittest.TestCase):
 
     def test_the_group_reads_back_the_display_it_shows(self):
         group = _forms.DisplayGroup()
+        self.addCleanup(testing.dispose_widget, group)
         self.assertEqual(_viewmodel.Display(), group.display())
         shown = _viewmodel.Display(field='pressure', bar=False,
                                    mark_cells=True, mark_line=True, cut=0.25)
@@ -115,6 +118,7 @@ class DisplayGroupTC(unittest.TestCase):
 
     def test_every_change_reaches_the_owner(self):
         group = _forms.DisplayGroup()
+        self.addCleanup(testing.dispose_widget, group)
         changed = []
         group.display_changed = changed.append
         group._field.setCurrentIndex(group._field.findData('mach'))

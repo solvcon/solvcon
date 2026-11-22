@@ -62,6 +62,7 @@ class RunStripTC(unittest.TestCase):
 
     def test_the_buttons_follow_what_the_run_can_still_do(self):
         strip = _window.RunStrip()
+        self.addCleanup(testing.dispose_widget, strip)
         expected = {
             # A fresh run has nothing to reset yet.
             'ready': ("Run", (True, True, False), ("Ready", 'muted')),
@@ -87,6 +88,7 @@ class RunStripTC(unittest.TestCase):
 
     def test_edits_waiting_for_reset_draw_the_eye(self):
         strip = _window.RunStrip()
+        self.addCleanup(testing.dispose_widget, strip)
         strip.show_state(_state('ready', dirty=True))
         reset = strip.buttons['reset']
         self.assertTrue(reset.isEnabled())
@@ -103,6 +105,7 @@ class RunStripTC(unittest.TestCase):
 
     def test_the_strip_reads_time_steps_and_progress(self):
         strip = _window.RunStrip()
+        self.addCleanup(testing.dispose_widget, strip)
         strip.show_state(_state('running', 500))
         self.assertEqual((1.0, 4.0), _clock(strip))
         self.assertEqual("step 500 / 2000", strip._steps.full_text)
@@ -133,8 +136,8 @@ class RunKeysTC(unittest.TestCase):
         strip.show_state(_state('paused', 10))
 
     def tearDown(self):
-        self.window.deleteLater()
-        self.column.deleteLater()
+        testing.dispose_widget(self.window)
+        testing.dispose_widget(self.column)
 
     def test_the_run_keys_press_the_strip_buttons(self):
         window = self.window

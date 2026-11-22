@@ -11,6 +11,7 @@ __all__ = [
     'NO_LIVE_WINDOW',
     'requires_pilot',
     'requires_live_window',
+    'dispose_widget',
 ]
 
 
@@ -52,5 +53,21 @@ def requires_live_window(obj):
     if NO_LIVE_WINDOW:
         return unittest.skip('pilot windows need a real window surface')(obj)
     return obj
+
+
+def dispose_widget(widget):
+    """Delete a widget a test built, at once, rather than leave it to the
+    collector.
+
+    A widget class that overrides ``event()`` in Python runs Python while Qt
+    walks every widget in a theme repolish, so the collector can run there
+    too.  A leaked widget it frees then is one Qt is still walking, and the
+    pilot crashes.
+
+    :param widget: The widget, which may already be deleted.
+    """
+    import shiboken6
+    if shiboken6.isValid(widget):
+        shiboken6.delete(widget)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

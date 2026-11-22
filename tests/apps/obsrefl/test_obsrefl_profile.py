@@ -33,8 +33,9 @@ def _frame(key='density', count=101, step=1.0, wobble=0.01):
         x=x, computed=computed, exact=exact, label=key, key=key)
 
 
-def _plot():
+def _plot(case):
     plot = _profile.ProfilePlot()
+    case.addCleanup(testing.dispose_widget, plot)
     plot.resize(600, 300)
     return plot
 
@@ -60,14 +61,14 @@ class ProfilePlotTC(unittest.TestCase):
         pilot.RManager.instance.setUp()
 
     def test_the_exact_is_a_line_and_the_computed_are_markers(self):
-        plot = _plot()
+        plot = _plot(self)
         plot.show_profile(_frame())
         self.assertEqual(101, plot.exact.size)
         self.assertEqual(101, plot.computed.size)
         self.assertEqual("density", plot.plot._ylabel)
 
     def test_the_series_take_the_palette_colors(self):
-        plot = _plot()
+        plot = _plot(self)
         ink = _ink.Ink(plot)
         want = ink.series('computed')
         self.assertEqual((want.red(), want.green(), want.blue()),
@@ -76,7 +77,7 @@ class ProfilePlotTC(unittest.TestCase):
                          _rgb(plot.exact.color))
 
     def test_an_exact_that_is_not_finite_draws_the_computed_alone(self):
-        plot = _plot()
+        plot = _plot(self)
         frame = _frame()
         plot.show_profile(frame._replace(exact=np.full(101, np.nan)))
         limits = plot.plot.limits()
@@ -84,7 +85,7 @@ class ProfilePlotTC(unittest.TestCase):
         self.assertGreater(limits.ymax, 2.0)
 
     def test_a_blank_draws_nothing(self):
-        plot = _plot()
+        plot = _plot(self)
         plot.show_profile(_frame())
         plot.show_profile(None)
         self.assertIsNone(plot.frame)
@@ -93,7 +94,7 @@ class ProfilePlotTC(unittest.TestCase):
         self.assertIsNone(plot.plot.limits())
 
     def test_the_zoom_holds_over_one_key_and_resets_on_a_new_one(self):
-        plot = _plot()
+        plot = _plot(self)
         plot.show_profile(_frame())
         _wheel(plot, 3)
         view = plot.plot.limits()

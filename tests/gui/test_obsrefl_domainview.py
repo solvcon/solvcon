@@ -62,7 +62,7 @@ class DomainViewTC(unittest.TestCase):
         layout.setContentsMargins(0, 0, 0, 0)
         view = _domainview.DomainView(mgr=self.mgr)
         layout.addWidget(view)
-        self.addCleanup(host.deleteLater)
+        self.addCleanup(testing.dispose_widget, host)
         return host, view
 
     def test_the_inspector_finds_the_view(self):
