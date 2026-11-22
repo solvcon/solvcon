@@ -9,7 +9,7 @@ None of it knows the reflection; the style sheet comes from the rules of
 :mod:`._style`.
 """
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt
 from PySide6.QtGui import (QFont, QGuiApplication, QIcon, QPainter,
                            QPainterPath, QPen, QPixmap)
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy
@@ -26,6 +26,7 @@ __all__ = [
     'GLYPHS',
     'Styled',
     'form_label',
+    'guard_wheel',
     'head_font',
     'icon',
     'message',
@@ -125,6 +126,27 @@ def form_label(text, tip=""):
     if tip:
         label.setToolTip(tip)
     return label
+
+
+class _WheelGuard(QObject):
+    """Hand a wheel over an unfocused field on to its parent."""
+
+    def eventFilter(self, watched, event):
+        if QEvent.Wheel == event.type() and not watched.hasFocus():
+            event.ignore()
+            return True
+        return False
+
+
+def guard_wheel(*widgets):
+    """Let the wheel scroll past the widgets until one is focused, so
+    scrolling the column never changes a value under the pointer.
+
+    :param widgets: The spin boxes and combo boxes to guard.
+    """
+    for widget in widgets:
+        widget.setFocusPolicy(Qt.StrongFocus)
+        widget.installEventFilter(_WheelGuard(widget))
 
 
 def message(role):
