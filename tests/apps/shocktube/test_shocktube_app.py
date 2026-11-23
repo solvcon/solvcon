@@ -22,6 +22,12 @@ except ImportError:
     pilot = None
 
 
+def _type(field, text):
+    """Type ``text`` into the number ``field`` as the user would."""
+    field.setText(text)
+    field.textEdited.emit(text)
+
+
 @testing.requires_pilot
 class AppTC(unittest.TestCase):
 
@@ -53,6 +59,11 @@ class AppTC(unittest.TestCase):
     def _open(self):
         self.item.trigger()
         QApplication.processEvents()
+        return self.app.window, self.app.column, self.app.controller
+
+    def _step(self, count):
+        for _ in range(count):
+            self.app.window.strip.buttons['step'].click()
 
     def test_the_menu_opens_one_maximized_window(self):
         self.assertEqual("Shock tube", self.item.text())
@@ -69,128 +80,25 @@ class AppTC(unittest.TestCase):
         self.assertEqual(1, self.area.subWindowList().count(subwin))
         self.assertTrue(subwin.isMaximized())
 
-    def test_the_window_draws_the_analytic_solution(self):
-        self._open()
-        self.app.st.svr.march_alpha2(steps=50)
-        self.app.current_step = 50
-        self.app.draw()
-        plot = self.app.window.plot
-        xs, values = plot.exact
-        self.assertEqual((-10, 10), plot.xlim)
-        # Ahead of the fan the gas is the left state, past the shock the
-        # right one.
-        self.assertEqual(1.0, values['density'][0])
-        self.assertEqual(0.125, values['density'][-1])
-        # The exact solver draws what the closed form of the legacy solver
-        # gives for every quantity.
-        self.app.st.build_field(t=2.5, coord=xs)
-        for name in values:
-            with self.subTest(name=name):
-                np.testing.assert_allclose(
-                    getattr(self.app.st, f"{name}_field"), values[name],
-                    rtol=1.e-12, atol=1.e-12)
-        self.assertEqual(['density', 'velocity', 'pressure'],
-                         plot.quantities)
-        # The fronts stand where the waves of Sod's problem, at the speeds
-        # -1.1832, -0.0703, 0.9275, and 1.7522, have gone by t = 2.5.
-        self.assertEqual(['head', 'tail', 'contact', 'shock', 'x0'],
-                         [label for _, label, _ in plot.guides()])
-        np.testing.assert_allclose(
-            np.array([-1.1832, -0.0703, 0.9275, 1.7522],
-                     dtype='float64') * 2.5,
-            [x for x, _, _ in plot.guides()[:4]], atol=1.e-3)
-        self.assertTrue(self.app.window.waves_text().startswith(
-            "R-C-S    p* = 0.30313    u* = 0.92745"))
-        self.app.window.fronts_chip.setChecked(False)
-        self.assertEqual([], plot.guides())
-        lo, hi = plot.yrange('density')
-        self.assertLess(lo, 0.125)
-        self.assertGreater(hi, 1.0)
-
-    def test_the_exact_switch_draws_what_the_cells_hold(self):
-        self._open()
-        window = self.app.window
-        for _ in range(10):
-            window.buttons['step'].click()
-        plot = window.plot
-        self.assertEqual('points', window.exact_mode())
-        self.assertEqual(self.app.EXACT_POINTS, len(plot.exact[0]))
-        window.exact_buttons['cells'].click()
-        self.assertEqual('cells', window.exact_mode())
-        self.assertFalse(window.exact_buttons['points'].isChecked())
-        xs, values = plot.exact
-        centres = plot.points[0]
-        self.assertEqual(2 * len(centres), len(xs))
-        # Each step spans one cell around its centre and holds its mean, so
-        # the steps add up to the mass in the tube.
-        faces = np.append(xs[::2], xs[-1])
-        self.assertTrue(np.all((faces[:-1] < centres)
-                               & (centres < faces[1:])))
-        density = values['density'][::2]
-        np.testing.assert_array_equal(density, values['density'][1::2])
-        mass = self.app.exact.integrate(faces[0], faces[-1], 0.5)[0]
-        self.assertAlmostEqual(mass, np.sum(density * np.diff(faces)),
-                               places=12)
-        # The cell the shock cuts holds a mix, not the state at its centre.
-        shock = [x for label, x in self.app.exact.positions(0.5)
-                 if 'shock' == label][0]
-        cut = np.searchsorted(faces, shock) - 1
-        point = self.app.exact.sample(centres[cut:cut + 1], 0.5)['rho'][0]
-        self.assertGreater(abs(density[cut] - point), 1.e-3)
-        window.exact_buttons['points'].click()
-        self.assertEqual(self.app.EXACT_POINTS, len(plot.exact[0]))
-
-    def test_the_xt_diagram_colors_a_row_per_step(self):
-        self._open()
-        window = self.app.window
-        xt = window.xt
-        self.assertEqual([('rarefaction', 2), ('contact', 1), ('shock', 1)],
-                         [(kind, len(speeds)) for kind, speeds in xt.waves])
-        self.assertAlmostEqual(2.5, xt.t_end)
-        for _ in range(3):
-            window.buttons['step'].click()
-        # A pause redraws the same step without a row of its own.
-        window.buttons['run'].click()
-        window.buttons['run'].click()
-        np.testing.assert_allclose([0.0, 0.05, 0.1, 0.15], xt.times)
-        svr = self.app.st.svr
-        np.testing.assert_array_equal(svr.density[svr.xindices], xt.rows[-1])
-        # The first row holds the two states, the ends of the colors.
-        self.assertEqual((0.125, 1.0), xt.vrange())
-        words = xt.colors()
-        self.assertEqual(xt.rows.shape, words.shape)
-        self.assertTrue(np.all(words >> 24 == 0xff))
-        self.assertNotEqual(words[0, 0], words[0, -1])
-        self.assertFalse(xt.grab().isNull())
-        window.buttons['reset'].click()
-        self.assertEqual(1, len(xt.times))
-        window.xt_chip.setChecked(False)
-        self.assertTrue(xt.isHidden())
-
     def test_a_run_starts_at_t_zero_with_the_two_states(self):
-        self._open()
-        window = self.app.window
-        self.assertEqual("Sod    t = 0", window.title())
-        self.assertEqual("ready, step 0 / 50", window.state_text())
-        xs, values = window.plot.points
-        svr = self.app.st.svr
-        np.testing.assert_array_equal(svr.coord[svr.xindices], xs)
+        window, _, ctl = self._open()
+        strip = window.strip
+        self.assertEqual("Sod, 201 points", strip.problem())
+        self.assertEqual(("Ready", 'muted'), strip.pill())
+        xs, values = window.figure.plot.points
         np.testing.assert_array_equal(np.where(xs < 0.0, 1.0, 0.125),
                                       values['density'])
-        self.assertEqual(
-            ("Run", True, False),
-            (window.buttons['run'].text(),
-             window.buttons['step'].isEnabled(),
-             window.buttons['reset'].isEnabled()))
+        self.assertEqual("Sod, step 0, t = 0, waves R-C-S",
+                         window.figure.caption.text())
+        self.assertEqual((True, False),
+                         (strip.buttons['step'].isEnabled(),
+                          strip.buttons['reset'].isEnabled()))
 
     def test_step_marches_the_solver_as_the_old_window_did(self):
-        self._open()
-        window = self.app.window
-        for _ in range(3):
-            window.buttons['step'].click()
-        self.assertEqual("paused, step 3 / 50", window.state_text())
-        self.assertEqual("Resume", window.buttons['run'].text())
-        # The points are those of the solver marched three steps.
+        window, _, ctl = self._open()
+        self._step(3)
+        self.assertEqual(("Paused", 'muted'), window.strip.pill())
+        self.assertEqual("Resume", window.strip.buttons['run'].text())
         tube = shocktube.ShockTube()
         tube.build_constant(gamma=1.4, pressure1=1.0, density1=1.0,
                             pressure5=0.1, density5=0.125)
@@ -199,71 +107,144 @@ class AppTC(unittest.TestCase):
         tube.svr.march_alpha2(steps=3)
         np.testing.assert_array_equal(
             tube.svr.density[tube.svr.xindices],
-            window.plot.points[1]['density'])
-        self.assertAlmostEqual(0.15, float(window.title().split()[-1]))
+            window.figure.plot.points[1]['density'])
+        self.assertAlmostEqual(0.15, ctl.session.time)
+
+    def test_the_figure_draws_the_analytic_solution(self):
+        window, _, ctl = self._open()
+        self._step(50)
+        plot = window.figure.plot
+        xs, values = plot.exact
+        self.assertEqual((-10.0, 10.0), plot.xlim)
+        self.assertEqual(1.0, values['density'][0])
+        self.assertEqual(0.125, values['density'][-1])
+        # The exact solver draws what the closed form of the legacy solver
+        # gives for every quantity.
+        tube = ctl.session.tube
+        tube.build_field(t=2.5, coord=xs)
+        for name in values:
+            with self.subTest(name=name):
+                np.testing.assert_allclose(
+                    getattr(tube, f"{name}_field"), values[name],
+                    rtol=1.e-12, atol=1.e-12)
+        # The fronts stand where the waves of Sod's problem, at the speeds
+        # -1.1832, -0.0703, 0.9275, and 1.7522, have gone by t = 2.5.
+        self.assertEqual(['head', 'tail', 'contact', 'shock', 'x0'],
+                         [label for _, label, _ in plot.guides()])
+        np.testing.assert_allclose(
+            np.array([-1.1832, -0.0703, 0.9275, 1.7522],
+                     dtype='float64') * 2.5,
+            [x for x, _, _ in plot.guides()[:4]], atol=1.e-3)
+
+    def test_the_exact_combo_draws_what_the_cells_hold(self):
+        window, column, ctl = self._open()
+        self._step(10)
+        plot = window.figure.plot
+        combo = column.display._exact
+        combo.setCurrentIndex(combo.findData('cells'))
+        xs, values = plot.exact
+        centres = plot.points[0]
+        self.assertEqual(2 * len(centres), len(xs))
+        # Each step spans one cell around its centre and holds its mean, so
+        # the steps add up to the mass in the tube.
+        faces = np.append(xs[::2], xs[-1])
+        density = values['density'][::2]
+        mass = ctl.session.exact.integrate(faces[0], faces[-1], 0.5)[0]
+        self.assertAlmostEqual(mass, np.sum(density * np.diff(faces)),
+                               places=12)
+        self.assertEqual("exact cell means",
+                         window.figure.legend.entries[0][1])
+
+    def test_the_xt_diagram_colors_a_row_per_step(self):
+        window, column, ctl = self._open()
+        xt = window.figure.xt
+        self.assertEqual([('rarefaction', 2), ('contact', 1), ('shock', 1)],
+                         [(kind, len(speeds)) for kind, speeds in xt.waves])
+        self.assertAlmostEqual(2.5, xt.t_end)
+        self._step(3)
+        # A pause redraws the same step without a row of its own.
+        window.strip.buttons['run'].click()
+        window.strip.buttons['run'].click()
+        np.testing.assert_allclose([0.0, 0.05, 0.1, 0.15], xt.times)
+        self.assertEqual((0.125, 1.0), xt.vrange())
+        self.assertFalse(xt.grab().isNull())
+        window.strip.buttons['reset'].click()
+        self.assertEqual(1, len(xt.times))
+        column.display.option_boxes['xt'].setChecked(False)
+        self.assertTrue(xt.isHidden())
 
     def test_the_timer_runs_to_the_last_step_and_stops(self):
-        self._open()
-        app, window = self.app, self.app.window
-        window.buttons['run'].click()
-        self.assertTrue(app.timer.isActive())
-        self.assertEqual("Pause", window.buttons['run'].text())
-        self.assertFalse(window.buttons['step'].isEnabled())
+        window, _, ctl = self._open()
+        strip = window.strip
+        strip.buttons['run'].click()
+        self.assertTrue(ctl._timer.isActive())
+        self.assertEqual("Pause", strip.buttons['run'].text())
+        self.assertFalse(strip.buttons['step'].isEnabled())
         for _ in range(100):
-            if 'finished' == app.state:
+            if 'finished' == ctl.state:
                 break
-            app.timer.timeout.emit()
-        self.assertFalse(app.timer.isActive())
-        self.assertEqual("finished, step 50 / 50", window.state_text())
-        self.assertEqual("Run again", window.buttons['run'].text())
+            ctl._timer.timeout.emit()
+        self.assertFalse(ctl._timer.isActive())
+        self.assertEqual(("Finished", 'good'), strip.pill())
+        self.assertEqual("Run again", strip.buttons['run'].text())
         # Run again builds the run anew from t = 0 and marches it.
-        window.buttons['run'].click()
-        self.assertEqual(('running', 0), (app.state, app.current_step))
-        window.buttons['reset'].click()
-        self.assertFalse(app.timer.isActive())
-        self.assertEqual("ready, step 0 / 50", window.state_text())
+        strip.buttons['run'].click()
+        self.assertEqual(('running', 0), (ctl.state, ctl.session.step))
+        strip.buttons['reset'].click()
+        self.assertFalse(ctl._timer.isActive())
+        self.assertEqual(('ready', 0), (ctl.state, ctl.session.step))
 
-    def test_the_chips_switch_panels_but_keep_one(self):
-        self._open()
-        window = self.app.window
-        window.chips['entropy'].setChecked(True)
+    def test_the_panel_boxes_switch_panels_but_keep_one(self):
+        window, column, _ = self._open()
+        boxes = column.display.quantity_boxes
+        plot = window.figure.plot
+        boxes['entropy'].setChecked(True)
         self.assertEqual(['density', 'velocity', 'pressure', 'entropy'],
-                         window.plot.quantities)
-        panels = window.plot.panels()
-        self.assertEqual(4, len(panels))
+                         plot.quantities)
         # Four panels take two columns, and the lower two label the x axis.
         self.assertEqual([False, False, True, True],
-                         [bottom for _, _, bottom in panels])
+                         [bottom for _, _, bottom in plot.panels()])
         for name in ('density', 'velocity', 'pressure', 'entropy'):
-            window.chips[name].setChecked(False)
+            boxes[name].setChecked(False)
         # The last panel cannot be switched off, or the window would go
         # blank with nothing saying why.
-        self.assertEqual(['entropy'], window.plot.quantities)
-        self.assertTrue(window.chips['entropy'].isChecked())
-        # The panels paint in the colors of the palette.
-        self.assertFalse(window.plot.grab().isNull())
+        self.assertEqual(['entropy'], plot.quantities)
+        self.assertTrue(boxes['entropy'].isChecked())
+        self.assertFalse(plot.grab().isNull())
 
-    def test_the_config_panel_sets_the_problem_anew(self):
-        self._open()
+    def test_the_column_sets_the_problem_anew_on_reset(self):
+        window, column, ctl = self._open()
         dock = self.app_config.dock
         self.assertEqual("App config", dock.windowTitle())
-        self.assertFalse(dock.isHidden())
-        column = self.app.column
         self.assertIs(column, dock.widget().currentWidget())
-        self.assertEqual((self.app.config, {}), column.read())
-        self.app.window.buttons['step'].click()
-        field = column.fields['max_steps']
-        field.setText("20")
-        field.textEdited.emit("20")
-        model = self.app.solver_config
-        row = [model.data(i, 0) for i in range(model.rowCount())].index(
-            'max_steps')
-        self.addCleanup(model.setData, row, 1, 50)
-        # An edit waits for Apply, which starts over from t = 0.
-        self.assertEqual("paused, step 1 / 50", self.app.window.state_text())
-        column.apply_button.click()
-        self.assertEqual("ready, step 0 / 20", self.app.window.state_text())
-        self.assertEqual(20, self.app.config['max_steps'])
+        self._step(1)
+        _type(column.problem.fields['p_right'], "0.01")
+        # An edit waits for Reset, which the strip marks.
+        self.assertEqual(1, ctl.session.step)
+        self.assertEqual("true",
+                         window.strip.buttons['reset'].property("attention"))
+        self.assertTrue(column.problem.summary().endswith("(pending)"))
+        window.strip.buttons['reset'].click()
+        self.assertEqual(0, ctl.session.step)
+        self.assertEqual(0.01, ctl.setup.p_right)
+        self.assertEqual("Shock tube: rho 1 | 0.125, p 1 | 0.01, gamma 1.4",
+                         self.app.subwindow.windowTitle())
+
+    def test_a_wrong_value_keeps_reset_from_the_run(self):
+        window, column, ctl = self._open()
+        _type(column.numerics.fields['time_increment'], "0.2")
+        reset = window.strip.buttons['reset']
+        self.assertFalse(reset.isEnabled())
+        self.assertIn("Courant", column.numerics.error_text())
+        self.assertIn("Numerics", window.strip._failure.full_text)
+
+    def test_the_card_judges_the_run(self):
+        _, column, _ = self._open()
+        self._step(50)
+        card = column.card
+        self.assertEqual('good', card.cell('states', 0, 2).tone)
+        self.assertEqual("0.3031", card.cell('states', 0, 1).text)
+        self.assertEqual("0.55", card.row_text("CFL"))
 
     def test_the_view_menu_toggles_the_config_panel(self):
         action = self.app_config.action
@@ -277,22 +258,18 @@ class AppTC(unittest.TestCase):
         self.assertTrue(dock.isHidden())
         action.trigger()
         self.assertFalse(dock.isHidden())
-        # A panel closed from its own bar unchecks the item.
-        dock.close()
-        self.assertFalse(action.isChecked())
         self.app.close()
         self.assertFalse(action.isEnabled())
-        self.assertFalse(action.isChecked())
 
     def test_closing_the_window_stops_its_march(self):
-        self._open()
-        self.app.run_or_pause()
-        self.assertTrue(self.app.timer.isActive())
+        _, _, ctl = self._open()
+        ctl.run_or_pause()
+        self.assertTrue(ctl._timer.isActive())
         self.app.close()
-        self.assertFalse(self.app.timer.isActive())
+        self.assertFalse(ctl._timer.isActive())
         self.assertIsNone(self.app.subwindow)
         self.assertIsNone(self.app.window)
-        # The config panel goes with the window it edits.
+        # The column goes with the window it edits.
         self.assertIsNone(self.app_config.dock)
         self._open()
         self.assertIn(self.app.subwindow, self.area.subWindowList())

@@ -2,8 +2,8 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The figure of the shock-tube window: the profile panels, their legend,
-and the x-t diagram."""
+"""The figure of the shock-tube window: the profile panels under their
+caption and legend, over the x-t diagram."""
 
 import math
 
@@ -11,30 +11,22 @@ import numpy as np
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import (QColor, QFont, QFontMetrics, QImage, QPainter,
-                           QPen, QPolygonF)
-from PySide6.QtWidgets import QSizePolicy, QWidget
+                           QPalette, QPen, QPolygonF)
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QSizePolicy, QSplitter,
+                               QVBoxLayout, QWidget)
 
 from ... import pilot
 
 from . import _plotmath
 from . import _style
+from . import _viewmodel
 
 __all__ = [
     'Legend',
     'ProfilePlot',
-    'QUANTITIES',
-    'SHOWN',
+    'ShockTubeFigure',
     'XtDiagram',
 ]
-
-#: The name and the chip text of each quantity, named as the fields of
-#: :class:`~._shocktube.ShockTube` and the solver.
-QUANTITIES = (('density', "density"), ('velocity', "velocity"),
-              ('pressure', "pressure"), ('temperature', "temperature"),
-              ('internal_energy', "internal energy"),
-              ('entropy', "entropy"))
-#: The quantities shown at start.
-SHOWN = ('density', 'velocity', 'pressure')
 
 
 class Legend(QWidget):
@@ -68,8 +60,8 @@ class Legend(QWidget):
         return QSize(width, metrics.height() + 2)
 
     def paintEvent(self, event):
-        shades = _style.Ink(self)
-        ink, mark = shades.ink, shades.march
+        shades = pilot.AppInk(self)
+        ink, mark = shades.ink, shades.series('computed')
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         metrics = self.fontMetrics()
@@ -147,7 +139,7 @@ class ProfilePlot(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.quantities = list(SHOWN)
+        self.quantities = list(_viewmodel.Display().quantities)
         self.xlim = (0.0, 1.0)
         self.exact = None
         self.points = None
@@ -164,10 +156,26 @@ class ProfilePlot(QWidget):
         self.setMinimumSize(320, 220)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-    def set_quantities(self, names):
-        """Draw a panel for each of ``names``."""
-        self.quantities = list(names)
-        self.update()
+    def show_frame(self, frame, display):
+        """Draw a frame as a display asks, or blank the panels.
+
+        :param frame: The :class:`~._viewmodel.ProfileFrame` to draw, or
+            None to blank the panels.
+        :param display: The :class:`~._viewmodel.Display` whose options
+            change the axes and the guides.
+        """
+        if frame is None:
+            self.set_data(self.xlim, None)
+            self.set_reference(None)
+            self.set_fronts([], None)
+            return
+        self.quantities = list(frame.quantities)
+        self.show_fronts = display.fronts
+        self.options = {'log': display.log, 'residual': display.residual}
+        self.reference = dict(frame.reference)
+        self.fronts = list(frame.fronts)
+        self.x0 = frame.x0
+        self.set_data(frame.xlim, frame.exact, frame.points)
 
     def set_data(self, xlim, exact, points=None):
         """Draw the curves over ``xlim``; another tube shows whole again.
@@ -416,8 +424,9 @@ class ProfilePlot(QWidget):
         return lo - pad, hi + pad
 
     def paintEvent(self, event):
-        shades = _style.Ink(self)
-        ground, ink, mark = shades.base, shades.ink, shades.march
+        shades = pilot.AppInk(self)
+        ground, ink = shades.base, shades.ink
+        mark = shades.series('computed')
         grid, frame, muted = shades.grid, shades.frame, shades.muted
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
@@ -445,7 +454,7 @@ class ProfilePlot(QWidget):
             painter.drawText(QRectF(rect.left(), title, rect.width(),
                                     self.TITLE - 3),
                              Qt.AlignLeft | Qt.AlignBottom,
-                             dict(QUANTITIES)[name])
+                             _viewmodel.QUANTITY_LABELS[name])
             painter.setFont(small)
             if top:
                 painter.setPen(muted)
@@ -629,19 +638,16 @@ class XtDiagram(QWidget):
         self.view = view
         self.update()
 
-    def set_waves(self, waves, x0, t_end):
-        """Draw ``waves``, :class:`~._riemann.Wave`, from ``x0`` up to
-        ``t_end``, the time of the last step."""
-        self.waves = [(wave.kind, wave.speeds) for wave in waves
-                      if 'vacuum' != wave.kind]
-        self.x0 = x0
-        self.t_end = max(float(t_end), 1.e-30)
-        self.update()
+    def show_frame(self, frame):
+        """Draw a frame.
 
-    def set_label(self, label):
-        """Name what the colors are of after the title."""
-        self.label = label
-        self.update()
+        :param frame: The :class:`~._viewmodel.XtFrame` to draw.
+        """
+        self.waves = list(frame.waves)
+        self.x0 = frame.x0
+        self.t_end = max(float(frame.t_end), 1.e-30)
+        self.label = frame.label
+        self.set_history(frame.xlim, frame.x, frame.times, frame.rows)
 
     def colorbar_rect(self):
         """Return the colorbar at the right of the head, between the ends
@@ -693,7 +699,7 @@ class XtDiagram(QWidget):
                       self.height() - self.TITLE - self.BOTTOM)
 
     def paintEvent(self, event):
-        shades = _style.Ink(self)
+        shades = pilot.AppInk(self)
         ground, ink = shades.base, shades.ink
         frame, muted = shades.frame, shades.muted
         painter = QPainter(self)
@@ -800,5 +806,102 @@ def _ticks(tickers, lo, hi, pixels, spacing):
     ticks = list(ticker.locate(lo, hi))
     return [(value, text) for value, text
             in zip(ticks, ticker.labels(ticks)) if lo <= value <= hi]
+
+
+class ShockTubeFigure(pilot.PaletteStyle, QWidget):
+    """The caption and the legend over the profile panels, stacked over the
+    x-t diagram in a splitter.
+
+    The figure holds no run: its owner hands it a
+    :class:`~._viewmodel.ProfileFrame` through :meth:`show_profile` and a
+    :class:`~._viewmodel.XtFrame` through :meth:`show_xt`.  A zoom of the
+    panels narrows the x-t diagram alike.
+    """
+
+    #: The share of the height the panels and the x-t diagram take.
+    STRETCH = (3, 2)
+    #: What the caption reads without a run.
+    BLANK = "No run"
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("figure")
+        # A palette event can reach the figure while it builds, ahead of
+        # the caption the style sets.
+        self.caption = None
+        #: The :class:`ProfilePlot`.
+        self.plot = ProfilePlot()
+        self.plot.setToolTip("The wheel zooms the x range, and a "
+                             "double-click shows the whole tube again")
+        #: The :class:`Legend` of its curves, right of the caption.
+        self.legend = Legend()
+        #: The :class:`XtDiagram` under the panels.
+        self.xt = XtDiagram()
+        self.plot.view_changed = self.xt.set_view
+        #: The caption over the panels.
+        self.caption = QLabel(self.BLANK)
+        self.caption.setObjectName("figureCaption")
+
+        #: The pane of the caption, the legend, and the panels.
+        self.pane = QWidget()
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        head.addWidget(self.caption, 1)
+        head.addWidget(self.legend)
+        pane = QVBoxLayout(self.pane)
+        pane.setContentsMargins(0, 0, 0, 0)
+        pane.setSpacing(4)
+        pane.addLayout(head)
+        pane.addWidget(self.plot, 1)
+
+        #: The splitter between the panels and the x-t diagram.
+        self.splitter = QSplitter(Qt.Vertical)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.addWidget(self.pane)
+        self.splitter.addWidget(self.xt)
+        for index, stretch in enumerate(self.STRETCH):
+            self.splitter.setStretchFactor(index, stretch)
+        self.splitter.setSizes([100 * stretch for stretch in self.STRETCH])
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.addWidget(self.splitter)
+        self.setBackgroundRole(QPalette.Base)
+        self.setAutoFillBackground(True)
+        self._apply_style()
+
+    def _apply_style(self):
+        """Set the caption in the ink of the ground it sits on."""
+        if self.caption is None:
+            return
+        ink = pilot.AppInk(self)
+        palette = self.caption.palette()
+        palette.setColor(QPalette.WindowText, ink.ink)
+        self.caption.setPalette(palette)
+
+    def show_profile(self, frame, display):
+        """Draw a frame in the panels and name its curves.
+
+        :param frame: The :class:`~._viewmodel.ProfileFrame` to draw, or
+            None to blank the panels.
+        :param display: The :class:`~._viewmodel.Display` it is drawn as.
+        """
+        if frame is None:
+            self.caption.setText(self.BLANK)
+            self.legend.set_entries([])
+            self.plot.show_frame(None, display)
+            return
+        self.caption.setText(frame.caption)
+        self.legend.set_entries(frame.legend)
+        self.plot.show_frame(frame, display)
+
+    def show_xt(self, frame):
+        """Draw a frame in the x-t diagram, or hide the diagram.
+
+        :param frame: The :class:`~._viewmodel.XtFrame` to draw, or None to
+            hide the diagram.
+        """
+        self.xt.setVisible(frame is not None)
+        if frame is not None:
+            self.xt.show_frame(frame)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

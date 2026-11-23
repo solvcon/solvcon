@@ -3,7 +3,7 @@
 
 
 """The legend, the band, the axes, the zoom, and the x-t head of the
-shock-tube window."""
+shock-tube figure."""
 
 import unittest
 
@@ -15,13 +15,13 @@ try:
     from solvcon import pilot
     if pilot.enable:
         from solvcon.apps import shocktube
-        from solvcon.apps.shocktube import _window
+        from solvcon.apps.shocktube import _figure
 except ImportError:
     pilot = None
 
 
 @testing.requires_pilot
-class WindowTC(unittest.TestCase):
+class FigureTC(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -34,10 +34,10 @@ class WindowTC(unittest.TestCase):
         sol = exact.sample(x, 1.0)
         values = {'density': sol['rho'], 'velocity': sol['u'],
                   'pressure': sol['p']}
-        self.window = _window.ShockTubeWindow()
-        self.addCleanup(testing.dispose_widget, self.window)
-        self.window.resize(1000, 700)
-        self.plot = self.window.plot
+        self.figure = _figure.ShockTubeFigure()
+        self.addCleanup(testing.dispose_widget, self.figure)
+        self.figure.resize(1000, 700)
+        self.plot = self.figure.plot
         self.plot.set_data((-10.0, 10.0), (x, values),
                            (x, {name: value + 0.01
                                 for name, value in values.items()}))
@@ -45,7 +45,7 @@ class WindowTC(unittest.TestCase):
         self.plot.set_fronts(exact.positions(1.0), exact.x0)
 
     def test_the_legend_names_its_curves(self):
-        legend = self.window.legend
+        legend = self.figure.legend
         legend.set_entries([('line', "exact"), ('marker', "CESE")])
         self.assertGreater(legend.sizeHint().width(), 0)
         self.assertFalse(legend.grab().isNull())
@@ -70,14 +70,14 @@ class WindowTC(unittest.TestCase):
     def test_a_zoom_narrows_the_view_until_reset(self):
         self.plot.zoom(0.5, 0.0)
         self.assertEqual((-5.0, 5.0), self.plot.view)
-        self.assertEqual(self.plot.view, self.window.xt.view)
-        self.window.fit_button.click()
+        self.assertEqual(self.plot.view, self.figure.xt.view)
+        self.plot.mouseDoubleClickEvent(None)
         self.assertIsNone(self.plot.view)
+        self.assertIsNone(self.figure.xt.view)
         self.assertTrue(self.plot.readout('density', 1.0))
 
     def test_the_xt_head_names_and_keys_its_colors(self):
-        xt = self.window.xt
-        xt.set_label("density, CESE")
+        xt = self.figure.xt
         x = np.linspace(-1.0, 1.0, 11, dtype='float64')
         xt.set_history((-1.0, 1.0), x, [0.0],
                        [np.where(x < 0, 1.0, 0.125)])
