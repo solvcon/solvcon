@@ -16,6 +16,7 @@ import functools
 from PySide6 import QtCore, QtGui, QtWidgets
 
 __all__ = [
+    'AppInk',
     'AppRules',
     'DATA',
     'FILL_MIX',
@@ -64,6 +65,11 @@ _GRID_MIX = (0.07, 0.085)
 
 #: The size of small text, in device-independent pixels.
 SMALL_PX = 11
+#: The size of the labels and the fields of a form, in device-independent
+#: pixels.
+FORM_PX = 12
+#: The step from the panel toward the text of a rule between sections.
+RULE_MIX = 0.13
 _RADIUS = 6
 
 # Qt 6.7 added the font features; an older Qt keeps the figures the font
@@ -229,6 +235,68 @@ class Ink(Shades):
         return (self.base,)
 
 
+class AppInk(Ink):
+    """The shades of the base ground an app figure and its results card sit
+    on.
+
+    The tones read as text at :data:`TEXT_CONTRAST`, and the colors of
+    :meth:`series` as marks at :data:`GRAPHIC_CONTRAST`, against both the
+    base and the panel.
+
+    :param widget: The widget whose palette the shades are read off.
+    """
+
+    def __init__(self, widget):
+        super().__init__(widget)
+        grounds = self.grounds()
+        #: The text color of what is wrong.
+        self.bad = legible(self, self.bright_text, *grounds)
+        #: The text color of what is good.
+        self.good = legible(self, AppRules.tone(self, 'good'), *grounds)
+        self._computed = legible(
+            self, QtGui.QColor(DATA[1 if self.dark else 0]), *grounds,
+            floor=GRAPHIC_CONTRAST)
+
+    def grounds(self):
+        # The panel too: a plot outside the figure shows it through.
+        return (self.base, self.panel)
+
+    def dimmed(self, ratio):
+        """Return the ink moved back toward the base.
+
+        :param ratio: How far to move, from 0 for the ink to 1 for the
+            base.
+        """
+        return self.blend(self.on_base, self.base, ratio)
+
+    def raised(self, ratio):
+        """Return the base moved toward the ink.
+
+        :param ratio: How far to move, from 0 for the base to 1 for the
+            ink.
+        """
+        return self.blend(self.base, self.on_base, ratio)
+
+    def series(self, key):
+        """Return the data color of a series, a mark at 3:1 against the
+        grounds.
+
+        :param key: The series, ``'computed'`` for the computed values; the
+            exact solution and any key without a color of its own take the
+            ink.
+        """
+        return QtGui.QColor(self._computed if 'computed' == key
+                            else self.ink)
+
+    def tone(self, name):
+        """Return the text color of a tone, at 4.5:1 against the grounds.
+
+        :param name: 'good', 'bad', or 'muted'; any other reads in the ink.
+        """
+        return QtGui.QColor({'good': self.good, 'bad': self.bad,
+                             'muted': self.muted}.get(name, self.ink))
+
+
 class RuleCatalog:
     """A catalog of style rules, one method per role it styles.
 
@@ -246,16 +314,35 @@ class RuleCatalog:
 
 
 class AppRules(RuleCatalog):
-    """The roles of the controls of an app window: the primary and the
-    secondary buttons and the run-state pill.
+    """The roles of an app window and its control column: the run buttons,
+    the state pill, the run strip and its progress bar, the results card,
+    the fold heads, and the forms of the column.
 
-    An app subclasses this for the rules of its own roles.
+    An app subclasses this for the rules of its own roles.  Every color is
+    mixed from the palette of the widget the sheet is built for, so no
+    color outlives a theme switch.
     """
 
-    #: The padding of the primary and of the secondary buttons.
-    PADDING = ("4px 14px", "3px 10px")
+    #: The padding of the primary and of the secondary buttons, which carry
+    #: an icon on the left of the label.
+    PADDING = ("4px 14px 4px 10px", "3px 10px 3px 8px")
     #: The tones the pill takes, all that :meth:`tone` names.
     TONES = ('muted', 'accent', 'good', 'bad')
+    #: The roles drawn on the base ground, which read :class:`AppInk` where
+    #: the others read :class:`Shades`.
+    ON_BASE = ('card',)
+
+    @classmethod
+    def sheet(cls, widget, *roles):
+        """Return the sheet a widget carries for the roles it draws.
+
+        :param widget: The widget whose palette the colors are mixed from.
+        :param roles: The names of the role methods the sheet is built of.
+        """
+        shades = Shades(widget)
+        ink = AppInk(widget) if set(roles) & set(cls.ON_BASE) else None
+        return "".join(getattr(cls, role)(ink if role in cls.ON_BASE
+                                          else shades) for role in roles)
 
     @staticmethod
     def tone(shades, name):
@@ -340,6 +427,159 @@ class AppRules(RuleCatalog):
             }}
             """)
         return "".join(rules)
+
+    @staticmethod
+    def strip(shades):
+        """Style the run strip across the top of the window.
+
+        :param shades: The :class:`~solvcon.Shades` of the widget.
+        """
+        failure = legible(shades, shades.bright_text, shades.panel)
+        return f"""
+            QFrame#runStrip {{
+                background: {shades.panel.name()};
+                border: none;
+                border-bottom: 1px solid {shades.raised(RULE_MIX).name()};
+            }}
+            QLabel#stripProblem {{
+                color: {shades.text.name()};
+                font-weight: 600;
+            }}
+            QLabel#stripCaption, QLabel#failure {{
+                color: {shades.muted.name()};
+                font-size: {SMALL_PX}px;
+            }}
+            QLabel#failure {{ color: {failure.name()}; }}
+            """
+
+    @staticmethod
+    def progress(shades):
+        """Style the thin determinate bar beside the time readout.
+
+        :param shades: The :class:`~solvcon.Shades` of the widget.
+        """
+        track = shades.raised(FILL_MIX)
+        chunk = legible(shades, shades.accent, track, shades.panel,
+                        floor=GRAPHIC_CONTRAST)
+        return f"""
+            QProgressBar#progress {{
+                border: none;
+                border-radius: 2px;
+                background: {track.name()};
+                max-height: 4px; min-height: 4px;
+            }}
+            QProgressBar#progress::chunk {{
+                border-radius: 2px;
+                background: {chunk.name()};
+            }}
+            """
+
+    @staticmethod
+    def card(ink):
+        """Style the results card at the head of the control column.
+
+        :param ink: The :class:`AppInk` of the card.
+        """
+        rules = [f"""
+            QFrame#card {{
+                background: {ink.base.name()};
+                border: 1px solid {ink.border.name()};
+                border-radius: 8px;
+            }}
+            QFrame#card QLabel {{
+                background: transparent;
+                color: {ink.ink.name()};
+            }}
+            QFrame#card QLabel#metric, QFrame#card QLabel#caption,
+            QFrame#card QLabel#cardHead {{
+                color: {ink.muted.name()};
+            }}
+            QFrame#card QFrame#cardRule {{
+                background: {ink.raised(RULE_MIX).name()};
+                border: none;
+                max-height: 1px; min-height: 1px;
+            }}
+            """]
+        for tone in ('good', 'bad', 'muted'):
+            rules.append(f"""
+            QFrame#card QLabel[tone="{tone}"] {{
+                color: {ink.tone(tone).name()};
+            }}
+            """)
+        return "".join(rules)
+
+    @staticmethod
+    def fold(shades):
+        """Style the head of a folded group of the control column.
+
+        :param shades: The :class:`~solvcon.Shades` of the widget.
+        """
+        dirty = legible(shades, shades.accent, shades.panel)
+        return f"""
+            QPushButton#foldHead {{
+                border: none;
+                border-top: 1px solid {shades.raised(RULE_MIX).name()};
+                border-radius: 0px;
+                padding: 5px 4px 5px 4px;
+                text-align: left;
+                color: {shades.muted.name()};
+                background: transparent;
+            }}
+            QPushButton#foldHead:hover {{
+                background: {shades.raised(HOVER_MIX).name()};
+                color: {shades.text.name()};
+            }}
+            QLabel#foldSummary {{
+                color: {shades.muted.name()};
+                font-size: {SMALL_PX}px;
+            }}
+            QLabel#foldSummary[dirty="true"] {{ color: {dirty.name()}; }}
+            """
+
+    @staticmethod
+    def form(shades):
+        """Style the form grid of the groups: muted labels, uniform fields,
+        and the outline of a field whose value is wrong.
+
+        :param shades: The :class:`~solvcon.Shades` of the widget.
+        """
+        edge = legible(shades, shades.border, shades.base, shades.panel,
+                       floor=GRAPHIC_CONTRAST)
+        focus = legible(shades, shades.accent, shades.base, shades.panel,
+                        floor=GRAPHIC_CONTRAST)
+        hint = legible(shades, shades.accent, shades.panel)
+        wrong = legible(shades, shades.bright_text, shades.base,
+                        shades.panel)
+        return f"""
+            QLabel#formLabel {{
+                color: {shades.muted.name()};
+                font-size: {FORM_PX}px;
+            }}
+            QLabel#formLabel:disabled {{ color: {shades.greyed.name()}; }}
+            QLabel#note, QLabel#hint, QLabel#fieldError {{
+                color: {shades.muted.name()};
+                font-size: {SMALL_PX}px;
+            }}
+            QLabel#hint {{ color: {hint.name()}; }}
+            QLabel#fieldError {{ color: {wrong.name()}; }}
+            QLineEdit#number {{
+                border: 1px solid {edge.name()};
+                border-radius: 5px;
+                padding: 0px 5px;
+                min-height: 20px; max-height: 20px;
+                background: {shades.base.name()};
+                color: {shades.on_base.name()};
+                font-size: {FORM_PX}px;
+            }}
+            QLineEdit#number:focus {{
+                border-color: {focus.name()};
+            }}
+            QLineEdit#number:disabled {{ color: {shades.greyed.name()}; }}
+            QCheckBox {{ font-size: {FORM_PX}px; }}
+            QLineEdit#number[invalid="true"] {{
+                border-color: {wrong.name()};
+            }}
+            """
 
 
 class PaletteStyle:

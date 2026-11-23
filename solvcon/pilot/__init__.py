@@ -24,7 +24,7 @@ __getattr__, __dir__ = lazy_exports(__name__, {
         'CellQualityMetric', 'RManager',
         'PlotLimits2d', 'PlotColor', 'RPlotSeries', 'RPlotDecimator',
         'RPlotModel', 'RPlotTicker', 'plot_color_cycle', 'plot_cycle_color'],
-    '_style': ['AppRules', 'DATA', 'FILL_MIX', 'GRAPHIC_CONTRAST',
+    '_style': ['AppInk', 'AppRules', 'DATA', 'FILL_MIX', 'GRAPHIC_CONTRAST',
                'HOVER_MIX', 'Ink', 'PaletteStyle', 'RuleCatalog',
                'SMALL_PX', 'Shades', 'TINT_MIX', 'legible',
                'number_font', 'set_style_property'],

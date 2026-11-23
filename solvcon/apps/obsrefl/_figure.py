@@ -15,7 +15,6 @@ from ... import pilot
 from ...pilot import visual
 
 from . import _domainview
-from . import _ink
 from . import _profile
 
 __all__ = [
@@ -99,7 +98,7 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
         """Set the caption in the ink of the ground it sits on."""
         if self.caption is None:
             return
-        ink = _ink.Ink(self)
+        ink = pilot.AppInk(self)
         palette = self.caption.palette()
         palette.setColor(QPalette.WindowText, ink.ink)
         self.caption.setPalette(palette)

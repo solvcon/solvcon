@@ -18,7 +18,7 @@ try:
         from PySide6.QtCore import QPoint, QPointF, Qt
         from PySide6.QtGui import QWheelEvent
         from PySide6.QtWidgets import QApplication
-        from solvcon.apps.obsrefl import _ink, _profile, _viewmodel
+        from solvcon.apps.obsrefl import _profile, _viewmodel
 except ImportError:
     pilot = None
 
@@ -69,7 +69,7 @@ class ProfilePlotTC(unittest.TestCase):
 
     def test_the_series_take_the_palette_colors(self):
         plot = _plot(self)
-        ink = _ink.Ink(plot)
+        ink = pilot.AppInk(plot)
         want = ink.series('computed')
         self.assertEqual((want.red(), want.green(), want.blue()),
                          _rgb(plot.computed.color))

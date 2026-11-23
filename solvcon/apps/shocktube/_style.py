@@ -52,6 +52,10 @@ class Rules(pilot.AppRules):
     """The style rules of the shock-tube window, one method per role it
     draws."""
 
+    #: Without the room :class:`~solvcon.pilot.AppRules` keeps for an
+    #: icon: these buttons carry none.
+    PADDING = ("4px 14px", "3px 10px")
+
     @staticmethod
     def chips(shades):
         """Style the toggles under the panels: the chips that each turn one

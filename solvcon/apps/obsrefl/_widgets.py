@@ -6,7 +6,7 @@
 column share.
 
 None of it knows the reflection; the style sheet comes from the rules of
-:mod:`._style`.
+:class:`~solvcon.pilot.AppRules`.
 """
 
 from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt
@@ -17,7 +17,6 @@ from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy
 from ... import pilot
 from ...pilot import panel
 
-from . import _style
 
 __all__ = [
     'ElidedLabel',
@@ -205,7 +204,7 @@ class Styled(pilot.PaletteStyle):
     :attr:`_styling` off.
     """
 
-    #: The roles of :class:`._style.Rules` the sheet carries.
+    #: The roles of :class:`~solvcon.pilot.AppRules` the sheet carries.
     ROLES = ()
     _styling = True
 
@@ -219,7 +218,7 @@ class Styled(pilot.PaletteStyle):
             return
         self._styling = True
         try:
-            sheet = _style.Rules.sheet(self, *self.ROLES)
+            sheet = pilot.AppRules.sheet(self, *self.ROLES)
             if sheet != self.styleSheet():
                 self.setStyleSheet(sheet)
             self.restyle()
