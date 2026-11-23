@@ -28,8 +28,6 @@ class Rules(pilot.AppRules):
 
     #: The buttons carry an icon on the left of the label.
     PADDING = ("4px 14px 4px 10px", "3px 10px 3px 8px")
-    #: The tones the state pill takes, with 'bad' for a failed run.
-    TONES = ('muted', 'accent', 'good', 'bad')
     #: The roles drawn on the base ground, which read :class:`_ink.Ink`
     #: where the others read :class:`pilot.Shades`.
     ON_BASE = ('card',)

@@ -29,7 +29,9 @@ class ProfilePlot(pilot.PaletteStyle, QWidget):
     drops it.
     """
 
+    #: The width of the exact line, in pixels.
     EXACT_WIDTH = 1.25
+    #: The diameter of a computed marker, in pixels.
     MARKER_SIZE = 5.0
 
     def __init__(self, parent=None):

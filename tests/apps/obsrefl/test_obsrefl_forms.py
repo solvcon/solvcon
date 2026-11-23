@@ -15,9 +15,22 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
+        from PySide6.QtCore import QPoint, QPointF, Qt
+        from PySide6.QtGui import QWheelEvent
+        from PySide6.QtWidgets import QApplication
         from solvcon.apps.obsrefl import _forms, _setup, _viewmodel
 except ImportError:
     pilot = None
+
+
+def _wheel(widget):
+    """Turn the wheel a notch up over ``widget``; return whether it took
+    the turn."""
+    event = QWheelEvent(QPointF(5, 5), QPointF(5, 5), QPoint(0, 0),
+                        QPoint(0, 120), Qt.NoButton, Qt.NoModifier,
+                        Qt.NoScrollPhase, False)
+    QApplication.sendEvent(widget, event)
+    return event.isAccepted()
 
 
 def _type(group, key, text):
@@ -131,5 +144,17 @@ class DisplayGroupTC(unittest.TestCase):
                          changed[-1])
         group.show_display(_viewmodel.Display())
         self.assertEqual(5, len(changed))
+
+    def test_the_wheel_scrolls_past_a_field_not_focused(self):
+        # The column scrolls under the wheel; a value it passes over must
+        # not change, least of all the step cap of the standing run.
+        numerics, display = _forms.NumericsGroup(), _forms.DisplayGroup()
+        for group in (numerics, display):
+            self.addCleanup(testing.dispose_widget, group)
+        for spin in (numerics._cap, display._cut):
+            with self.subTest(spin=type(spin).__name__):
+                value = spin.value()
+                self.assertFalse(_wheel(spin))
+                self.assertEqual(value, spin.value())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

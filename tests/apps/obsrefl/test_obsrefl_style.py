@@ -11,9 +11,9 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
-        from PySide6.QtCore import qInstallMessageHandler
+        from PySide6.QtCore import Qt, qInstallMessageHandler
         from PySide6.QtGui import QColor, QPalette
-        from PySide6.QtWidgets import QWidget
+        from PySide6.QtWidgets import QApplication, QWidget
         from solvcon.apps.obsrefl import _column, _window
 except ImportError:
     pilot = None
@@ -64,6 +64,25 @@ class StyledWidgetsTC(unittest.TestCase):
             with self.subTest(widget=type(widget).__name__):
                 self.assertNotEqual(*sheets)
         self.assertEqual([], messages)
+
+    def test_a_theme_switch_redraws_the_strip_icons(self):
+        # The icons are pixmaps drawn in the ink of the palette, which no
+        # sheet recolors, so only restyle() can follow the switch.
+        hints = QApplication.styleHints()
+        if not hasattr(hints, 'setColorScheme'):
+            self.skipTest("the platform does not switch the theme")
+        window = _window.ReflectionWindow(QWidget())
+        self.addCleanup(testing.dispose_widget, window)
+        self.addCleanup(hints.unsetColorScheme)
+        step = window.strip.buttons['step']
+        images = []
+        for scheme in (Qt.ColorScheme.Light, Qt.ColorScheme.Dark):
+            hints.setColorScheme(scheme)
+            QApplication.processEvents()
+            images.append(step.icon().pixmap(16, 16).toImage())
+        if QApplication.palette().window().color().lightness() > 128:
+            self.skipTest("the platform kept the light palette")
+        self.assertNotEqual(*images)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

@@ -22,10 +22,10 @@ __all__ = [
     'GRAPHIC_CONTRAST',
     'HOVER_MIX',
     'Ink',
-    'Shades',
-    'RuleCatalog',
     'PaletteStyle',
     'PaletteStyled',
+    'RuleCatalog',
+    'Shades',
     'SMALL_PX',
     'TINT_MIX',
     'legible',
@@ -254,8 +254,8 @@ class AppRules(RuleCatalog):
 
     #: The padding of the primary and of the secondary buttons.
     PADDING = ("4px 14px", "3px 10px")
-    #: The tones the pill takes.
-    TONES = ('muted', 'accent', 'good')
+    #: The tones the pill takes, all that :meth:`tone` names.
+    TONES = ('muted', 'accent', 'good', 'bad')
 
     @staticmethod
     def tone(shades, name):

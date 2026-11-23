@@ -45,6 +45,7 @@ class ReflectionController(object):
         None for the defaults.
     """
 
+    #: The interval of the frame timer, in milliseconds.
     INTERVAL_MS = 40
 
     def __init__(self, window, column, setup=None):
@@ -63,9 +64,11 @@ class ReflectionController(object):
         #: Owner-supplied callback fired with the window title after a build.
         self.title_changed = None
         self._build_error = ''
+        self._edit_error = ''
         self._dirty = False
         self._can_reset = True
-        self._timer = QTimer()
+        # Owned by the window, so no tick outlives the widgets it draws.
+        self._timer = QTimer(window)
         self._timer.setInterval(self.INTERVAL_MS)
         self._timer.timeout.connect(self._tick)
 
@@ -152,7 +155,8 @@ class ReflectionController(object):
             session = setup.session(max_steps=cap, steps_per_chunk=per_frame)
         except BUILD_ERRORS as exc:
             self._build_error = (f"No run can be built of "
-                                 f"{setup.summary()}: {exc}")
+                                 f"{setup.summary()}: {exc}.  Change the "
+                                 f"inputs and press Reset.")
             return False
         self._timer.stop()
         self._build_error = ''
@@ -202,14 +206,15 @@ class ReflectionController(object):
         """
         self._timer.stop()
         self.state = 'failed'
-        self.error = (f"The march raised {type(exc).__name__} at step "
-                      f"{self.session.step}: {exc}")
+        self.error = (f"The run failed at step {self.session.step}: {exc} "
+                      f"({type(exc).__name__}).  Run again or Reset "
+                      f"rebuilds it from the column.")
         sys.excepthook(type(exc), exc, exc.__traceback__)
         try:
             self._show()
         except Exception:
-            # The read-out raised, and was reported; the strip still says
-            # why the march stopped.
+            # The read-out raised again, and is left unreported; the strip
+            # still says why the march stopped.
             self._show_strip()
 
     def _settle(self):
@@ -248,34 +253,48 @@ class ReflectionController(object):
         column = self.column
         _, errors = self._edited_setup()
         self._dirty = False
+        # The message of a build that failed no longer applies to the edit.
+        self._build_error = ''
+        wrong = []
         for group, summary in (
                 (column.freestream, _presenter.freestream_summary),
                 (column.numerics, _presenter.numerics_summary)):
             group.show_errors(errors)
             dirty = group.is_dirty()
-            group.set_dirty_hint(dirty and not group.invalid_fields())
-            group.set_summary(summary(self.setup, dirty), dirty)
+            invalid = bool(group.invalid_fields())
+            group.set_dirty_hint(dirty and not invalid)
+            group.set_summary(summary(self.setup, dirty, invalid), dirty)
             self._dirty = self._dirty or dirty
+            if invalid:
+                wrong.append(group.title)
         self._can_reset = not errors
+        self._edit_error = ''
+        # The strip names the groups that hold a wrong value, as they may be
+        # folded and hide the outline.
+        if wrong:
+            self._edit_error = (f"Fix the outlined value in "
+                                f"{' and '.join(wrong)} to apply the edits.")
         self._show_strip()
 
     def _on_run_changed(self, max_steps, steps_per_frame):
         """Put the step cap and the steps per frame on the standing run.
 
         A cap at or under the step the run stands at ends the run there,
-        since the session marches no chunk past its cap.
+        and a higher cap lets a run the cap ended go on, paused.  A failed
+        run stays failed.
 
         :param max_steps: The step cap of the run.
         :param steps_per_frame: The steps marched between two frames.
         """
         session = self.session
-        if session is None:
+        if session is None or 'failed' == self.state:
             return
-        session.max_steps = max_steps
         session.steps_per_chunk = steps_per_frame
-        if session.step >= max_steps and not session.finished:
-            session.stop()
+        session.set_max_steps(max_steps)
+        if session.finished:
             self._settle()
+        elif 'finished' == self.state:
+            self.state = 'paused'
         self._show_strip()
 
     def _on_display(self, display):
@@ -283,7 +302,7 @@ class ReflectionController(object):
         self._show()
 
     def _show_strip(self):
-        failure = self.error or self._build_error
+        failure = self.error or self._build_error or self._edit_error
         self.window.strip.show_state(_presenter.strip_state(
             self.session, self.state, failure, self._dirty, self._can_reset))
 

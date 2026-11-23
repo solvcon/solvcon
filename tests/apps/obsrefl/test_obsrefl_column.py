@@ -34,7 +34,7 @@ def _results(field="density", zones=3):
                                  cell("2.851"), cell("", 'muted')))
     return _viewmodel.Results(
         field=field, zones=rows, fits=fits,
-        rows=(("mass drift", "+1.2e-9"), ("CFL", "0.41-0.52")),
+        rows=(("mass drift", "+1.2e-9"), ("CFL", "0.41 to 0.52")),
         caption="errors relative to the analytic zone values", note=None)
 
 
@@ -58,7 +58,7 @@ class ResultsCardTC(unittest.TestCase):
                          card.cell('fits', 1, 0))
         self.assertIsNone(card.cell('zones', 3, 0))
         self.assertEqual("+1.2e-9", card.row_text("mass drift"))
-        self.assertEqual("0.41-0.52", card.row_text("CFL"))
+        self.assertEqual("0.41 to 0.52", card.row_text("CFL"))
         self.assertIsNone(card.row_text("energy drift"))
         self.assertEqual("", card.note())
 

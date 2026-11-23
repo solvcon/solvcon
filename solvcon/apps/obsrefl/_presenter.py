@@ -110,7 +110,7 @@ def _run_rows(session):
     first, last = records[0], records[-1]
     drift = (last.mass - first.mass) / first.mass
     return (('mass drift', _viewmodel.format_signed(drift)),
-            ('CFL', f"{last.cfl_min:.2f}-{last.cfl_max:.2f}"))
+            ('CFL', f"{last.cfl_min:.2f} to {last.cfl_max:.2f}"))
 
 
 def results(session, name):
@@ -175,8 +175,8 @@ def field_frame(session, display):
     if display.mark_cells:
         cells = np.nonzero(analysis.profile_cells(height))[0].astype('int64')
     caption = (f"{label}, step {session.step}: "
-               f"{_viewmodel.format_number(vmin, 3)} to "
-               f"{_viewmodel.format_number(vmax, 3)}")
+               f"{_viewmodel.format_number(vmin)} to "
+               f"{_viewmodel.format_number(vmax)}")
     return _viewmodel.FieldFrame(
         name=name, label=label, values=values, lo=lo, hi=hi,
         caption=caption, gauge_cells=cells,
@@ -241,30 +241,35 @@ def strip_state(session, state, failure='', dirty=False, can_reset=True):
         failure=failure, dirty=dirty, can_reset=can_reset)
 
 
-def _pending(text, dirty):
-    """Return ``text``, marked when its edits wait for Reset."""
+def _pending(text, dirty, invalid):
+    """Return ``text``, marked when its edits wait for Reset or hold a
+    value the setup rejects."""
+    if invalid:
+        return text + "  (invalid)"
     return text + "  (pending)" if dirty else text
 
 
-def freestream_summary(setup, dirty):
+def freestream_summary(setup, dirty, invalid=False):
     """Return the summary of the free-stream group of ``setup``, ``Mach 3,
-    10 deg, gamma 1.4``, and whether its edits wait for Reset."""
+    10 deg, gamma 1.4``, marked when its edits wait for Reset or are
+    wrong."""
     return _pending(f"Mach {setup.mach:g}, {setup.angle:g} deg, gamma "
-                    f"{setup.gamma:g}", dirty)
+                    f"{setup.gamma:g}", dirty, invalid)
 
 
-def numerics_summary(setup, dirty):
+def numerics_summary(setup, dirty, invalid=False):
     """Return the summary of the numerics group of ``setup``, ``64 x 16
-    unstructured, dt 0.002``, and whether its edits wait for Reset."""
+    unstructured, dt 0.002``, marked when its edits wait for Reset or are
+    wrong."""
     return _pending(f"{setup.nx:g} x {setup.ny:g} {setup.cell_type}, dt "
-                    f"{setup.time_increment:g}", dirty)
+                    f"{setup.time_increment:g}", dirty, invalid)
 
 
 def display_summary(display):
-    """Return the summary of the display group, ``density, bar, cut
+    """Return the summary of the display group, ``density, color bar, cut
     0.50``: the field, the marks that show, and the cut height."""
     parts = [_viewmodel.FIELD_LABELS[display.field]]
-    parts += [word for word, on in (("bar", display.bar),
+    parts += [word for word, on in (("color bar", display.bar),
                                     ("cells", display.mark_cells),
                                     ("line", display.mark_line)) if on]
     parts.append(f"cut {display.cut:.2f}")

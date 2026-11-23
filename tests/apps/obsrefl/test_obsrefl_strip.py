@@ -97,6 +97,7 @@ class RunStripTC(unittest.TestCase):
         # trying; the standing run still marches.
         strip.show_state(_state('paused', 5, dirty=True, can_reset=False))
         self.assertEqual((True, True, False), self._enabled(strip))
+        self.assertIn("Fix the outlined values", reset.toolTip())
         for state in ('finished', 'failed'):
             with self.subTest(state=state):
                 strip.show_state(_state(state, 20, dirty=True,

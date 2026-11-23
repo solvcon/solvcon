@@ -145,6 +145,19 @@ class ReflectionSession(object):
             self.advance()
         return self.stop_reason
 
+    def set_max_steps(self, max_steps):
+        """Move the step cap: a run at or past the new cap ends there, and
+        a run the old cap ended goes on under a higher one.
+
+        :param max_steps: The new step cap.
+        """
+        self.max_steps = max_steps
+        if self.step >= max_steps:
+            if not self.finished:
+                self.stop_reason = 'cap'
+        elif 'cap' == self.stop_reason:
+            self.stop_reason = None
+
     def stop(self):
         """End the run where it stands, keeping the field and the history."""
         if not self.finished:

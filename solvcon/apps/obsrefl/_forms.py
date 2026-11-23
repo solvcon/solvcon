@@ -49,8 +49,7 @@ class _NumberField(QLineEdit):
         text = f"{value:.12g}"
         if float(text) != value:
             text = repr(float(value))
-        with QSignalBlocker(self):
-            self.setText(text)
+        self.setText(text)
 
     def set_invalid(self, invalid):
         """Outline the field as wrong, or clear the outline.
@@ -264,8 +263,12 @@ class NumericsGroup(_SetupGroup):
         self._add_row("steps / frame", self._frame, self._frame.toolTip())
         self.set_run_settings(_session.ReflectionSession.MAX_STEPS,
                               _session.ReflectionSession.STEPS_PER_CHUNK)
-        self._cap.valueChanged.connect(self._on_run)
-        self._frame.valueChanged.connect(self._on_run)
+        _widgets.guard_wheel(self._cells, self._cap, self._frame)
+        for spin in (self._cap, self._frame):
+            # Applied as typed, the "5" of a new cap of 5000 would end the
+            # run at once.
+            spin.setKeyboardTracking(False)
+            spin.valueChanged.connect(self._on_run)
 
     def show_setup(self, setup):
         """Fill the fields and the cell type from a setup and take it as
@@ -347,6 +350,7 @@ class DisplayGroup(_widgets.FoldGroup):
         grid.setColumnStretch(1, 1)
         self._controls = (self._field, self._bar, self._cells, self._line,
                           self._cut)
+        _widgets.guard_wheel(self._field, self._cut)
         self.show_display(_viewmodel.Display())
         self._field.currentIndexChanged.connect(self._on_change)
         for box in (self._bar, self._cells, self._line):

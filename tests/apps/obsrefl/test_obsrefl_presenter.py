@@ -20,6 +20,7 @@ import numpy as np
 
 from solvcon.apps.obsrefl import ReflectionSession
 from solvcon.apps.obsrefl import _presenter
+from solvcon.apps.obsrefl import _setup
 from solvcon.apps.obsrefl import _viewmodel
 
 
@@ -89,7 +90,7 @@ class ResultsTC(unittest.TestCase):
         self.assertEqual(_viewmodel.format_signed(drift), rows['mass drift'])
         self.assertTrue(rows['mass drift'].startswith("+"))
         low, high = records[-1].cfl_min, records[-1].cfl_max
-        self.assertEqual(f"{low:.2f}-{high:.2f}", rows['CFL'])
+        self.assertEqual(f"{low:.2f} to {high:.2f}", rows['CFL'])
 
     def test_a_field_without_an_exact_value_has_no_zones(self):
         res = _presenter.results(self.marched, 'cfl')
@@ -229,5 +230,24 @@ class ReflectionPresenterTC(unittest.TestCase):
         _presenter.ReflectionPresenter(self.window, None).blank()
         self.assertEqual(['show_field', 'show_profile'],
                          [call[0] for call in self.calls])
+
+
+class SummaryTC(unittest.TestCase):
+
+    def test_a_group_head_marks_edits_that_wait_or_are_wrong(self):
+        setup = _setup.ReflectionSetup()
+        self.assertEqual("Mach 3, 10 deg, gamma 1.4",
+                         _presenter.freestream_summary(setup, False))
+        self.assertTrue(_presenter.numerics_summary(setup, True)
+                        .endswith("(pending)"))
+        # A wrong value outranks a waiting one: Reset cannot apply it.
+        self.assertTrue(_presenter.freestream_summary(setup, True, True)
+                        .endswith("(invalid)"))
+
+    def test_the_display_head_names_what_shows(self):
+        self.assertEqual(
+            "pressure, color bar, line, cut 0.25",
+            _presenter.display_summary(_viewmodel.Display(
+                field='pressure', mark_line=True, cut=0.25)))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

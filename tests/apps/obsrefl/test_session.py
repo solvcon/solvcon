@@ -73,6 +73,19 @@ class ReflectionSessionTC(unittest.TestCase):
         self.assertIsNone(sess.advance())
         self.assertEqual(6, sess.step)
 
+    def test_moving_the_cap_ends_or_reopens_the_run(self):
+        sess = self._session(steps_per_chunk=4, max_steps=6)
+        sess.advance()
+        sess.set_max_steps(3)
+        self.assertEqual('cap', sess.stop_reason)
+        sess.set_max_steps(10)
+        self.assertFalse(sess.finished)
+        self.assertEqual(8, sess.advance().step)
+        # A stopped run is not the cap's to reopen.
+        sess.stop()
+        sess.set_max_steps(20)
+        self.assertEqual('stopped', sess.stop_reason)
+
     def test_stop_ends_the_run_and_keeps_what_it_measured(self):
         sess = self._session(steps_per_chunk=2)
         sess.advance()

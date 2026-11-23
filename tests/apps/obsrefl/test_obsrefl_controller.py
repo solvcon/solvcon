@@ -20,6 +20,9 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
+        from PySide6.QtCore import QEvent, Qt
+        from PySide6.QtGui import QKeyEvent
+        from PySide6.QtWidgets import QApplication
         from solvcon.apps.obsrefl import (_column, _control, _figure,
                                           _presenter, _setup, _window)
 except ImportError:
@@ -30,6 +33,14 @@ def _type(field, text):
     """Type ``text`` into the number ``field`` as the user would."""
     field.setText(text)
     field.textEdited.emit(text)
+
+
+def _key(widget, key, text=""):
+    """Press and release ``key`` on ``widget``.  QtTest is not in every
+    PySide6 build, so the events are sent as it would send them."""
+    for kind in (QEvent.KeyPress, QEvent.KeyRelease):
+        QApplication.sendEvent(widget, QKeyEvent(kind, key, Qt.NoModifier,
+                                                 text))
 
 
 @testing.requires_pilot
@@ -118,6 +129,46 @@ class ReflectionControllerTC(unittest.TestCase):
         self.assertEqual('finished', ctl.state)
         self.assertEqual(5, ctl.session.step)
 
+    def test_a_higher_cap_lets_a_finished_run_go_on(self):
+        ctl = self.ctl
+        numerics = self.column.numerics
+        numerics._cap.setValue(5)
+        ctl.step()
+        self.assertEqual('finished', ctl.state)
+        session = ctl.session
+        numerics._cap.setValue(20)
+        self.assertEqual('paused', ctl.state)
+        self.assertTrue(self._enabled()['step'])
+        ctl.step()
+        self.assertIs(session, ctl.session)
+        self.assertEqual(10, session.step)
+
+    def test_a_cap_change_keeps_a_failed_run_failed(self):
+        ctl = self.ctl
+        ctl.run()
+        with mock.patch.object(ctl.session, 'advance',
+                               side_effect=RuntimeError("blew up")), \
+                mock.patch('sys.excepthook'):
+            ctl._tick()
+        self.column.numerics._cap.setValue(1)
+        self.assertEqual('failed', ctl.state)
+        self.assertEqual(('Failed', 'bad'), self.strip.pill())
+
+    def test_a_cap_applies_once_typed_whole(self):
+        ctl = self.ctl
+        ctl.step()
+        ctl.step()
+        cap = self.column.numerics._cap
+        cap.lineEdit().selectAll()
+        for digit in "5000":
+            # The code of a digit key is the digit's character code.
+            _key(cap, ord(digit), digit)
+        self.assertEqual('paused', ctl.state)
+        self.assertEqual(2000, ctl.session.max_steps)
+        _key(cap, Qt.Key_Return)
+        self.assertEqual(5000, ctl.session.max_steps)
+        self.assertEqual('paused', ctl.state)
+
     def test_an_invalid_mach_keeps_the_standing_run(self):
         ctl = self.ctl
         ctl.step()
@@ -130,6 +181,10 @@ class ReflectionControllerTC(unittest.TestCase):
         self.assertIn("1.1 to 20", freestream.error_text())
         self.assertNotIn("nx", freestream.error_text())
         self.assertFalse(self._enabled()['reset'])
+        # The groups may be folded, so the strip and the heads say it too.
+        self.assertIn("Free stream and Numerics",
+                      self.strip._failure.full_text)
+        self.assertTrue(freestream.summary().endswith("(invalid)"))
         self.assertFalse(ctl.reset())
         self.assertIs(session, ctl.session)
         self.assertEqual('paused', ctl.state)
@@ -177,6 +232,9 @@ class ReflectionControllerTC(unittest.TestCase):
             self.figure.profile.frame.computed)
         self.assertEqual(5, ctl.session.step)
 
+    def test_the_timer_goes_with_the_window(self):
+        self.assertIs(self.window, self.ctl._timer.parent())
+
     def test_a_raising_march_fails_the_run(self):
         ctl = self.ctl
         ctl.run()
@@ -203,6 +261,9 @@ class ReflectionControllerTC(unittest.TestCase):
         self.assertEqual('paused', ctl.state)
         self.assertEqual(10, ctl.setup.angle)
         self.assertIn("no mesh", self.strip._failure.full_text)
+        # An edit after it leaves the message behind.
+        _type(self.column.freestream.fields['angle'], "12")
+        self.assertEqual('', self.strip._failure.full_text)
 
     def test_a_density_no_longer_finite_fails_the_run(self):
         ctl = self.ctl
