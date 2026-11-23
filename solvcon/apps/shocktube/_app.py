@@ -8,6 +8,7 @@ from PySide6.QtCore import QTimer
 
 from ...pilot import base
 
+from . import _figure
 from . import _panel
 from . import _riemann
 from . import _shocktube
@@ -180,7 +181,7 @@ class ShockTubeApp(base.PilotFeature):
         svr = self.st.svr
         points = (svr.coord[svr.xindices],
                   {name: getattr(svr, name)[svr.xindices]
-                   for name, _ in _window.QUANTITIES})
+                   for name, _ in _figure.QUANTITIES})
         if 'cells' == self.window.exact_mode():
             exact = self.exact_averages(points[0], time)
         else:
