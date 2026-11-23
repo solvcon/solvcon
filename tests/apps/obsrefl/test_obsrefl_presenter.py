@@ -22,6 +22,7 @@ from solvcon.apps.obsrefl import ReflectionSession
 from solvcon.apps.obsrefl import _presenter
 from solvcon.apps.obsrefl import _setup
 from solvcon.apps.obsrefl import _viewmodel
+from solvcon.pilot import panel
 
 
 def _session(chunks=0, **kw):
@@ -181,7 +182,7 @@ class StripStateTC(unittest.TestCase):
         sess = _session(chunks=2, time_increment=1e-3, max_steps=50)
         strip = _presenter.strip_state(sess, 'paused', dirty=True,
                                        can_reset=False)
-        self.assertEqual(_viewmodel.StripState(
+        self.assertEqual(panel.StripState(
             'paused', 10, 50, 10 * 1e-3, 50 * 1e-3, '', True, False), strip)
 
 
