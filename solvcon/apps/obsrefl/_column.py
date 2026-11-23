@@ -10,10 +10,10 @@ from PySide6.QtWidgets import (QFrame, QGridLayout, QLabel, QScrollArea,
                                QVBoxLayout, QWidget)
 
 from ... import pilot
+from ...pilot import panel
 
 from . import _forms
 from . import _viewmodel
-from . import _widgets
 
 __all__ = [
     'ControlColumn',
@@ -73,7 +73,7 @@ class ResultsCard(QFrame):
             label.setFont(number if label.property("numeric") else
                           small if label.property("small") else plain)
         for head in self._heads:
-            head.setFont(_widgets.head_font(self.font()))
+            head.setFont(panel.head_font(self.font()))
 
     def _label(self, text="", name=None, numeric=False, align=Qt.AlignLeft):
         label = QLabel(text)
@@ -157,7 +157,7 @@ class ResultsCard(QFrame):
         """
         if results is None:
             self._clear()
-            _widgets.say(self._note, "No run")
+            panel.say(self._note, "No run")
             pilot.set_style_property(self._note, "tone", "muted")
             return
         if self._shape != self._shape_of(results):
@@ -180,7 +180,7 @@ class ResultsCard(QFrame):
         for label, text in results.rows:
             self._rows[label].setText(text)
         text, tone = results.note if results.note else ("", "")
-        _widgets.say(self._note, text)
+        panel.say(self._note, text)
         pilot.set_style_property(self._note, "tone", tone or "muted")
 
     def cell(self, section, row, col):
@@ -211,7 +211,7 @@ class ResultsCard(QFrame):
         return "" if self._note.isHidden() else self._note.text()
 
 
-class ControlColumn(_widgets.Styled, QScrollArea):
+class ControlColumn(panel.Styled, QScrollArea):
     """The control column: the results card over the folded groups.
 
     The column is a plain widget, which the app docks as a panel beside

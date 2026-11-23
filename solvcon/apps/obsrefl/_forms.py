@@ -12,11 +12,11 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QLabel,
                                QLineEdit, QSizePolicy, QSpinBox)
 
 from ... import pilot
+from ...pilot import panel
 
 from . import _session
 from . import _setup
 from . import _viewmodel
-from . import _widgets
 
 __all__ = [
     'DisplayGroup',
@@ -60,7 +60,7 @@ class _NumberField(QLineEdit):
                                  "true" if invalid else "false")
 
 
-class _SetupGroup(_widgets.FoldGroup):
+class _SetupGroup(panel.ColumnGroup):
     """A group of fields of the :class:`~._setup.ReflectionSetup`, which
     wait for Reset.
 
@@ -96,14 +96,14 @@ class _SetupGroup(_widgets.FoldGroup):
         self._grid.setColumnStretch(1, 1)
 
     def _add_row(self, text, widget, tip=""):
-        self._grid.addWidget(_widgets.form_label(text, tip), self._row, 0)
+        self._grid.addWidget(panel.form_label(text, tip), self._row, 0)
         self._grid.addWidget(widget, self._row, 1)
         self._row += 1
 
     def _add_messages(self):
         """Put the hint and the error under the rows."""
-        self._hint = _widgets.message("hint")
-        self._error = _widgets.message("fieldError")
+        self._hint = panel.message("hint")
+        self._error = panel.message("fieldError")
         for label in (self._hint, self._error):
             self._grid.addWidget(label, self._row, 0, 1, 2)
             self._row += 1
@@ -162,7 +162,7 @@ class _SetupGroup(_widgets.FoldGroup):
         """
         for key, field in self.fields.items():
             field.set_invalid(key in errors)
-        _widgets.say(self._error, "\n".join(
+        panel.say(self._error, "\n".join(
             errors[key] for key in self.KEYS if key in errors))
 
     def error_text(self):
@@ -189,8 +189,8 @@ class _SetupGroup(_widgets.FoldGroup):
 
         :param dirty: Whether edits wait.
         """
-        _widgets.say(self._hint, "Edited: Reset applies the changes."
-                     if dirty else "")
+        panel.say(self._hint, "Edited: Reset applies the changes."
+                  if dirty else "")
 
     def _on_edit(self, *_args):
         if self.edited is not None:
@@ -263,7 +263,7 @@ class NumericsGroup(_SetupGroup):
         self._add_row("steps / frame", self._frame, self._frame.toolTip())
         self.set_run_settings(_session.ReflectionSession.MAX_STEPS,
                               _session.ReflectionSession.STEPS_PER_CHUNK)
-        _widgets.guard_wheel(self._cells, self._cap, self._frame)
+        panel.guard_wheel(self._cells, self._cap, self._frame)
         for spin in (self._cap, self._frame):
             # Applied as typed, the "5" of a new cap of 5000 would end the
             # run at once.
@@ -308,7 +308,7 @@ class NumericsGroup(_SetupGroup):
             self.run_changed(*self.run_settings())
 
 
-class DisplayGroup(_widgets.FoldGroup):
+class DisplayGroup(panel.ColumnGroup):
     """What the figure shows of the run: the field, the color bar, the
     marks of the profile cut, and its height.  None of it marches the run,
     so an edit applies at once.  The group is passive: it shows what it is
@@ -338,19 +338,19 @@ class DisplayGroup(_widgets.FoldGroup):
         self._cut.setToolTip("The height of the profile, a fraction of the "
                              "domain height; the default crosses both "
                              "shocks")
-        grid.addWidget(_widgets.form_label("field", self._field.toolTip()),
+        grid.addWidget(panel.form_label("field", self._field.toolTip()),
                        0, 0)
         grid.addWidget(self._field, 0, 1, 1, 2)
         grid.addWidget(self._bar, 1, 0, 1, 2)
         grid.addWidget(self._cells, 2, 0)
         grid.addWidget(self._line, 2, 1, 1, 2)
-        grid.addWidget(_widgets.form_label("cut height", self._cut.toolTip()),
+        grid.addWidget(panel.form_label("cut height", self._cut.toolTip()),
                        3, 0)
         grid.addWidget(self._cut, 3, 1, 1, 2)
         grid.setColumnStretch(1, 1)
         self._controls = (self._field, self._bar, self._cells, self._line,
                           self._cut)
-        _widgets.guard_wheel(self._field, self._cut)
+        panel.guard_wheel(self._field, self._cut)
         self.show_display(_viewmodel.Display())
         self._field.currentIndexChanged.connect(self._on_change)
         for box in (self._bar, self._cells, self._line):

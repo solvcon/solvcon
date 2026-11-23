@@ -11,10 +11,10 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QProgressBar,
                                QWidget)
 
 from ... import pilot
+from ...pilot import panel
 
 from . import _column
 from . import _viewmodel
-from . import _widgets
 
 __all__ = [
     'ReflectionWindow',
@@ -50,7 +50,7 @@ class RunStrip(QFrame):
         #: The run state shown, one of :data:`._viewmodel.STATES`.
         self.state = 'ready'
 
-        self._problem = _widgets.ElidedLabel()
+        self._problem = panel.ElidedLabel()
         self._problem.setObjectName("stripProblem")
         self._problem.shortest = "Mach 3..."
         self._run = QPushButton("Run")
@@ -74,11 +74,11 @@ class RunStrip(QFrame):
         self._pill = QLabel("Ready")
         self._pill.setObjectName("pill")
         self._pill.setAlignment(Qt.AlignCenter)
-        self._failure = _widgets.ElidedLabel()
+        self._failure = panel.ElidedLabel()
         self._failure.setObjectName("failure")
         self._time = QLabel("")
         self._time.setObjectName("stripTime")
-        self._steps = _widgets.Fitted()
+        self._steps = panel.Fitted()
         self._steps.setObjectName("stripCaption")
         self._progress = QProgressBar()
         self._progress.setObjectName("progress")
@@ -120,20 +120,19 @@ class RunStrip(QFrame):
         the current palette."""
         shades, ratio = pilot.Shades(self), self.devicePixelRatioF()
         # Drawn once per palette and scale; a frame only picks one.
-        self._run_icons = {name: _widgets.icon(name, shades.on_accent, 11,
-                                               ratio)
+        self._run_icons = {name: panel.icon(name, shades.on_accent, 11,
+                                            ratio)
                            for name in ('play', 'pause')}
-        self._step.setIcon(_widgets.icon('step', shades.on_base, 11, ratio))
-        self._reset.setIcon(_widgets.icon('reset', shades.on_base, 12,
-                                          ratio))
+        self._step.setIcon(panel.icon('step', shades.on_base, 11, ratio))
+        self._reset.setIcon(panel.icon('reset', shades.on_base, 12, ratio))
         self._time.setFont(pilot.number_font(self.font(), 13,
                                              QFont.DemiBold))
         self._steps.setFont(pilot.number_font(self.font(), 11))
         self._set_run_icon()
         # The widths come from the styled fonts, so they are measured here.
-        _widgets.reserve_width(self._run, list(self.RUN_TEXT.values()))
-        _widgets.reserve_width(self._pill,
-                               [text for text, _ in self.PILL.values()])
+        panel.reserve_width(self._run, list(self.RUN_TEXT.values()))
+        panel.reserve_width(self._pill,
+                            [text for text, _ in self.PILL.values()])
 
     def _set_run_icon(self):
         self._run.setIcon(self._run_icons['pause' if 'running' == self.state
@@ -193,7 +192,7 @@ class RunStrip(QFrame):
         return self._pill.text(), self._pill.property("tone")
 
 
-class ReflectionWindow(_widgets.Styled, QWidget):
+class ReflectionWindow(panel.Styled, QWidget):
     """The reflection window: the run strip over the figure it is handed.
     The control column docks beside it as a panel of its own.
 
