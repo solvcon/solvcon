@@ -6,7 +6,7 @@
 parameters and what the figure shows."""
 
 from PySide6.QtCore import QSignalBlocker
-from PySide6.QtWidgets import QCheckBox, QComboBox
+from PySide6.QtWidgets import QComboBox
 
 from ...pilot import panel
 
@@ -102,7 +102,7 @@ class DisplayGroup(panel.ColumnGroup):
                                         "panel each"), 0, 0)
         for it, (name, label) in enumerate(
                 _viewmodel.QUANTITY_LABELS.items()):
-            box = QCheckBox(label)
+            box = panel.CheckBox(label)
             self.quantity_boxes[name] = box
             grid.addWidget(box, 1 + it // 2, it % 2)
         row = 1 + (len(self.quantity_boxes) + 1) // 2
@@ -119,7 +119,7 @@ class DisplayGroup(panel.ColumnGroup):
         #: The box of each switch of :data:`OPTIONS`, by name.
         self.option_boxes = {}
         for it, (key, text, tip) in enumerate(self.OPTIONS):
-            box = QCheckBox(text)
+            box = panel.CheckBox(text)
             box.setToolTip(tip)
             self.option_boxes[key] = box
             grid.addWidget(box, row + 1 + it // 2, it % 2)

@@ -14,9 +14,9 @@ from .. import _pilot_core as _pcore
 
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_app_config': ['AppConfig'],
-    '_app_widgets': ['ColumnGroup', 'ElidedLabel', 'Fitted', 'GLYPHS',
-                     'Styled', 'form_label', 'guard_wheel', 'head_font',
-                     'icon', 'message', 'reserve_width', 'say'],
+    '_app_widgets': ['CheckBox', 'ColumnGroup', 'ElidedLabel', 'Fitted',
+                     'GLYPHS', 'Styled', 'form_label', 'guard_wheel',
+                     'head_font', 'icon', 'message', 'reserve_width', 'say'],
     '_capture_panel': ['CaptureWidget'],
     '_console': ['ConsolePanel'],
     '_control_column': ['ControlColumn'],

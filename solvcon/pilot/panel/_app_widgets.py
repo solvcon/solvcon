@@ -12,13 +12,15 @@ or of the subclass an app names in :attr:`Styled.RULES`.
 from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt
 from PySide6.QtGui import (QFont, QGuiApplication, QIcon, QPainter,
                            QPainterPath, QPen, QPixmap)
-from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy
+from PySide6.QtWidgets import (QCheckBox, QGridLayout, QLabel, QProxyStyle,
+                               QSizePolicy, QStyle)
 
 from .. import _style
 from . import _fold
 
 
 __all__ = [
+    'CheckBox',
     'ColumnGroup',
     'ElidedLabel',
     'Fitted',
@@ -123,6 +125,78 @@ def form_label(text, tip=""):
     if tip:
         label.setToolTip(tip)
     return label
+
+
+#: The check of a check box, a polyline on a unit square.
+_CHECK = ((0.27, 0.52), (0.43, 0.68), (0.74, 0.33))
+# Short enough to keep a gap between the boxes of the rows a form stacks.
+#: The side of the box, in device-independent pixels.
+_CHECK_SIDE = 14
+
+
+class _CheckStyle(QProxyStyle):
+    """Draw the box of a check box in the colors of the widget's palette,
+    and leave the rest to the style it stands in for."""
+
+    # The macOS check is set heavier than the form text beside it and runs
+    # into the box of the next row, and no style sheet reaches either, so
+    # the box and its check are drawn here.
+    def drawPrimitive(self, element, option, painter, widget=None):
+        if (QStyle.PE_IndicatorCheckBox != element) or (widget is None):
+            super().drawPrimitive(element, option, painter, widget)
+            return
+        shades = _style.Shades(widget)
+        state = option.state
+        on = not (state & QStyle.State_Off)
+        enabled = bool(state & QStyle.State_Enabled)
+        # The macOS layout stacks the rows of a form closer than the boxes'
+        # own height, so a box as tall as its rectangle meets the next.
+        side = min(option.rect.width(), option.rect.height(), _CHECK_SIDE)
+        box = QRectF(0, 0, side, side)
+        box.moveCenter(QRectF(option.rect).center())
+        if not on:
+            fill = shades.raised(0.22 if state & QStyle.State_Sunken
+                                 else _style.RULE_MIX)
+        elif enabled:
+            fill = shades.accent
+        else:
+            fill = shades.blend(shades.accent, shades.panel, 0.5)
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(fill)
+        painter.drawRoundedRect(box, side * 0.25, side * 0.25)
+        if on:
+            pen = QPen(shades.on_accent, side * 0.1)
+            pen.setCapStyle(Qt.RoundCap)
+            pen.setJoinStyle(Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            if state & QStyle.State_NoChange:
+                middle = box.center().y()
+                painter.drawLine(QPointF(box.left() + side * 0.28, middle),
+                                 QPointF(box.right() - side * 0.28, middle))
+            else:
+                painter.drawPolyline([
+                    QPointF(box.left() + across * side,
+                            box.top() + down * side)
+                    for across, down in _CHECK])
+        painter.restore()
+
+
+class CheckBox(QCheckBox):
+    """A check box whose check is as light as the form text beside it, the
+    same on every platform.
+
+    :param text: The text beside the box.
+    """
+
+    def __init__(self, text="", parent=None):
+        super().__init__(text, parent)
+        # Parented to the box, the style lives exactly as long as it.
+        self._check_style = _CheckStyle()
+        self._check_style.setParent(self)
+        self.setStyle(self._check_style)
 
 
 class _WheelGuard(QObject):
