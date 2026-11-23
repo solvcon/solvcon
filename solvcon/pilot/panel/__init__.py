@@ -5,9 +5,9 @@
 """
 The dock panels: the entity tree, the window manager, the profiling
 view, screen capture, the Console panel, and the app config, with the
-fold group of a config column, and the run strip, the window, the results
-card, the setup groups, and the small widgets an app window and its control
-column are built of.
+fold group of a config column, and what an app window and its control
+column are built of: the run strip, the window, the run controller, the
+results card, the setup groups, and the small widgets.
 """
 
 from .. import _pilot_core as _pcore
@@ -25,6 +25,7 @@ __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
                  'format_error', 'format_number', 'format_sci',
                  'format_signed', 'tone_of'],
     '_results_card': ['ResultsCard'],
+    '_run_control': ['RunController'],
     '_run_strip': ['RunStrip', 'RunWindow'],
     '_setup_group': ['NumberField', 'SetupGroup'],
     '_tree_panel': ['EntityTreeWidget', 'MeshInfoTree', 'TreePanel',
