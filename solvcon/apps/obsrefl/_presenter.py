@@ -37,29 +37,30 @@ FIT_LABELS = ('shock angle', 'wall x')
 
 def _no_cells(zone):
     """Return the cells of a zone the margin leaves empty."""
-    return (_viewmodel.Cell("no cells", 'muted',
-                            f"no cell of zone {zone} stands clear of the "
-                            f"shocks by the margin"),
-            _viewmodel.Cell("-", 'muted'))
+    return (panel.Cell("no cells", 'muted',
+                       f"no cell of zone {zone} stands clear of the "
+                       f"shocks by the margin"),
+            panel.Cell("-", 'muted'))
 
 
 def _zone_rows(infos):
-    """Return a :class:`~._viewmodel.ResultRow` per zone of ``infos``."""
+    """Return a :class:`~solvcon.pilot.panel.ResultRow` per zone of
+    ``infos``."""
     rows = []
     for info in infos:
-        exact = _viewmodel.Cell(_viewmodel.format_number(info.analytic))
+        exact = panel.Cell(panel.format_number(info.analytic))
         if 0 == info.count:
             computed, error = _no_cells(info.zone)
         else:
-            computed = _viewmodel.Cell(
-                _viewmodel.format_number(info.computed), '',
+            computed = panel.Cell(
+                panel.format_number(info.computed), '',
                 f"mean over {info.count} cells")
             tip = ("the exact value is 0, so no error is relative to it"
                    if 0 == info.analytic else "")
-            error = _viewmodel.Cell(_viewmodel.format_error(info.error),
-                                    _viewmodel.tone_of(info.error), tip)
-        rows.append(_viewmodel.ResultRow(f"zone {info.zone}", computed,
-                                         exact, error))
+            error = panel.Cell(panel.format_error(info.error),
+                               panel.tone_of(info.error), tip)
+        rows.append(panel.ResultRow(f"zone {info.zone}", computed,
+                                    exact, error))
     return tuple(rows)
 
 
@@ -72,7 +73,7 @@ def _fit_rows(session):
     fit = session.fit_incident_angle()
     point = session.reflection_point()
     formed = fit.npoint >= 2 and math.isfinite(fit.degree)
-    unformed = _viewmodel.Cell(
+    unformed = panel.Cell(
         "not formed", 'muted',
         f"the fit ran through {fit.npoint} density "
         f"{'crossing' if 1 == fit.npoint else 'crossings'}; a shock "
@@ -84,22 +85,22 @@ def _fit_rows(session):
             (FIT_LABELS[1], point.x, point.analytic, point.error,
              "where the incident shock meets the wall")):
         if math.isfinite(target):
-            exact = _viewmodel.Cell(_viewmodel.format_number(target), '',
-                                    unit)
+            exact = panel.Cell(panel.format_number(target), '',
+                               unit)
         else:
-            exact = _viewmodel.Cell("none", 'muted',
-                                    "the domain is too short to hold the "
-                                    "reflection")
+            exact = panel.Cell("none", 'muted',
+                               "the domain is too short to hold the "
+                               "reflection")
         if not (formed and math.isfinite(value)):
-            rows.append(_viewmodel.ResultRow(label, unformed, exact,
-                                             _viewmodel.Cell("-", 'muted')))
+            rows.append(panel.ResultRow(label, unformed, exact,
+                                        panel.Cell("-", 'muted')))
             continue
-        rows.append(_viewmodel.ResultRow(
-            label, _viewmodel.Cell(_viewmodel.format_number(value), '',
-                                   f"{unit}; fitted through {fit.npoint} "
-                                   f"crossings"),
-            exact, _viewmodel.Cell(_viewmodel.format_error(error),
-                                   _viewmodel.tone_of(error))))
+        rows.append(panel.ResultRow(
+            label, panel.Cell(panel.format_number(value), '',
+                              f"{unit}; fitted through {fit.npoint} "
+                              f"crossings"),
+            exact, panel.Cell(panel.format_error(error),
+                              panel.tone_of(error))))
     return tuple(rows)
 
 
@@ -111,7 +112,7 @@ def _run_rows(session):
         return (('mass drift', "-"), ('CFL', "-"))
     first, last = records[0], records[-1]
     drift = (last.mass - first.mass) / first.mass
-    return (('mass drift', _viewmodel.format_signed(drift)),
+    return (('mass drift', panel.format_signed(drift)),
             ('CFL', f"{last.cfl_min:.2f} to {last.cfl_max:.2f}"))
 
 
@@ -120,14 +121,14 @@ def results(session, name):
     ``session`` for the field ``name``.
 
     Every number the card reads is the one :class:`~._analytic.Reflection`
-    measures, so the card and a script judge a run alike.
-    A zone error reads good, plain, or bad by
-    :func:`~._viewmodel.tone_of`; a zone the margin leaves empty reads "no
-    cells", and a fit through fewer than two crossings "not formed", both
-    muted.  A field without an exact value has no zone rows, and the fits,
-    which always read the density, stay.  A reflected shock through the top
-    inlet leaves the run parameters valid but the comparison void, which
-    the note says in the bad tone.
+    measures, so the card and a script judge a run alike.  A zone error
+    reads good, plain, or bad by :func:`~solvcon.pilot.panel.tone_of`; a
+    zone the margin leaves empty reads "no cells", and a fit through fewer
+    than two crossings "not formed", both muted.  A field without an exact
+    value has no zone rows, and the fits, which always read the density,
+    stay.  A reflected shock through the top inlet leaves the run
+    parameters valid but the comparison void, which the note says in the
+    bad tone.
     """
     analysis = session.analysis
     label = _viewmodel.FIELD_LABELS[name]
@@ -177,8 +178,8 @@ def field_frame(session, display):
     if display.mark_cells:
         cells = np.nonzero(analysis.profile_cells(height))[0].astype('int64')
     caption = (f"{label}, step {session.step}: "
-               f"{_viewmodel.format_number(vmin)} to "
-               f"{_viewmodel.format_number(vmax)}")
+               f"{panel.format_number(vmin)} to "
+               f"{panel.format_number(vmax)}")
     return _viewmodel.FieldFrame(
         name=name, label=label, values=values, lo=lo, hi=hi,
         caption=caption, gauge_cells=cells,

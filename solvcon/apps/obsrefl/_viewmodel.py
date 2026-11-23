@@ -8,24 +8,16 @@ The presenter (:mod:`._presenter`) fills the records, and the widgets only
 read them.
 """
 
-import math
 import typing
 
 import numpy as np
 
 __all__ = [
-    'Cell',
     'Display',
     'FIELD_LABELS',
     'FieldFrame',
     'ProfileFrame',
-    'ResultRow',
     'Results',
-    'format_error',
-    'format_number',
-    'format_sci',
-    'format_signed',
-    'tone_of',
 ]
 
 #: Display names of :attr:`~solvcon.multidim.euler.EulerField.FIELDS`; the
@@ -42,41 +34,17 @@ FIELD_LABELS = {
 }
 
 
-class Cell(typing.NamedTuple):
-    """One value of the results card."""
-
-    #: What the cell reads.
-    text: str
-    #: 'good', 'bad', 'muted', or empty for the plain ink.
-    tone: str = ''
-    #: The tooltip, or empty for none.
-    tip: str = ''
-
-
-class ResultRow(typing.NamedTuple):
-    """One row of a table of the results card: a computed value against
-    the exact one, and the error between them."""
-
-    #: What the row is of, such as ``'zone 1'``.
-    label: str
-    #: The :class:`Cell` of the computed value.
-    computed: Cell
-    #: The :class:`Cell` of the exact value.
-    exact: Cell
-    #: The :class:`Cell` of the error between them.
-    error: Cell
-
-
 class Results(typing.NamedTuple):
     """What the results card reads."""
 
     #: The display label of the field the zones compare.
     field: str
-    #: A :class:`ResultRow` per zone, ``'zone 1'`` first; empty for a field
-    #: the analytic solution gives no value of.
+    #: A :class:`~solvcon.pilot.panel.ResultRow` per zone, ``'zone 1'``
+    #: first; empty for a field the analytic solution gives no value of.
     zones: tuple
-    #: The :class:`ResultRow` of the fitted ``'shock angle'``, in degrees,
-    #: and of the ``'wall x'`` of the reflection point.
+    #: The :class:`~solvcon.pilot.panel.ResultRow` of the fitted ``'shock
+    #: angle'``, in degrees, and of the ``'wall x'`` of the reflection
+    #: point.
     fits: tuple
     #: ``(label, text)`` of the run figures, such as the mass drift and the
     #: CFL range.
@@ -139,66 +107,6 @@ class ProfileFrame(typing.NamedTuple):
     #: What the frame is a frame of, compared with ``==``: a frame of
     #: another key resets the zoom, and no other change does.
     key: object = None
-
-
-def format_sci(value, digits=3):
-    """Return ``value`` in short scientific notation, ``2.71e-3`` rather
-    than ``2.71e-03``; a value that is not finite reads "undefined"."""
-    if not math.isfinite(value):
-        return "undefined"
-    if 0 == value:
-        return "0"
-    mantissa, exponent = f"{value:.{digits - 1}e}".split("e")
-    return f"{mantissa}e{int(exponent)}"
-
-
-def format_number(value, digits=4):
-    """Return ``value`` to ``digits`` significant digits, in scientific
-    notation where a fixed one would run long, and "undefined" like
-    :func:`format_sci`."""
-    if not math.isfinite(value):
-        return format_sci(value)
-    magnitude = abs(value)
-    if magnitude and (magnitude >= 1e5 or magnitude < 1e-3):
-        return format_sci(value, digits)
-    return f"{value:.{digits}g}"
-
-
-def format_signed(value, digits=2):
-    """Return ``value`` like :func:`format_sci` with its sign spelled out,
-    so a drift reads which way it went."""
-    if not math.isfinite(value) or 0 == value:
-        return format_sci(value, digits)
-    return ("+" if value > 0 else "") + format_sci(value, digits)
-
-
-def format_error(value):
-    """Return the relative error ``value`` in percent with its sign,
-    ``0.0123`` as ``+1.23%``.
-
-    An error too small or too large for two decimals of a percent goes
-    scientific rather than reading ``+0.00%`` or running long; a value that
-    is not finite reads "undefined".
-    """
-    if not math.isfinite(value):
-        return "undefined"
-    percent = 100.0 * value
-    if 0 == percent:
-        return "0%"
-    if abs(percent) < 0.01 or abs(percent) >= 1e4:
-        return format_signed(percent) + "%"
-    return f"{percent:+.2f}%"
-
-
-def tone_of(error, good=0.01, poor=0.05):
-    """Return the tone of a relative error: 'good' within ``good``, 'bad'
-    beyond ``poor``, plain between, and 'muted' where it is undefined."""
-    if not math.isfinite(error):
-        return 'muted'
-    magnitude = abs(error)
-    if magnitude <= good:
-        return 'good'
-    return 'bad' if magnitude > poor else ''
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

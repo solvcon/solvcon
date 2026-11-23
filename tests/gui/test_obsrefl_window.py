@@ -19,6 +19,7 @@ try:
     from solvcon import pilot
     if pilot.enable:
         from PySide6.QtWidgets import QApplication, QHBoxLayout, QWidget
+        from solvcon.pilot import panel
         from solvcon.apps.obsrefl import _column, _viewmodel, _window
 except ImportError:
     pilot = None
@@ -48,20 +49,20 @@ class ReflectionWindowTC(unittest.TestCase):
         layout.addWidget(self.column)
         layout.addWidget(self.window, 1)
         self.window.strip.set_problem("Mach 3, 10 deg, 64 x 16")
-        self.window.strip.show_state(pilot.panel.StripState(
+        self.window.strip.show_state(panel.StripState(
             'paused', 120, 2000, 0.24, 4.0))
         self.column.card.show_results(_viewmodel.Results(
             field="density",
-            zones=tuple(_viewmodel.ResultRow(
-                f"zone {it}", _viewmodel.Cell("1.000"),
-                _viewmodel.Cell("1.004"), _viewmodel.Cell("+0.42%", 'good'))
+            zones=tuple(panel.ResultRow(
+                f"zone {it}", panel.Cell("1.000"),
+                panel.Cell("1.004"), panel.Cell("+0.42%", 'good'))
                 for it in (1, 2, 3)),
-            fits=(_viewmodel.ResultRow(
-                "shock angle", _viewmodel.Cell("29.31"),
-                _viewmodel.Cell("29.32"), _viewmodel.Cell("-0.03%")),
-                  _viewmodel.ResultRow(
-                "wall x", _viewmodel.Cell("2.850"),
-                _viewmodel.Cell("2.851"), _viewmodel.Cell("-0.04%"))),
+            fits=(panel.ResultRow(
+                "shock angle", panel.Cell("29.31"),
+                panel.Cell("29.32"), panel.Cell("-0.03%")),
+                  panel.ResultRow(
+                "wall x", panel.Cell("2.850"),
+                panel.Cell("2.851"), panel.Cell("-0.04%"))),
             rows=(("mass drift", "+1.2e-9"), ("CFL", "0.41-0.52")),
             caption=""))
         self.host.resize(1280, 800)

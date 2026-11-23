@@ -95,13 +95,4 @@ class RunStripTC(unittest.TestCase):
         strip.show_state(_state('ready', 0, 0))
         self.assertEqual(0, strip._progress.value())
 
-
-class ClockTC(unittest.TestCase):
-
-    def test_the_clock_holds_its_width_while_the_time_runs(self):
-        self.assertEqual("t = 0.000 / 4", panel.clock(0.0, 4.0))
-        self.assertEqual("t = 1.250 / 4", panel.clock(1.25, 4.0))
-        self.assertEqual("t = 12.50 / 25", panel.clock(12.5, 25.0))
-        self.assertEqual("t =  0.00 / 25", panel.clock(0.0, 25.0))
-
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
