@@ -1,10 +1,50 @@
 # Copyright (c) 2025, solvcon team <contact@solvcon.net>
 # BSD 3-Clause License, see COPYING
 
+import contextlib
+import signal
 
 from .. import _pilot_core as _pcore
 from ...core import Toggle
 from PySide6 import QtCore, QtGui
+
+
+# Milliseconds between the wake-ups that let the SIGINT handler run.
+INTERRUPT_INTERVAL = 200
+
+
+@contextlib.contextmanager
+def interrupt_exits(stop=QtCore.QCoreApplication.exit,
+                    interval=INTERRUPT_INTERVAL):
+    """Let Ctrl-C end the Qt event loop run inside the block.
+
+    Python runs a signal handler only between bytecodes, and an idle Qt loop
+    runs none, so a timer wakes the interpreter every ``interval``
+    milliseconds to let the handler fire. The handler queues
+    ``stop(128 + SIGINT)``, the status a shell expects of a program stopped
+    by Ctrl-C. It queues rather than calls, because the default stop runs
+    the ``aboutToQuit`` hooks at once, and the handler may interrupt any
+    callback. Ctrl-C during a console command also stops the command, and
+    the loop ends when it returns.
+
+    :param stop: Callable that ends the loop with a status. The default,
+        :meth:`QCoreApplication.exit`, leaves the thread unable to run
+        another event loop until the application loop starts again.
+    :param interval: Milliseconds between wake-ups, the longest Ctrl-C
+        waits for the handler while the loop idles.
+    """
+    def _handle(signum, frame):
+        QtCore.QTimer.singleShot(0, lambda: stop(128 + signum))
+
+    previous = signal.signal(signal.SIGINT, _handle)
+    timer = QtCore.QTimer()
+    timer.timeout.connect(lambda: None)
+    timer.start(interval)
+    try:
+        yield
+    finally:
+        timer.stop()
+        signal.signal(signal.SIGINT, previous)
 
 
 def apply_label_mode(overlay, on, advanced, coordinates):

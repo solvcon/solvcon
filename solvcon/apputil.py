@@ -158,12 +158,13 @@ def run_worker(func, *args, **kwargs):
     """
     Run ``func`` on a background worker thread and return its Future.
 
-    A command in the console runs on the GUI thread, so heavy work freezes
-    the window until it returns; the console cannot interrupt a running
-    command in-process. Hand such work to this helper instead: the solver
-    core releases the GIL while it computes, so the GUI stays responsive.
     Poll the returned :class:`concurrent.futures.Future` for the result.
     """
+    # A console command runs on the GUI thread, so heavy work freezes the
+    # window until it returns. Ctrl-C in the terminal stops it only between
+    # Python steps, not inside a long solver call, and then quits the pilot.
+    # The solver core releases the GIL while it computes, so the GUI stays
+    # responsive while this worker runs the work.
     global _worker_pool
     if _worker_pool is None:
         _worker_pool = ThreadPoolExecutor(

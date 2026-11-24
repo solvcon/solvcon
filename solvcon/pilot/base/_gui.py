@@ -128,7 +128,8 @@ class _Controller(metaclass=_Singleton):
     def launch(self, name="pilot", size=(1000, 600)):
         self.build(name=name, size=size)
         self._rmgr.show()
-        return self._rmgr.exec()
+        with _gui_common.interrupt_exits():
+            return self._rmgr.exec()
 
     def build(self, name="pilot", size=(1000, 600)):
         """Assemble the window, features, and menu bar without the event

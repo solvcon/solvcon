@@ -13,7 +13,9 @@ import codeop
 import contextlib
 import io
 import re
+import signal
 import sys
+import threading
 import time
 
 from PySide6.QtCore import (Qt, QCoreApplication, QStringListModel, QTimer,
@@ -242,10 +244,11 @@ def _exec_tree(tree, namespace, console):
     if tree.body and isinstance(tree.body[-1], ast.Expr):
         last = ast.Expression(tree.body.pop().value)
     try:
-        exec(compile(tree, "<console>", "exec"), namespace)
-        if last is not None:
-            sys.displayhook(eval(compile(last, "<console>", "eval"),
-                                 namespace))
+        with _sigint_interrupts():
+            exec(compile(tree, "<console>", "exec"), namespace)
+            if last is not None:
+                sys.displayhook(eval(compile(last, "<console>", "eval"),
+                                     namespace))
     except SystemExit:
         console.write("SystemExit: use the window controls to quit.\n")
     except BaseException:
@@ -253,6 +256,30 @@ def _exec_tree(tree, namespace, console):
     else:
         return False
     return True
+
+
+@contextlib.contextmanager
+def _sigint_interrupts():
+    """Let Ctrl-C raise :exc:`KeyboardInterrupt` in the command.
+
+    The command stops the way it does in the standard read-eval-print loop.
+    The SIGINT handler the host installed sees the signal first, so the
+    host can still act on it, such as quitting once the command stops.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def _handle(signum, frame):
+        if callable(saved):
+            saved(signum, frame)
+        raise KeyboardInterrupt
+
+    saved = signal.signal(signal.SIGINT, _handle)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, saved)
 
 
 def _show_traceback(console):
