@@ -16,6 +16,8 @@ import math
 
 import numpy as np
 
+from ...pilot import panel
+
 from . import _viewmodel
 
 __all__ = [
@@ -227,15 +229,15 @@ def profile_frame(session, display):
 
 
 def strip_state(session, state, failure='', dirty=False, can_reset=True):
-    """Return the :class:`~._viewmodel.StripState` of ``session`` in
+    """Return the :class:`~solvcon.pilot.panel.StripState` of ``session`` in
     ``state``; the time is the steps marched times the time increment, and
     the end time that of the step cap.  Without a session the strip reads
     step 0 of 0."""
     if session is None:
-        return _viewmodel.StripState(state, 0, 0, 0.0, 0.0, failure, dirty,
-                                     can_reset)
+        return panel.StripState(state, 0, 0, 0.0, 0.0, failure, dirty,
+                                can_reset)
     dt = float(session.shock.svr.time_increment)
-    return _viewmodel.StripState(
+    return panel.StripState(
         state=state, step=session.step, max_steps=session.max_steps,
         time=session.step * dt, t_end=session.max_steps * dt,
         failure=failure, dirty=dirty, can_reset=can_reset)

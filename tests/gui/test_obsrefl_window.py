@@ -48,7 +48,7 @@ class ReflectionWindowTC(unittest.TestCase):
         layout.addWidget(self.column)
         layout.addWidget(self.window, 1)
         self.window.strip.set_problem("Mach 3, 10 deg, 64 x 16")
-        self.window.strip.show_state(_viewmodel.StripState(
+        self.window.strip.show_state(pilot.panel.StripState(
             'paused', 120, 2000, 0.24, 4.0))
         self.column.card.show_results(_viewmodel.Results(
             field="density",

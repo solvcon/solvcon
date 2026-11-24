@@ -21,9 +21,6 @@ __all__ = [
     'ProfileFrame',
     'ResultRow',
     'Results',
-    'STATES',
-    'StripState',
-    'clock',
     'format_error',
     'format_number',
     'format_sci',
@@ -31,8 +28,6 @@ __all__ = [
     'tone_of',
 ]
 
-#: The states a run can be in, in the order a run passes them.
-STATES = ('ready', 'running', 'paused', 'finished', 'failed')
 #: Display names of :attr:`~solvcon.multidim.euler.EulerField.FIELDS`; the
 #: problem is dimensionless, so there is no unit.
 FIELD_LABELS = {
@@ -90,28 +85,6 @@ class Results(typing.NamedTuple):
     caption: str
     #: ``(text, tone)`` under the tables, or None.
     note: tuple = None
-
-
-class StripState(typing.NamedTuple):
-    """What the run strip shows of a run."""
-
-    #: One of :data:`STATES`.
-    state: str
-    #: The steps marched.
-    step: int
-    #: The step cap of the run.
-    max_steps: int
-    #: The time marched, ``step`` times the time increment.
-    time: float
-    #: The time at the step cap.
-    t_end: float
-    #: What made the run fail, or empty.
-    failure: str = ''
-    #: Whether the parameters hold edits the run has not taken.
-    dirty: bool = False
-    #: Whether the edits are valid, so a reset can rebuild the run from
-    #: them.
-    can_reset: bool = True
 
 
 class Display(typing.NamedTuple):
@@ -227,15 +200,5 @@ def tone_of(error, good=0.01, poor=0.05):
         return 'good'
     return 'bad' if magnitude > poor else ''
 
-
-def clock(time, t_end):
-    """Return the time readout ``t = time / t_end``, the time to the
-    decimals four digits of the end time take and padded to the width of
-    the end time, so its width holds while the time runs."""
-    if not (math.isfinite(t_end) and t_end > 0):
-        return f"t = {time:.4g} / {t_end:.4g}"
-    decimals = max(0, 3 - math.floor(math.log10(t_end)))
-    width = len(f"{t_end:.{decimals}f}")
-    return f"t = {time:{width}.{decimals}f} / {t_end:.4g}"
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
