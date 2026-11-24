@@ -5,13 +5,17 @@
 """
 The dock panels: the entity tree, the window manager, the profiling
 view, screen capture, the Console panel, and the app config, with the
-fold group of a config column.
+fold group of a config column and the small widgets an app window and its
+control column are built of.
 """
 
 from .. import _pilot_core as _pcore
 
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_app_config': ['AppConfig'],
+    '_app_widgets': ['ColumnGroup', 'ElidedLabel', 'Fitted', 'GLYPHS',
+                     'Styled', 'form_label', 'guard_wheel', 'head_font',
+                     'icon', 'message', 'reserve_width', 'say'],
     '_capture_panel': ['CaptureWidget'],
     '_console': ['ConsolePanel'],
     '_fold': ['FoldGroup'],

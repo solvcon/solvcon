@@ -11,8 +11,6 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 from ... import pilot
 from ...pilot import visual
 
-from . import _ink
-
 __all__ = [
     'ProfilePlot',
 ]
@@ -57,7 +55,7 @@ class ProfilePlot(pilot.PaletteStyle, QWidget):
         self._apply_style()
 
     def _apply_style(self):
-        ink = _ink.Ink(self)
+        ink = pilot.AppInk(self)
         for series, color in ((self.exact, ink.ink),
                               (self.computed, ink.series('computed'))):
             series.color = pilot.PlotColor(color.red(), color.green(),

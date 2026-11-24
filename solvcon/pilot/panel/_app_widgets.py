@@ -2,11 +2,11 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The small widgets and helpers the reflection window and its control
-column share.
+"""The small widgets and helpers an app window and its control column are
+built of.
 
-None of it knows the reflection; the style sheet comes from the rules of
-:mod:`._style`.
+The style sheet comes from the rules of :class:`~solvcon.pilot.AppRules`,
+or of the subclass an app names in :attr:`Styled.RULES`.
 """
 
 from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt
@@ -14,15 +14,14 @@ from PySide6.QtGui import (QFont, QGuiApplication, QIcon, QPainter,
                            QPainterPath, QPen, QPixmap)
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy
 
-from ... import pilot
-from ...pilot import panel
+from .. import _style
+from . import _fold
 
-from . import _style
 
 __all__ = [
+    'ColumnGroup',
     'ElidedLabel',
     'Fitted',
-    'FoldGroup',
     'GLYPHS',
     'Styled',
     'form_label',
@@ -51,15 +50,13 @@ GLYPHS = {
 def icon(name, color, size=14, ratio=None):
     """Return a :class:`QIcon` of a glyph of :data:`GLYPHS`.
 
-    The glyphs are drawn rather than taken from a font, so they keep one
-    weight on every platform and follow the button text color.
-
     :param name: The glyph, a key of :data:`GLYPHS`.
     :param color: The color it is drawn in.
     :param size: Its side, in device-independent pixels.
     :param ratio: The device pixel ratio it is drawn at, or None for the
-        highest of any screen, which no screen then scales up.
+        highest of the screens.
     """
+    # At the highest ratio no screen scales the pixmap up and blurs it.
     if ratio is None:
         ratio = QGuiApplication.instance().devicePixelRatio()
     pixmap = QPixmap(round(size * ratio), round(size * ratio))
@@ -139,11 +136,12 @@ class _WheelGuard(QObject):
 
 
 def guard_wheel(*widgets):
-    """Let the wheel scroll past the widgets until one is focused, so
-    scrolling the column never changes a value under the pointer.
+    """Let the wheel scroll past the widgets until one is clicked or tabbed
+    into, so scrolling the column never changes a value under the pointer.
 
     :param widgets: The spin boxes and combo boxes to guard.
     """
+    # Strong focus: a wheel alone must not focus the widget it passes.
     for widget in widgets:
         widget.setFocusPolicy(Qt.StrongFocus)
         widget.installEventFilter(_WheelGuard(widget))
@@ -190,23 +188,28 @@ def head_font(font):
     :param font: The font to copy.
     """
     head = QFont(font)
-    head.setPixelSize(pilot.SMALL_PX)
+    head.setPixelSize(_style.SMALL_PX)
     head.setWeight(QFont.DemiBold)
     head.setLetterSpacing(QFont.PercentageSpacing, 110)
     return head
 
 
-class Styled(pilot.PaletteStyle):
-    """Carry the style sheet of the roles a widget and its children draw.
+class Styled(_style.PaletteStyle):
+    """Carry the style sheet of the roles a widget and its children draw,
+    current with the palette.
 
-    The subclass names the roles in :attr:`ROLES` and sets its fonts and
-    icons in ``restyle()``; the sheet and ``restyle()`` run again on a
-    theme switch, once its children exist and it has turned
-    :attr:`_styling` off.
+    A subclass names its roles in :attr:`ROLES` and sets in
+    :meth:`restyle` the fonts and icons a sheet cannot.  It sets
+    ``_styling = False`` once its children exist; from then on every theme
+    switch rebuilds the sheet and calls :meth:`restyle`.
     """
 
-    #: The roles of :class:`._style.Rules` the sheet carries.
+    #: The catalog of the roles, :class:`~solvcon.pilot.AppRules` or an
+    #: app subclass of it.
+    RULES = _style.AppRules
+    #: The roles of :attr:`RULES` the sheet carries.
     ROLES = ()
+    # True until the children exist, and during a pass.
     _styling = True
 
     def restyle(self):
@@ -219,7 +222,7 @@ class Styled(pilot.PaletteStyle):
             return
         self._styling = True
         try:
-            sheet = _style.Rules.sheet(self, *self.ROLES)
+            sheet = self.RULES.sheet(self, *self.ROLES)
             if sheet != self.styleSheet():
                 self.setStyleSheet(sheet)
             self.restyle()
@@ -320,9 +323,12 @@ class Fitted(QLabel):
                           self._forms[-1]))
 
 
-class FoldGroup(panel.FoldGroup):
-    """A group of the column that folds behind its head, styled by the
-    sheet of the column, whose summary elides short of the title."""
+class ColumnGroup(_fold.FoldGroup):
+    """A group of a control column that folds behind its head, styled by
+    the sheet of the column, whose summary elides short of the title.
+
+    A subclass lays its body out on :meth:`_body_grid`.
+    """
 
     #: No sheet of its own: the sheet of the column styles the head.
     HEAD_SHEET = ""
