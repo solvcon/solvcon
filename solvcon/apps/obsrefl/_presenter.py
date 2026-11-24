@@ -4,12 +4,10 @@
 
 """Read a reflection run out into what the widgets of the app show.
 
-The presenter stands between the run and the widgets, as in the
-model-view-presenter pattern.  It reads a
-:class:`~._session.ReflectionSession` into the plain records of
-:mod:`._viewmodel` and hands each widget its record, so a widget draws
-what it is handed and holds none of the logic that decides what a run
-shows.
+The functions read a :class:`~._session.ReflectionSession`, its setup, or
+its display into a record of :mod:`._viewmodel` or a text, and
+:class:`ReflectionPresenter` hands the records to the window and the
+control column.
 """
 
 import math
@@ -120,16 +118,19 @@ def results(session, name):
     """Return the :class:`~._viewmodel.Results` the card reads of
     ``session`` for the field ``name``.
 
-    Every number the card reads is the one :class:`~._analytic.Reflection`
-    measures, so the card and a script judge a run alike.  A zone error
-    reads good, plain, or bad by :func:`~solvcon.pilot.panel.tone_of`; a
-    zone the margin leaves empty reads "no cells", and a fit through fewer
-    than two crossings "not formed", both muted.  A field without an exact
+    A zone error is toned by :func:`~solvcon.pilot.panel.tone_of`; a zone
+    the margin leaves empty reads "no cells", and a fit through fewer than
+    two crossings "not formed", both muted.  A field without an exact
     value has no zone rows, and the fits, which always read the density,
-    stay.  A reflected shock through the top inlet leaves the run
-    parameters valid but the comparison void, which the note says in the
-    bad tone.
+    stay.  The note says, in the bad tone, when the reflected shock
+    reaches the top inlet.
+
+    :param session: The :class:`~._session.ReflectionSession` to read.
+    :param name: The field the zone rows compare.
     """
+    # The card reads the numbers Reflection measures, so the card and a
+    # script judge a run alike.  A reflected shock through the top inlet
+    # leaves the run valid but voids the comparison.
     analysis = session.analysis
     label = _viewmodel.FIELD_LABELS[name]
     infos = session.zone_info(name)
@@ -163,10 +164,13 @@ def field_frame(session, display):
     """Return the :class:`~._viewmodel.FieldFrame` of ``session`` that the
     :class:`~._viewmodel.Display` ``display`` asks for.
 
-    The colors span :meth:`~._analytic.Reflection.color_range`, so a color
-    reads the same value over the run; the caption reads the range of the
-    frame itself.
+    The colors span :meth:`~._analytic.Reflection.color_range`; the
+    caption reads the range of the frame itself.
+
+    :param session: The :class:`~._session.ReflectionSession` to read.
+    :param display: The :class:`~._viewmodel.Display` to read it as.
     """
+    # A range fixed over the run keeps a color reading the same value.
     analysis = session.analysis
     name = display.field
     label = _viewmodel.FIELD_LABELS[name]
@@ -209,11 +213,15 @@ def profile_frame(session, display):
     """Return the :class:`~._viewmodel.ProfileFrame` of ``session`` along
     the cut ``display`` places.
 
-    Both series come off one cut, so they share their abscissae; a field
+    Both series come off one cut and share their abscissae; a field
     without an analytic value pairs the computed one with NaN.  The frame
-    is keyed by the field, so the plot keeps its zoom while the run
-    marches and drops it for another field.
+    is keyed by the field.
+
+    :param session: The :class:`~._session.ReflectionSession` to read.
+    :param display: The :class:`~._viewmodel.Display` to read it as.
     """
+    # The key lets the plot keep its zoom while the run marches and drop
+    # it for another field.
     analysis = session.analysis
     name = display.field
     label = _viewmodel.FIELD_LABELS[name]
@@ -231,9 +239,15 @@ def profile_frame(session, display):
 
 def strip_state(session, state, failure='', dirty=False, can_reset=True):
     """Return the :class:`~solvcon.pilot.panel.StripState` of ``session`` in
-    ``state``; the time is the steps marched times the time increment, and
-    the end time that of the step cap.  Without a session the strip reads
-    step 0 of 0."""
+    ``state``.
+
+    :param session: The :class:`~._session.ReflectionSession` to read, or
+        None, which reads step 0 of 0.
+    :param state: One of :data:`~solvcon.pilot.panel.RUN_STATES`.
+    :param failure: What made the run fail, or empty.
+    :param dirty: Whether the parameters hold edits the run has not taken.
+    :param can_reset: Whether a reset can rebuild the run from the edits.
+    """
     if session is None:
         return panel.StripState(state, 0, 0, 0.0, 0.0, failure, dirty,
                                 can_reset)
@@ -255,7 +269,12 @@ def _pending(text, dirty, invalid):
 def freestream_summary(setup, dirty, invalid=False):
     """Return the summary of the free-stream group of ``setup``, ``Mach 3,
     10 deg, gamma 1.4``, marked when its edits wait for Reset or are
-    wrong."""
+    wrong.
+
+    :param setup: The :class:`~._setup.ReflectionSetup` the group holds.
+    :param dirty: Whether its edits wait for Reset.
+    :param invalid: Whether it holds a value the setup rejects.
+    """
     return _pending(f"Mach {setup.mach:g}, {setup.angle:g} deg, gamma "
                     f"{setup.gamma:g}", dirty, invalid)
 
@@ -263,14 +282,22 @@ def freestream_summary(setup, dirty, invalid=False):
 def numerics_summary(setup, dirty, invalid=False):
     """Return the summary of the numerics group of ``setup``, ``64 x 16
     unstructured, dt 0.002``, marked when its edits wait for Reset or are
-    wrong."""
+    wrong.
+
+    :param setup: The :class:`~._setup.ReflectionSetup` the group holds.
+    :param dirty: Whether its edits wait for Reset.
+    :param invalid: Whether it holds a value the setup rejects.
+    """
     return _pending(f"{setup.nx:g} x {setup.ny:g} {setup.cell_type}, dt "
                     f"{setup.time_increment:g}", dirty, invalid)
 
 
 def display_summary(display):
     """Return the summary of the display group, ``density, color bar, cut
-    0.50``: the field, the marks that show, and the cut height."""
+    0.50``: the field, the marks that show, and the cut height.
+
+    :param display: The :class:`~._viewmodel.Display` to sum up.
+    """
     parts = [_viewmodel.FIELD_LABELS[display.field]]
     parts += [word for word, on in (("color bar", display.bar),
                                     ("cells", display.mark_cells),
@@ -297,7 +324,11 @@ class ReflectionPresenter(object):
     def show(self, session, display):
         """Read ``session`` out as the :class:`~._viewmodel.Display`
         ``display`` asks: the field and the profile into the figure, the
-        results of the field into the card."""
+        results of the field into the card.
+
+        :param session: The :class:`~._session.ReflectionSession` to read.
+        :param display: The :class:`~._viewmodel.Display` to read it as.
+        """
         if self.window is not None:
             figure = self.window.figure
             figure.set_bar_visible(display.bar)

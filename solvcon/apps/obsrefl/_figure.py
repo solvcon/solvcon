@@ -24,15 +24,14 @@ __all__ = [
 
 class ReflectionFigure(pilot.PaletteStyle, QWidget):
     """The domain pane, with its caption and color bar, stacked over the
-    profile plot in a splitter that gives the domain three parts of five.
+    profile plot in a splitter.
 
-    The figure is a view.  It holds no run and imports no solver: its owner
-    hands it the mesh of a run once, then a
-    :class:`~._viewmodel.FieldFrame` and a :class:`~._viewmodel.ProfileFrame`
-    a frame, and the figure draws them.  The cells are colored by the
-    shared :class:`~solvcon.pilot.visual.FieldColorizer`, which also draws
-    the gauge of the profile cut, so the colors and the cut marks are the
-    ones the pilot draws everywhere.
+    The figure holds no run: its owner hands it the mesh of a run once
+    through :meth:`set_mesh`, then a :class:`~._viewmodel.FieldFrame`
+    through :meth:`show_field` and a :class:`~._viewmodel.ProfileFrame`
+    through :meth:`show_profile`.  The cells and the gauge of the profile
+    cut are drawn by the shared
+    :class:`~solvcon.pilot.visual.FieldColorizer`.
 
     :param mgr: The pilot's :class:`~solvcon.pilot.RManager`, or None for
         its instance.

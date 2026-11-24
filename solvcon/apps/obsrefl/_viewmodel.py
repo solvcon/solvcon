@@ -20,8 +20,8 @@ __all__ = [
     'Results',
 ]
 
-#: Display names of :attr:`~solvcon.multidim.euler.EulerField.FIELDS`; the
-#: problem is dimensionless, so there is no unit.
+# The problem is dimensionless, so a label carries no unit.
+#: Display names of :attr:`~solvcon.multidim.euler.EulerField.FIELDS`.
 FIELD_LABELS = {
     'density': 'density',
     'velx': 'x velocity',

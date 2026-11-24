@@ -72,7 +72,8 @@ class RunHistory(object):
 
 
 class ReflectionSession(object):
-    """Own one oblique-shock reflection run.
+    """March the 2D CESE Euler solver through one oblique-shock reflection
+    run.
 
     Building the session builds the flow constants, the mesh, and the solver,
     so a session exists only around a run that is ready to march.  Each

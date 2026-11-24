@@ -10,9 +10,9 @@ enters horizontally from the left, the top boundary holds the state behind
 an incident oblique shock, the bottom slip wall reflects that shock, and the
 flow leaves through the non-reflective outflow on the right.
 
-The driver, the analysis, and the session carry the problem itself and import
-without the pilot, so a script or a no-Qt build runs and judges the
-reflection without the GUI that rides behind the pilot toggle.
+The driver, the setup, the session, the analysis, the view model, and the
+presenter import without Qt, so a script runs, judges, and reads out the
+reflection without the GUI.
 """
 
 from ... import pilot
