@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QProgressBar,
 
 from .. import _style
 from . import _app_widgets
-from . import _run_state
+from . import _readout
 
 __all__ = [
     'RunStrip',
@@ -49,7 +49,7 @@ class RunStrip(QFrame):
         self.step_clicked = None
         #: Owner-supplied callback for Reset.
         self.reset_clicked = None
-        #: The run state shown, one of :data:`~._run_state.RUN_STATES`.
+        #: The run state shown, one of :data:`~._readout.RUN_STATES`.
         self.state = 'ready'
 
         self._problem = _app_widgets.ElidedLabel()
@@ -111,7 +111,7 @@ class RunStrip(QFrame):
         layout.addWidget(self._failure)
         self._failure.hide()
         self.restyle()
-        self.show_state(_run_state.StripState('ready', 0, 0, 0.0, 0.0))
+        self.show_state(_readout.StripState('ready', 0, 0, 0.0, 0.0))
 
     def _call(self, callback):
         if callback is not None:
@@ -155,7 +155,7 @@ class RunStrip(QFrame):
     def show_state(self, strip):
         """Read a strip state out into the strip.
 
-        :param strip: The :class:`~._run_state.StripState` to show.
+        :param strip: The :class:`~._readout.StripState` to show.
         """
         state = strip.state
         self.state = state
@@ -183,7 +183,7 @@ class RunStrip(QFrame):
         failure = " ".join(strip.failure.split())
         self._failure.set_full_text(failure)
         self._failure.setVisible(bool(failure))
-        self._time.setText(_run_state.clock(strip.time, strip.t_end))
+        self._time.setText(_readout.clock(strip.time, strip.t_end))
         nstep = strip.max_steps
         self._steps.set_forms(*((f"step {count} / {nstep}",
                                  f"{count} / {nstep}", f"{count}")

@@ -47,11 +47,11 @@ class ResultsTC(unittest.TestCase):
                          [row.label for row in res.zones])
         for row, info in zip(res.zones, self.marched.zone_info('density')):
             with self.subTest(zone=row.label):
-                self.assertEqual(_viewmodel.format_error(info.error),
+                self.assertEqual(panel.format_error(info.error),
                                  row.error.text)
-                self.assertEqual(_viewmodel.tone_of(info.error),
+                self.assertEqual(panel.tone_of(info.error),
                                  row.error.tone)
-                self.assertEqual(_viewmodel.format_number(info.analytic),
+                self.assertEqual(panel.format_number(info.analytic),
                                  row.exact.text)
                 self.assertIn(f"{info.count} cells", row.computed.tip)
         # The free stream holds while zone 3 has yet to form.
@@ -77,18 +77,18 @@ class ResultsTC(unittest.TestCase):
         fit = sess.fit_incident_angle()
         row = _presenter.results(sess, 'density').fits[0]
         self.assertTrue(math.isfinite(fit.degree))
-        self.assertEqual(_viewmodel.format_number(fit.degree),
+        self.assertEqual(panel.format_number(fit.degree),
                          row.computed.text)
-        self.assertEqual(_viewmodel.format_number(fit.analytic),
+        self.assertEqual(panel.format_number(fit.analytic),
                          row.exact.text)
-        self.assertEqual(_viewmodel.tone_of(fit.error), row.error.tone)
+        self.assertEqual(panel.tone_of(fit.error), row.error.tone)
         self.assertIn(f"{fit.npoint} crossings", row.computed.tip)
 
     def test_the_run_rows_read_the_mass_drift_and_the_cfl(self):
         records = self.marched.history.records
         drift = (records[-1].mass - records[0].mass) / records[0].mass
         rows = dict(_presenter.results(self.marched, 'density').rows)
-        self.assertEqual(_viewmodel.format_signed(drift), rows['mass drift'])
+        self.assertEqual(panel.format_signed(drift), rows['mass drift'])
         self.assertTrue(rows['mass drift'].startswith("+"))
         low, high = records[-1].cfl_min, records[-1].cfl_max
         self.assertEqual(f"{low:.2f} to {high:.2f}", rows['CFL'])

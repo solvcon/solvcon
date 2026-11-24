@@ -15,6 +15,7 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
+        from solvcon.pilot import panel
         from solvcon.apps.obsrefl import _column, _viewmodel
 except ImportError:
     pilot = None
@@ -22,16 +23,16 @@ except ImportError:
 
 def _results(field="density", zones=3):
     """Return the :class:`Results` of a run with ``zones`` zones."""
-    cell = _viewmodel.Cell
-    rows = tuple(_viewmodel.ResultRow(
+    cell = panel.Cell
+    rows = tuple(panel.ResultRow(
         f"zone {it + 1}", cell("1.000"), cell("1.004"),
         cell("+0.42%", 'good', "relative to the exact value"))
         for it in range(zones))
-    fits = (_viewmodel.ResultRow("shock angle", cell("29.31"),
-                                 cell("29.32"), cell("-0.03%", 'good')),
-            _viewmodel.ResultRow("wall x", cell("not formed", 'muted',
-                                                "npoint = 1"),
-                                 cell("2.851"), cell("", 'muted')))
+    fits = (panel.ResultRow("shock angle", cell("29.31"),
+                            cell("29.32"), cell("-0.03%", 'good')),
+            panel.ResultRow("wall x", cell("not formed", 'muted',
+                                           "npoint = 1"),
+                            cell("2.851"), cell("", 'muted')))
     return _viewmodel.Results(
         field=field, zones=rows, fits=fits,
         rows=(("mass drift", "+1.2e-9"), ("CFL", "0.41 to 0.52")),
@@ -49,12 +50,12 @@ class ResultsCardTC(unittest.TestCase):
         card = _column.ResultsCard()
         self.addCleanup(testing.dispose_widget, card)
         card.show_results(_results())
-        self.assertEqual(_viewmodel.Cell("+0.42%", 'good',
-                                         "relative to the exact value"),
+        self.assertEqual(panel.Cell("+0.42%", 'good',
+                                    "relative to the exact value"),
                          card.cell('zones', 2, 2))
         self.assertEqual("1.004", card.cell('zones', 0, 1).text)
-        self.assertEqual(_viewmodel.Cell("not formed", 'muted',
-                                         "npoint = 1"),
+        self.assertEqual(panel.Cell("not formed", 'muted',
+                                    "npoint = 1"),
                          card.cell('fits', 1, 0))
         self.assertIsNone(card.cell('zones', 3, 0))
         self.assertEqual("+1.2e-9", card.row_text("mass drift"))
