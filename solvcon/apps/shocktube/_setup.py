@@ -33,9 +33,10 @@ def number_text(value):
 
 @dataclasses.dataclass(frozen=True)
 class ShockTubeSetup(object):
-    """The parameters of one shock-tube run, as the forms edit them: the two
-    gases at rest on either side of the diaphragm at x = 0, and the grid and
-    the time step the run marches on.  The defaults pose Sod's problem.
+    """Hold the parameters of one shock-tube run, as the forms edit them:
+    the two gases at rest on either side of the diaphragm at x = 0, and the
+    grid and the time step the run marches on.  The defaults pose Sod's
+    problem.
 
     A setup holds whatever it is given, valid or not.  :meth:`check` names
     what is wrong, field by field, with the range each field has to lie
