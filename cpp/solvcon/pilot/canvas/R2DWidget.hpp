@@ -55,7 +55,6 @@ class R2DWidget
     Q_OBJECT
 
     using coord2_type = small_vector<double, 2>;
-    using obb_array_type = small_vector<double, 8>;
 
 public:
 
