@@ -6,7 +6,7 @@
 parameters and what the figure shows."""
 
 from PySide6.QtCore import QSignalBlocker
-from PySide6.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox
+from PySide6.QtWidgets import QComboBox, QDoubleSpinBox
 
 from ...pilot import panel
 
@@ -106,11 +106,11 @@ class DisplayGroup(panel.ColumnGroup):
         for name, label in _viewmodel.FIELD_LABELS.items():
             self._field.addItem(label, name)
         self._field.setToolTip("The field the cells are colored by")
-        self._bar = QCheckBox("color bar")
+        self._bar = panel.CheckBox("color bar")
         self._bar.setToolTip("The scale of the colors, right of the domain")
-        self._cells = QCheckBox("mark cells")
+        self._cells = panel.CheckBox("mark cells")
         self._cells.setToolTip("Outline the cells the profile samples")
-        self._line = QCheckBox("mark line")
+        self._line = panel.CheckBox("mark line")
         self._line.setToolTip("Draw the line the profile runs along")
         self._cut = QDoubleSpinBox()
         self._cut.setRange(0.0, 1.0)
