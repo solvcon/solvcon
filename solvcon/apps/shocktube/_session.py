@@ -40,7 +40,7 @@ RunRecord = collections.namedtuple('RunRecord',
 
 
 class ShockTubeSession(object):
-    """Own one shock-tube run.
+    """March the 1D CESE Euler solver through one shock-tube run.
 
     Building the session builds the solver and the exact solution, so a
     session exists only around a run that is ready to march.  Each

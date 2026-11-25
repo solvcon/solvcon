@@ -85,7 +85,8 @@ class FrontFit(typing.NamedTuple):
 
 
 class TubeAnalysis(object):
-    """Measure a run on the solution points ``x`` against ``exact``.
+    """Measure the numerical solution of a run on its solution points ``x``
+    against the exact solution ``exact``.
 
     Each point stands for a cell around it.  A mean of the star state
     leaves out the cells within :attr:`MARGIN` cells of a front, where the
