@@ -170,13 +170,12 @@ class ProfilePlot(QWidget):
         self.update()
 
     def set_data(self, xlim, exact, points=None):
-        """Draw the curves over ``xlim``.
+        """Draw the curves over ``xlim``; another tube shows whole again.
 
+        :param xlim: ``(xmin, xmax)``, the ends of the tube.
         :param exact: ``(x, values)`` of the analytic solution, ``values``
             mapping a quantity name to an array over ``x``.
         :param points: ``(x, values)`` of the numerical solution, or None.
-
-        Another tube shows whole again.
         """
         if tuple(xlim) != self.xlim:
             self.set_view(None)
@@ -227,7 +226,13 @@ class ProfilePlot(QWidget):
         self.set_view((left, left + width))
 
     def readout(self, name, x):
-        """Read out the value at the point."""
+        """Return the lines of the read-out at the numerical point nearest
+        ``x``: its position, the numerical value, the exact value, and the
+        residual with a :attr:`reference`; none without a run.
+
+        :param name: The quantity of the panel under the cursor.
+        :param x: The position under the cursor.
+        """
         if self.points is None:
             return []
         xs, values = self.points
@@ -359,8 +364,9 @@ class ProfilePlot(QWidget):
         return values[np.isfinite(values)]
 
     def band_rows(self):
-        """Return the rows of the band: the fronts, and the regions once the
-        waves have left the diaphragm; none without guides."""
+        """Return how many rows the band has: one for the fronts, and one
+        more for the regions once the waves have left the diaphragm; 0
+        without guides."""
         guides = self.guides()
         if not guides:
             return 0
