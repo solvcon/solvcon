@@ -65,8 +65,8 @@ def _text(value):
 
 @dataclasses.dataclass(frozen=True)
 class ReflectionSetup(object):
-    """The parameters of one reflection run, as the forms edit them: the
-    free-stream state the problem is posed with and the numerics it is
+    """Hold the parameters of one reflection run, as the forms edit them:
+    the free-stream state the problem is posed with and the numerics it is
     marched with.  They are not data the run computes.
 
     A setup holds whatever it is given, so a form can carry an invalid

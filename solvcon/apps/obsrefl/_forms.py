@@ -92,8 +92,7 @@ class NumericsGroup(panel.SetupGroup):
 class DisplayGroup(panel.ColumnGroup):
     """What the figure shows of the run: the field, the color bar, the
     marks of the profile cut, and its height.  None of it marches the run,
-    so an edit applies at once.  The group is passive: it shows what it is
-    handed and calls back into its owner.
+    so an edit applies at once.
     """
 
     def __init__(self, parent=None):

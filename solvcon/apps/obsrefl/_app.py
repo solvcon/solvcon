@@ -25,9 +25,9 @@ class ObsreflApp(base.PilotFeature):
     The app is a sub-window, opened maximized, and the control column in
     the pilot's "App config" panel: a second pick of the menu item brings
     the window back instead of building another, and closing the window
-    takes the column along.  The feature holds no run logic: it composes
-    the window, the column, and the :class:`~._control.ReflectionController`
-    that wires them, and forwards the inspector nudge to the outer GUI.
+    takes the column along.  The feature composes the window, the
+    column, and the :class:`~._control.ReflectionController` that wires
+    them, and forwards the inspector nudge to the outer GUI.
     """
 
     def __init__(self, *args, **kw):
