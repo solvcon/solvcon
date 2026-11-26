@@ -84,7 +84,6 @@ class AppEnvironment:
         namespace = {
             # Give the application an alias of the top package.
             'sc': importlib.import_module('solvcon'),
-            'appenv': self,
         }
         self.globals = namespace
         self.locals = namespace

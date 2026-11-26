@@ -65,6 +65,54 @@ class _Singleton(type):
         return cls._instances[cls]
 
 
+class _AppLoader(object):
+    """Stand for one app on the console shelf until :meth:`load` opens it.
+
+    Reading the loader opens nothing, so the completer, which reads every
+    attribute it lists, may list the apps.
+
+    :param controller: The controller the app registered with.
+    :param name: The name it registered as.
+    """
+
+    def __init__(self, controller, name):
+        self._controller = controller
+        #: The name the app registered as.
+        self.name = name
+
+    def __repr__(self):
+        return f"<app {self.name!r}, which load() opens>"
+
+    def load(self):
+        """Open the app, as its menu item does, and return it."""
+        app = self._controller.apps[self.name]
+        app.open()
+        return app
+
+
+class _AppShelf(object):
+    """The apps by name for the console: ``apps.obsrefl`` is the
+    :class:`_AppLoader` of the app registered as ``obsrefl``.
+
+    :param controller: The controller whose apps the shelf holds.
+    """
+
+    def __init__(self, controller):
+        self._controller = controller
+
+    def __dir__(self):
+        return sorted(self._controller.apps)
+
+    def __repr__(self):
+        return f"apps: {', '.join(dir(self))}"
+
+    def __getattr__(self, name):
+        if name in self._controller.apps:
+            return _AppLoader(self._controller, name)
+        raise AttributeError(f"no app named {name!r}; the apps are "
+                             f"{', '.join(dir(self))}")
+
+
 class _Controller(metaclass=_Singleton):
     def __init__(self):
         # Do not construct any Qt member objects before calling launch(), or
@@ -78,6 +126,7 @@ class _Controller(metaclass=_Singleton):
         self.app_config = None
         self.apps = {}
         self._app_factories = {}
+        self.app_shelf = _AppShelf(self)
         self.sample_mesh = None
         self.mesh_style_status = None
         self.painter = None
@@ -107,8 +156,9 @@ class _Controller(metaclass=_Singleton):
 
         ``factory(controller)`` returns a feature with ``populate_menu()``.
         It runs in build(), or right away when the pilot is already built,
-        and the feature lands in ``apps[name]``.  A name taken twice raises
-        :class:`ValueError` rather than placing a second set of menu entries.
+        and the feature lands in ``apps[name]`` and on :attr:`app_shelf`.  A
+        name taken twice raises :class:`ValueError` rather than placing a
+        second set of menu entries.
         """
         if name in self._app_factories:
             raise ValueError("app {!r} is already registered".format(name))
@@ -124,6 +174,14 @@ class _Controller(metaclass=_Singleton):
         app = self._app_factories[name](self)
         app.populate_menu()
         self.apps[name] = app
+
+    def console_handles(self):
+        """The console's app shelf with its banner lines."""
+        handles = {'apps': self.app_shelf}
+        entries = [
+            ('apps.<name>.load()', 'open an app and return it; Tab completes'),
+        ]
+        return handles, entries
 
     def launch(self, name="pilot", size=(1000, 600)):
         self.build(name=name, size=size)
@@ -180,9 +238,13 @@ class _Controller(metaclass=_Singleton):
     def _seed_console_namespace(self):
         """Curate the interpreter's namespace and tell the user how to list
         what it puts in scope."""
+        handles, entries = self.console_handles()
+        capture = self.capture.console_handles()
+        handles.update(capture[0])
+        entries.extend(capture[1])
         apputil.install_pilot_namespace(
             self._rmgr, apputil.get_current_appenv(),
-            extra=self.capture.console_handles())
+            extra=(handles, entries))
         _gui_common.write_message(apputil.PILOT_CONSOLE_NOTE)
 
     def _open_benchmark(self):
