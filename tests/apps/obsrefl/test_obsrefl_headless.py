@@ -22,8 +22,9 @@ import solvcon
 
 #: The modules that carry the run and what the window shows of it.
 HEADLESS = ('_setup', '_session', '_viewmodel', '_presenter')
-#: What they import of the app in turn: the problem and its analysis.
-BENEATH = ('_analytic', '_driver')
+#: What they import of the app in turn: the problem, its analysis, and the
+#: probe.
+BENEATH = ('_analytic', '_driver', '_probe')
 
 #: What the child runs: the folder to report into, then the modules.
 CHILD = """

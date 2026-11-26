@@ -91,8 +91,8 @@ class NumericsGroup(panel.SetupGroup):
 
 class DisplayGroup(panel.ColumnGroup):
     """What the figure shows of the run: the field, the color bar, the
-    marks of the profile cut, and its height.  None of it marches the run,
-    so an edit applies at once.
+    marks of the profile cut, its height, and the probe.  None of it marches
+    the run, so an edit applies at once.
     """
 
     def __init__(self, parent=None):
@@ -111,6 +111,9 @@ class DisplayGroup(panel.ColumnGroup):
         self._cells.setToolTip("Outline the cells the profile samples")
         self._line = panel.CheckBox("mark line")
         self._line.setToolTip("Draw the line the profile runs along")
+        self._probe = panel.CheckBox("probe")
+        self._probe.setToolTip("Read the field under the cursor out under "
+                               "the caption")
         self._cut = QDoubleSpinBox()
         self._cut.setRange(0.0, 1.0)
         self._cut.setSingleStep(0.05)
@@ -127,13 +130,14 @@ class DisplayGroup(panel.ColumnGroup):
         grid.addWidget(panel.form_label("cut height", self._cut.toolTip()),
                        3, 0)
         grid.addWidget(self._cut, 3, 1, 1, 2)
+        grid.addWidget(self._probe, 4, 0, 1, 2)
         grid.setColumnStretch(1, 1)
         self._controls = (self._field, self._bar, self._cells, self._line,
-                          self._cut)
+                          self._cut, self._probe)
         panel.guard_wheel(self._field, self._cut)
         self.show_display(_viewmodel.Display())
         self._field.currentIndexChanged.connect(self._on_change)
-        for box in (self._bar, self._cells, self._line):
+        for box in (self._bar, self._cells, self._line, self._probe):
             box.toggled.connect(self._on_change)
         self._cut.valueChanged.connect(self._on_change)
 
@@ -142,7 +146,8 @@ class DisplayGroup(panel.ColumnGroup):
         return _viewmodel.Display(
             field=self._field.currentData(), bar=self._bar.isChecked(),
             mark_cells=self._cells.isChecked(),
-            mark_line=self._line.isChecked(), cut=self._cut.value())
+            mark_line=self._line.isChecked(), cut=self._cut.value(),
+            probe=self._probe.isChecked())
 
     def show_display(self, display):
         """Set the controls from a display without firing the callback.
@@ -155,6 +160,7 @@ class DisplayGroup(panel.ColumnGroup):
         self._cells.setChecked(display.mark_cells)
         self._line.setChecked(display.mark_line)
         self._cut.setValue(display.cut)
+        self._probe.setChecked(display.probe)
         for blocker in blockers:
             blocker.unblock()
 

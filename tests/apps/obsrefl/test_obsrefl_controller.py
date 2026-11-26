@@ -75,6 +75,25 @@ class ReflectionControllerTC(unittest.TestCase):
             "density, step 0:"))
         self.assertTrue(self.column.card.row_text('CFL'))
 
+    def test_a_probed_point_reads_out_at_once_and_on_each_frame(self):
+        # The run is paused, so the hover itself has to read out; a frame
+        # then reads the same point of the new state.
+        ctl = self.ctl
+        target = (2, tuple(ctl.session.field.centroid[2]))
+        self.figure._set_target(target)
+        self.assertEqual(_presenter.probe_frame(
+            ctl.session, ctl.display, target).text,
+            self.figure.readout.full_text)
+        self.assertEqual(_presenter.PROBE_TIP, self.figure.readout.toolTip())
+        ctl.step()
+        self.assertEqual(_presenter.probe_frame(
+            ctl.session, ctl.display, target).text,
+            self.figure.readout.full_text)
+        self.figure._set_target(None)
+        self.assertEqual(self.figure.PROBE_IDLE,
+                         self.figure.readout.full_text)
+        self.assertEqual("", self.figure.readout.toolTip())
+
     def test_run_marches_a_frame_a_tick_and_pauses(self):
         ctl = self.ctl
         self.column.numerics._frame.setValue(3)

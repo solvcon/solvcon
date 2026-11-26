@@ -7,7 +7,7 @@ widget."""
 
 import shiboken6
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 from ... import pilot
@@ -50,6 +50,27 @@ def build_view():
     return view, found[0]
 
 
+class _HoverFilter(QObject):
+    """Hand the moves of the cursor over the view to its host while no
+    button is down; a drag still navigates the view and is not a hover.
+
+    :param host: The :class:`DomainView` whose signals fire.
+    """
+
+    def __init__(self, host):
+        super().__init__(host)
+        self._host = host
+
+    def eventFilter(self, watched, event):
+        kind = event.type()
+        if QEvent.MouseMove == kind and Qt.NoButton == event.buttons():
+            pos = event.position().toPoint()
+            self._host.hovered.emit(pos.x(), pos.y())
+        elif QEvent.Leave == kind:
+            self._host.left.emit()
+        return False
+
+
 class DomainView(QWidget):
     """A plain host of one 3D domain view, or of a muted note where the
     pilot cannot build one.
@@ -77,6 +98,12 @@ class DomainView(QWidget):
     #: What the host reads where the pilot builds no view.
     UNAVAILABLE = "no 3D view"
 
+    #: Fired with the pixel ``(x, y)`` of the view the cursor moved to
+    #: while no button is down.
+    hovered = Signal(int, int)
+    #: Fired when the cursor leaves the view.
+    left = Signal()
+
     def __init__(self, parent=None, mgr=None):
         super().__init__(parent)
         if mgr is None:
@@ -98,6 +125,11 @@ class DomainView(QWidget):
             layout.addWidget(note)
             return
         layout.addWidget(self.widget)
+        # The view moves the camera only while a button is down, so taking
+        # the other moves leaves its navigation alone.
+        self.widget.setMouseTracking(True)
+        self._hover = _HoverFilter(self)
+        self.widget.installEventFilter(self._hover)
         self.view.showAxis(True)
         self._bind_reset(mgr)
 

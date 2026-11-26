@@ -19,6 +19,8 @@ from solvcon import testing
 try:
     from solvcon import pilot
     if pilot.enable:
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
         from PySide6.QtWidgets import QApplication
         from solvcon.apps.obsrefl import _figure, _session, _viewmodel
 except ImportError:
@@ -45,6 +47,17 @@ def _colored(widget):
             channels = (color.red(), color.green(), color.blue())
             count += max(channels) - min(channels) > 60
     return count
+
+
+def _move(widget, buttons=None):
+    """Post a move of the cursor to the middle of ``widget``, with
+    ``buttons`` held, none by default."""
+    buttons = Qt.NoButton if buttons is None else buttons
+    at = QPointF(widget.width() / 2.0, widget.height() / 2.0)
+    QApplication.postEvent(widget, QMouseEvent(
+        QEvent.MouseMove, at, widget.mapToGlobal(at), Qt.NoButton, buttons,
+        Qt.NoModifier))
+    _settle()
 
 
 def _field_frame(session, cells=None, height=None):
@@ -97,5 +110,71 @@ class ReflectionFigureTC(unittest.TestCase):
         figure.show_field(None)
         self.assertEqual(figure.BLANK, figure.caption.text())
         self.assertIsNone(figure.bar.lo)
+
+
+@testing.requires_live_window
+class ReflectionProbeTC(unittest.TestCase):
+    """Hovering over the domain picks the cell and the point to probe."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mgr = pilot.RManager.instance.setUp()
+        cls.session = _session.ReflectionSession(nx=8, ny=3, max_steps=10)
+        cls.session.advance()
+
+    def setUp(self):
+        self.figure = _figure.ReflectionFigure(mgr=self.mgr)
+        self.figure.resize(800, 600)
+        self.addCleanup(testing.dispose_widget, self.figure)
+        self.figure.set_mesh(self.session.shock.mesh,
+                             self.session.shock.shock_path())
+        self.figure.show()
+        _settle()
+        if self.figure.domain.widget is None:
+            raise unittest.SkipTest("the pilot built no 3D view")
+        self.moves = []
+        self.figure.probe_moved.connect(
+            lambda: self.moves.append(self.figure.probe_target))
+
+    def test_a_hover_probes_the_cell_under_the_cursor(self):
+        _move(self.figure.domain.widget)
+        self.assertEqual(1, len(self.moves))
+        cell, (x, y) = self.figure.probe_target
+        mesher = self.session.shock.mesher
+        self.assertTrue(mesher.x0 <= x <= mesher.x1)
+        self.assertTrue(mesher.y0 <= y <= mesher.y1)
+        # The point lies in the cell the pick reports, so its corners
+        # straddle it.
+        _, corners = self.session.analysis.cell_corners(cell)
+        self.assertTrue(corners[:, 0].min() <= x <= corners[:, 0].max())
+        self.assertTrue(corners[:, 1].min() <= y <= corners[:, 1].max())
+        # The same pixel again is no move.
+        _move(self.figure.domain.widget)
+        self.assertEqual(1, len(self.moves))
+
+    def test_leaving_the_view_drops_the_probe(self):
+        _move(self.figure.domain.widget)
+        QApplication.postEvent(self.figure.domain.widget,
+                               QEvent(QEvent.Leave))
+        _settle()
+        self.assertIsNone(self.figure.probe_target)
+        self.assertEqual(2, len(self.moves))
+
+    def test_a_drag_navigates_and_does_not_probe(self):
+        _move(self.figure.domain.widget, Qt.LeftButton)
+        self.assertEqual([], self.moves)
+
+    def test_the_switch_stops_the_probe_and_hides_its_line(self):
+        _move(self.figure.domain.widget)
+        moved = len(self.moves)
+        self.figure.set_probe_enabled(False)
+        self.assertIsNone(self.figure.probe_target)
+        self.assertTrue(self.figure.readout.isHidden())
+        # The switches come from the presenter, which reads the probe out
+        # next; a move would call it back from inside itself.
+        self.assertEqual(moved, len(self.moves))
+        del self.moves[:]
+        _move(self.figure.domain.widget)
+        self.assertEqual([], self.moves)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:
