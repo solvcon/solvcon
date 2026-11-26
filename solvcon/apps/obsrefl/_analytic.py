@@ -482,6 +482,23 @@ class Reflection(object):
         arr = self.shock.mesh.fcnds
         return arr.ndarray[arr.nghost:][:, 1:3]
 
+    def cell_corners(self, cell):
+        """Return the nodes of a body cell and their coordinates, in the
+        order the cell walks them.
+
+        :param cell: The body cell index.
+        :return: ``(nodes, corners)``: the node indices, ``[k]``, and their
+            coordinates, ``[k, 2]``.
+        :raise IndexError: For an index outside the body cells.
+        """
+        arr = self.shock.mesh.clnds
+        # A negative index would land in the ghost rows.
+        if not 0 <= cell < self.shock.mesh.ncell:
+            raise IndexError(f"no body cell {cell}")
+        row = arr.ndarray[arr.nghost + cell]
+        nodes = row[1:1 + row[0]].astype('int64')
+        return nodes, self._node_coord()[nodes]
+
     def _cell_nodes(self):
         """Every body cell's nodes, flattened to a pair of index arrays.
 
