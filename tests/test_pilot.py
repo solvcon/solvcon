@@ -114,6 +114,15 @@ class PilotNamespaceTC(unittest.TestCase):
         self.assertIn('show_mesh(m)', banner)
         self.assertIn('load_mesh(name)', banner)
 
+    def test_help_lists_every_name_in_scope(self):
+        from solvcon import apputil
+        banner = apputil.install_pilot_namespace(self.mgr, self.env)
+        listed = {line.split()[0].split('(')[0]
+                  for line in banner.splitlines()[1:]}
+        in_scope = {k for k in self.env.globals if not k.startswith('__')}
+        # A name the help leaves out is one a user cannot find.
+        self.assertEqual(listed, in_scope)
+
     def test_extra_handles_join_the_curated_ones(self):
         from solvcon import apputil
         probe = object()
