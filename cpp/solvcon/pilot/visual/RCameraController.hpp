@@ -16,6 +16,7 @@
 #include <solvcon/pilot/common/common_detail.hpp> // Must be the first include.
 
 #include <QMatrix4x4>
+#include <QVector2D>
 #include <QVector3D>
 
 #include <string>
@@ -103,6 +104,10 @@ public:
     /// The orthographic zoom factor (smaller means zoomed in).
     float orthoScale() const { return m_ortho_scale; }
 
+    /// The half width and half height of the 2D box last fitted, or zero for
+    /// a 3D one, which frames its bounding sphere instead.
+    QVector2D fitHalfExtent() const { return m_fit_half; }
+
     /// Drag interaction: pan in PanZoom, look around in FirstPerson, swing the
     /// eye around the target in Orbit. @p dx and @p dy are pixel deltas.
     void rotate(float dx, float dy);
@@ -151,6 +156,7 @@ private:
 
     float m_ortho_scale = 1.0f; ///< PanZoom zoom factor.
     float m_radius = 1.0f; ///< Scene scale, sets pan and dolly speeds.
+    QVector2D m_fit_half{0.0f, 0.0f}; ///< Half extent of the fitted 2D box.
 
 }; /* end class RCameraController */
 

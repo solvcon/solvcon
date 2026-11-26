@@ -1380,6 +1380,25 @@ class RDomainWidgetPickTC(unittest.TestCase):
         self.assertAlmostEqual(qy, py, places=3)
         self.assertEqual(qz, 0.0)
 
+    def test_a_long_2d_domain_fills_the_view(self):
+        """A 4 x 1 strip fitted into a 4:1 view reaches near every edge,
+        rather than shrinking to the circle around it, and keeps filling
+        the view when it is resized to another shape."""
+        mh = _make_single_quad_2d()
+        mh.ndcrd.ndarray[:, 0] *= 4.0
+        widget = pilot.RDomainWidget()
+        widget.resize(800, 200)
+        widget.updateMesh(mh)
+        widget.fitCameraToScene()
+        for x, y in ((400, 8), (400, 192), (24, 100), (776, 100)):
+            self.assertIsNotNone(widget.pickCell(x, y), (x, y))
+        self.assertIsNone(widget.pickCell(400, 1))
+        # Taller now, so the width binds and the height has room to spare.
+        widget.resize(400, 400)
+        for x, y in ((12, 200), (388, 200)):
+            self.assertIsNotNone(widget.pickCell(x, y), (x, y))
+        self.assertIsNone(widget.pickCell(200, 60))
+
     def test_pick_outside_returns_none(self):
         """A click on the background (a corner, outside the framed quad) picks
         nothing."""
