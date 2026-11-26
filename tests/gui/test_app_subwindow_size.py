@@ -33,6 +33,10 @@ class AppSubwindowSizeTC(unittest.TestCase):
     def setUp(self):
         self.mgr = _gui.controller.build()
         self.mgr.show()
+        # Earlier tests may leave the main window too narrow for an app
+        # window to take a size smaller than the area.
+        self.saved_size = self.mgr.mainWindow.size()
+        self.mgr.mainWindow.resize(1400, 900)
         self.area = self.mgr.mdiArea
         self.area.closeAllSubWindows()
         _settle()
@@ -43,6 +47,7 @@ class AppSubwindowSizeTC(unittest.TestCase):
         for app in self.apps:
             app.close()
         self.area.closeAllSubWindows()
+        self.mgr.mainWindow.resize(self.saved_size)
         _settle()
 
     def test_a_second_app_leaves_the_first_filling_the_area(self):
