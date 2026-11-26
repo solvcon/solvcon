@@ -124,6 +124,65 @@ class EulerField(object):
         arr = self.svr.cflo
         return arr.ndarray[arr.nghost:]
 
+    @property
+    def solution_point(self):
+        """The solution point of each body cell, ``[ncell, ndim]``.
+
+        It is the centroid of the conservation element of the cell, where
+        :attr:`conserved` holds, and not the cell centroid: the two part on
+        a triangle.
+        """
+        arr = self.svr.cecnd
+        return arr.ndarray[arr.nghost:, :self.svr.ndim]
+
+    @property
+    def gradient(self):
+        """The newest spatial gradient of :attr:`conserved`,
+        ``[ncell, neq, ndim]``."""
+        arr = self.svr.so1n
+        return arr.ndarray[arr.nghost:]
+
+    def expand(self, cells, points):
+        """Return the conserved variables the solution elements of
+        ``cells`` give at ``points``, ``[n, neq]``.
+
+        The solution element of a cell is its order-0 value plus the
+        gradient times the offset from the solution point.
+
+        :param cells: The body-cell indices, ``[n]``.
+        :param points: The points to read at, ``[n, ndim]``, one per cell.
+        :return: The conserved variables, ``[n, neq]``.
+        """
+        cells = np.asarray(cells, dtype='int64')
+        offset = (np.asarray(points, dtype='float64')
+                  - self.solution_point[cells])
+        return (self.conserved[cells]
+                + np.einsum('ned,nd->ne', self.gradient[cells], offset))
+
+    def field_at(self, name, cells, points=None):
+        """Return the named field of ``cells``, read at ``points`` by their
+        solution elements, ``[n]``.
+
+        A derived field takes the expanded conserved variables, since the
+        solution element expands those and not the field.  The CFL number
+        has no solution element and reads the cell value.
+
+        :param name: One of :attr:`FIELDS`.
+        :param cells: The body-cell indices, ``[n]``.
+        :param points: The points, ``[n, ndim]``, or None for the solution
+            points, where the reading is the cell value.
+        :return: The field value of each cell, ``[n]``.
+        :raise ValueError: For a name that is not in :attr:`FIELDS`.
+        """
+        if name not in self.FIELDS:
+            raise ValueError(f"unknown field '{name}'")
+        cells = np.asarray(cells, dtype='int64')
+        if points is None:
+            conserved = self.conserved[cells]
+        else:
+            conserved = self.expand(cells, points)
+        return _RowField(self, cells, conserved).field(name)
+
     def field(self, name):
         """Return the scalar field named by one of :attr:`FIELDS`.
 
@@ -146,5 +205,40 @@ class EulerField(object):
         """
         cfl = self.cfl
         return float(cfl.min()), float(cfl.max())
+
+
+class _RowField(EulerField):
+    """The fields of chosen rows of conserved variables, derived the way
+    :class:`EulerField` derives them over the body cells.
+
+    Only :meth:`field` and the fields it names hold for the rows; the
+    geometry and the sums, such as :attr:`centroid` or
+    :meth:`calc_overall_mass`, still read the whole mesh.
+
+    :param base: The :class:`EulerField` the rows come from.
+    :param cells: The body cells the rows stand for, ``[n]``.
+    :param conserved: The conserved variables, ``[n, neq]``.
+    """
+
+    def __init__(self, base, cells, conserved):
+        super().__init__(base.svr, base.mesh)
+        self._base = base
+        self._cells = cells
+        self._conserved = conserved
+
+    @property
+    def conserved(self):
+        """The rows this reader was given, ``[n, neq]``."""
+        return self._conserved
+
+    @property
+    def gamma(self):
+        """The ratio of specific heats of the cells, ``[n]``."""
+        return self._base.gamma[self._cells]
+
+    @property
+    def cfl(self):
+        """The CFL number of the cells, ``[n]``."""
+        return self._base.cfl[self._cells]
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
