@@ -60,17 +60,24 @@ def field_colors(field, counts, vmin, vmax):
     return np.repeat(colormap(t), counts, axis=0).astype('float32')
 
 
-def thick_segments(starts, ends, half):
+def thick_segments(starts, ends, half, extend=True):
     """Turn line segments into quads, as an unshared triangle soup.
 
     The graphics backend rasterizes every line one pixel wide, ignoring any
     width asked of it, so a line thick enough to read as a mark has to be
-    geometry.  Each segment becomes a rectangle ``2 * half`` across, run
-    past both ends by ``half`` so the rectangles of a closed ring meet at
-    its corners instead of leaving notches.
+    geometry.  Each segment becomes a rectangle ``2 * half`` across.  By
+    default it runs past both ends by ``half``, so the rectangles of a
+    closed ring meet at its corners instead of leaving notches; the square
+    ends then poke out of a sharp corner.  With ``extend`` off the
+    rectangles stop at the ends, for a ring that joins its corners with
+    :func:`discs` instead.
 
-    ``starts`` and ``ends`` are ``[n, 2]``; the result is ``[m, 2]`` with
-    six vertices per surviving segment.
+    :param starts: The start points of the segments, ``[n, 2]``.
+    :param ends: The end points of the segments, ``[n, 2]``.
+    :param half: The half width of a quad, in world length.
+    :param extend: Whether a quad runs past both ends by ``half``.
+    :return: The triangle vertices, ``[m, 2]``, six per segment of nonzero
+        length.
     """
     starts = np.asarray(starts, dtype='float64').reshape(-1, 2)
     ends = np.asarray(ends, dtype='float64').reshape(-1, 2)
@@ -80,12 +87,31 @@ def thick_segments(starts, ends, half):
     keep = length > 0.0
     starts, ends = starts[keep], ends[keep]
     unit = delta[keep] / length[keep][:, None]
-    along = unit * half
+    along = unit * half if extend else np.zeros_like(unit)
     across = np.column_stack([-unit[:, 1], unit[:, 0]]) * half
     back, front = starts - along, ends + along
     return np.stack([back + across, back - across, front - across,
                      back + across, front - across, front + across],
                     axis=1).reshape(-1, 2)
+
+
+def discs(centers, radius, sides=12):
+    """Turn points into filled polygons of ``sides`` corners, as an
+    unshared triangle soup.
+
+    The graphics backend draws a point one pixel across, so a dot that
+    reads as a mark has to be geometry, as a thick line does.
+
+    :param centers: The points, ``[n, 2]``.
+    :param radius: The radius of a disc, in world length.
+    :param sides: The corners of each polygon.
+    :return: The triangle vertices, ``[n * 3 * sides, 2]``.
+    """
+    centers = np.asarray(centers, dtype='float64').reshape(-1, 2)
+    angle = np.linspace(0.0, 2.0 * np.pi, sides + 1)
+    rim = radius * np.column_stack([np.cos(angle), np.sin(angle)])
+    fan = np.stack([np.zeros((sides, 2)), rim[:-1], rim[1:]], axis=1)
+    return (centers[:, None, None, :] + fan[None]).reshape(-1, 2)
 
 
 def cell_rings(mh, mark):
@@ -119,9 +145,10 @@ class FieldColorizer(object):
 
     The gauge of a profile cut rides in the same soup, as thickened rings
     around the cells the cut crosses and a bar along the cut, either of
-    which may be left out.  A scene object of its own would refit the
-    camera; installing a field refits it only when the field's bounding
-    box changes, and this one never does.
+    which may be left out, and so does the highlight of one cell: a cased
+    ring on its edges, which a pin thickens and dots on each node.  A scene
+    object of its own would refit the camera; installing a field refits it
+    only when the field's bounding box changes, and this one never does.
 
     :ivar verts: The packed triangle vertices, the gauge included.
     :ivar indices: The sequential vertex indices, one row per triangle.
@@ -133,12 +160,28 @@ class FieldColorizer(object):
     #: rings it crosses.
     OUTLINE_LIFT = 0.01
     BAR_LIFT = 0.02
+    HALO_LIFT = 0.025
+    CORE_LIFT = 0.03
     #: Half-widths of the cell outline and of the cut bar, as fractions of
     #: the average cell.  Sized against the cell and not the domain, or a
     #: width that reads on a coarse mesh swallows a fine one.  The outline
     #: beats the one-pixel wireframe it thickens, and the bar the outline.
     OUTLINE_HALF = 0.05
     BAR_HALF = 0.09
+    #: The highlight leaves the cell its field color and marks it with a
+    #: cased line, a dark core inside a light halo, which reads on every
+    #: part of the ramp.  Half-widths of the core on a hovered and on a
+    #: pinned cell, the radius of a pinned cell's node dots, and the width
+    #: of the halo around them, as fractions of the average cell.
+    HOVER_HALF = 0.05
+    PIN_HALF = 0.07
+    PIN_DOT = 0.18
+    HALO = 0.04
+    #: Corners of each round join and node dot.  A polygon of n sides
+    #: falls short of its circle by 1 - cos(pi / n) of the radius, 0.2% at
+    #: 48, under a pixel on a dot zoomed to fill a quarter of the view, for
+    #: a few hundred vertices against the thousands of the field.
+    ROUND_SIDES = 48
     #: Room the anchors reserve around the domain for the gauge to spill
     #: into, as a fraction of the domain height.  A fraction of the domain
     #: and not of the mesh, so a remesh does not move the box and refit the
@@ -150,6 +193,9 @@ class FieldColorizer(object):
     #: shade, standing over the rings it crosses.
     OUTLINE_COLOR = (0.42, 0.05, 0.75)
     BAR_COLOR = (0.72, 0.42, 1.0)
+    #: A shade off black keeps the core apart from the anchors.
+    CORE_COLOR = (0.05, 0.05, 0.05)
+    HALO_COLOR = (1.0, 1.0, 1.0)
 
     def __init__(self, mh):
         fan, self._counts = cell_triangulation(mh)
@@ -162,24 +208,62 @@ class FieldColorizer(object):
         # The side of the average cell, as the length the gauge is sized
         # against.
         self._cell = float(np.sqrt(volume.mean()))
-        self.set_gauge(None, None)
+        self._mark = self._height = self._highlighted = None
+        self._pinned = False
+        self._field_colors = None
+        self._build()
 
     def set_gauge(self, mark, height):
         """Outline the cells of ``mark`` and bar the cut at ``height``.
 
         The two layers stand on their own: passing None for either leaves
         that one out, and None for both leaves the field bare.
+
+        :param mark: The indices of the body cells to outline, or None.
+        :param height: The y coordinate of the cut, or None.
         """
-        parts = [(self._anchors(), (0.0, 0.0, 0.0), self.BAR_LIFT)]
-        if mark is not None:
-            parts.append((thick_segments(*cell_rings(self._mesh, mark),
+        self._mark, self._height = mark, height
+        self._build()
+
+    def set_highlight(self, cell, pinned=False):
+        """Ring ``cell``, thicker and with its nodes dotted when pinned, or
+        None to drop the highlight.
+
+        :param cell: The index of a body cell, or None.
+        :param pinned: Whether the cell is pinned.
+        :return: Whether the highlight changed, and the colors with it.
+        """
+        pinned = cell is not None and bool(pinned)
+        if cell == self._highlighted and pinned == self._pinned:
+            return False
+        self._highlighted, self._pinned = cell, pinned
+        self._build()
+        return True
+
+    def recolor(self):
+        """The vertex colors of the last frame over the gauge as it stands
+        now, or None before any frame, so a gauge change shows without a
+        new frame."""
+        if self._field_colors is None:
+            return None
+        return core.SimpleArrayFloat32(array=np.concatenate(
+            [self._field_colors, self._gauge_colors]))
+
+    def _build(self):
+        # The anchors take the top lift, so no layer above them grows the
+        # box.
+        parts = [(self._anchors(), (0.0, 0.0, 0.0), self.CORE_LIFT)]
+        if self._mark is not None:
+            parts.append((thick_segments(*cell_rings(self._mesh, self._mark),
                                          self._span(self.OUTLINE_HALF)),
                           self.OUTLINE_COLOR, self.OUTLINE_LIFT))
-        if height is not None:
-            parts.append((thick_segments([(self._lo[0], height)],
-                                         [(self._hi[0], height)],
+        if self._height is not None:
+            parts.append((thick_segments([(self._lo[0], self._height)],
+                                         [(self._hi[0], self._height)],
                                          self._span(self.BAR_HALF)),
                           self.BAR_COLOR, self.BAR_LIFT))
+        if self._highlighted is not None:
+            parts.extend(self._casing())
         self._gauge = np.concatenate(
             [np.column_stack([flat, np.full(len(flat), lift, dtype='float64')])
              for flat, _, lift in parts]).astype('float32')
@@ -188,11 +272,39 @@ class FieldColorizer(object):
              for flat, color, _ in parts])
         self._pack()
 
+    def _casing(self):
+        """The halo and the core of the highlight, as gauge parts.
+
+        The ring joins its corners round, with a disc on each node as wide
+        as the ring, or as wide as the dot on a pinned cell: square ends
+        run past a corner would stick out of the halo as bulges.
+        """
+        starts, ends = cell_rings(self._mesh, [self._highlighted])
+        half = self.PIN_HALF if self._pinned else self.HOVER_HALF
+        dot = self.PIN_DOT if self._pinned else half
+        parts = []
+        for grow, color, lift in ((self.HALO, self.HALO_COLOR,
+                                   self.HALO_LIFT),
+                                  (0.0, self.CORE_COLOR, self.CORE_LIFT)):
+            flat = np.concatenate([
+                thick_segments(starts, ends, self._span(half + grow),
+                               extend=False),
+                discs(starts, self._span(dot + grow),
+                      sides=self.ROUND_SIDES)])
+            parts.append((flat, color, lift))
+        return parts
+
     def colors(self, field, vmin, vmax):
-        """The vertex colors of one frame of ``field`` over the range."""
-        return core.SimpleArrayFloat32(array=np.concatenate(
-            [field_colors(field, self._counts, vmin, vmax),
-             self._gauge_colors]))
+        """The vertex colors of one frame of ``field`` over the range.
+
+        :param field: The scalar of each body cell, ``[ncell]``.
+        :param vmin: The value at the low end of the color ramp.
+        :param vmax: The value at the high end of the color ramp.
+        :return: The colors of the field and of the gauge after it, as
+            ``core.SimpleArrayFloat32``.
+        """
+        self._field_colors = field_colors(field, self._counts, vmin, vmax)
+        return self.recolor()
 
     def _span(self, fraction):
         """A world length as a fraction of the average cell, held inside
