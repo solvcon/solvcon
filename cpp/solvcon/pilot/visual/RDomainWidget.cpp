@@ -1134,6 +1134,7 @@ RDomainWidget::PickResult RDomainWidget::pickCell(int x, int y)
     { return (dm < ndim) ? static_cast<float>(mh.ndcrd(ind, dm)) : 0.0f; };
 
     int32_t hit_cell = -1;
+    QVector3D hit_point;
     if (3 == ndim)
     {
         SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
@@ -1155,6 +1156,7 @@ RDomainWidget::PickResult RDomainWidget::pickCell(int x, int y)
                 {
                     best = t;
                     hit_cell = mh.fcicl(ifc);
+                    hit_point = origin + dir * t;
                 }
             }
         }
@@ -1179,6 +1181,7 @@ RDomainWidget::PickResult RDomainWidget::pickCell(int x, int y)
                     if (point_in_polygon(poly, hit.x(), hit.y()))
                     {
                         hit_cell = static_cast<int32_t>(icl);
+                        hit_point = hit;
                     }
                 }
             }
@@ -1193,6 +1196,7 @@ RDomainWidget::PickResult RDomainWidget::pickCell(int x, int y)
     result.id = hit_cell;
     result.type = mh.cltpn(hit_cell);
     result.measure = static_cast<double>(mh.clvol(hit_cell));
+    result.point = hit_point;
     result.centroid = QVector3D(
         static_cast<float>(mh.clcnd(hit_cell, 0)),
         static_cast<float>(mh.clcnd(hit_cell, 1)),
@@ -1256,6 +1260,7 @@ RDomainWidget::PickResult RDomainWidget::pickNode(int x, int y)
     result.kind = "node";
     result.id = hit;
     result.centroid = hit_pos;
+    result.point = hit_pos;
     setSelection("node", hit, hit_pos, hit_pos);
     return result;
 }
@@ -1285,6 +1290,7 @@ RDomainWidget::PickResult RDomainWidget::pickFace(int x, int y)
     SimpleArray<int32_t> const & bndfcs = mh.bndfcs();
     float best = std::numeric_limits<float>::max();
     int32_t hit_face = -1;
+    QVector3D hit_point;
     for (ssize_t ibnd = 0; ibnd < bndfcs.shape(0); ++ibnd)
     {
         int32_t const ifc = bndfcs(ibnd, 0);
@@ -1302,6 +1308,7 @@ RDomainWidget::PickResult RDomainWidget::pickFace(int x, int y)
             {
                 best = t;
                 hit_face = ifc;
+                hit_point = origin + dir * t;
             }
         }
     }
@@ -1312,6 +1319,7 @@ RDomainWidget::PickResult RDomainWidget::pickFace(int x, int y)
     result.kind = "face";
     result.id = hit_face;
     result.measure = static_cast<double>(mh.fcara(hit_face));
+    result.point = hit_point;
     result.centroid = QVector3D(
         static_cast<float>(mh.fccnd(hit_face, 0)),
         static_cast<float>(mh.fccnd(hit_face, 1)),

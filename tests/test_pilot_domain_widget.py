@@ -1360,6 +1360,26 @@ class RDomainWidgetPickTC(unittest.TestCase):
         self.assertAlmostEqual(cy, 0.5, places=3)
         self.assertTrue(widget.hasSelection)
 
+    def test_pick_cell_returns_the_point_it_hit(self):
+        """The pick reports where under the pixel it landed, not only which
+        cell: the center pixel lands on the centroid of the framed quad,
+        and a pixel to its right lands right of it on the z = 0 plane."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_single_quad_2d())
+        widget.fitCameraToScene()
+        px, py, pz = widget.pickCell(100, 100)["point"]
+        self.assertAlmostEqual(px, 0.5, places=3)
+        self.assertAlmostEqual(py, 0.5, places=3)
+        self.assertEqual(pz, 0.0)
+        r = widget.pickCell(120, 100)
+        self.assertEqual(r["id"], 0)
+        qx, qy, qz = r["point"]
+        self.assertGreater(qx, px + 0.01)
+        self.assertLess(qx, 1.0)
+        self.assertAlmostEqual(qy, py, places=3)
+        self.assertEqual(qz, 0.0)
+
     def test_pick_outside_returns_none(self):
         """A click on the background (a corner, outside the framed quad) picks
         nothing."""

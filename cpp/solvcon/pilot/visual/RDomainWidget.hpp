@@ -194,7 +194,9 @@ public:
 
     /// The result of a pick: the entity kind ("cell", "node", "face", or
     /// "none" for a miss), its id, its element type (for a cell), a measure
-    /// (cell volume or face area), and its centroid.
+    /// (cell volume or face area), its centroid, and the point the pick
+    /// landed on: where the ray met the surface (or the z = 0 plane of a 2D
+    /// mesh) for a cell or a face, and the node itself for a node.
     struct PickResult
     {
         std::string kind = "none";
@@ -202,6 +204,7 @@ public:
         int type = -1;
         double measure = 0.0;
         QVector3D centroid;
+        QVector3D point;
 
         bool hit() const { return "none" != kind; }
     }; /* end struct PickResult */
