@@ -5,6 +5,7 @@ import contextlib
 import signal
 
 from .. import _pilot_core as _pcore
+from ._detach import SubWindowDetacher
 from ...core import Toggle
 from PySide6 import QtCore, QtGui
 
@@ -155,6 +156,55 @@ class SubWindowCloseFilter(QtCore.QObject):
         if event.type() == QtCore.QEvent.Type.Close:
             self._on_close()
         return False
+
+
+def keep_filling(subwindow, area):
+    """Keep ``subwindow`` filling ``area`` when the area takes it out of
+    maximized.
+
+    The area keeps one sub-window maximized: bringing another to the front
+    puts the maximized one back to its normal size, which for a window
+    opened maximized is the small size it was added with.  The window
+    then fills the area instead, at its size of the moment.  A restore of
+    the window in front, which is the user's, keeps its normal size.
+
+    :param subwindow: The ``QMdiSubWindow`` to keep.
+    :param area: The ``QMdiArea`` holding it, from the manager.
+    """
+    def fill():
+        state = subwindow.windowState()
+        if (not state & (QtCore.Qt.WindowMaximized
+                         | QtCore.Qt.WindowMinimized)
+                and area.activeSubWindow() is not subwindow):
+            subwindow.setGeometry(area.viewport().rect())
+
+    def on_state(old, new):
+        # The area takes the window out of maximized while it is still in
+        # front, and brings the other forward right after; who is in front
+        # then tells the two moves apart.
+        if (old & QtCore.Qt.WindowMaximized
+                and not new & QtCore.Qt.WindowMaximized):
+            QtCore.QTimer.singleShot(0, subwindow, fill)
+    subwindow.windowStateChanged.connect(on_state)
+
+
+def setup_app_subwindow(subwindow, mgr, app_config):
+    """Give the sub-window of an app what every app window has: the size
+    grip, a detacher that moves it out of the main window and back, the
+    fill of the area when another window comes to the front, and its
+    config shown when it comes to the front out of the area.
+
+    :param subwindow: The ``QMdiSubWindow`` the manager added for the app.
+    :param mgr: The ``RManager`` holding it.
+    :param app_config: The ``AppConfigPanel`` the app's column is in.
+    :return: The :class:`SubWindowDetacher` of the sub-window.
+    """
+    mgr.addSubWindowGrip(subwindow)
+    detacher = SubWindowDetacher(subwindow, mgr)
+    keep_filling(subwindow, mgr.mdiArea)
+    # The detacher goes with the sub-window, and so does this connection.
+    detacher.activated.connect(lambda: app_config.show_for(subwindow))
+    return detacher
 
 
 _SHORTCUT_CONTEXTS = {
