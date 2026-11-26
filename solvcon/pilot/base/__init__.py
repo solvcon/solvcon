@@ -12,16 +12,18 @@ from .. import _pilot_core as _pcore
 
 # _gui imports the feature neighborhoods, whose modules subclass PilotFeature
 # in class statements, so the name must resolve before _gui runs.
-# _gui_common and _base_app need PySide6 but not the C++ pilot, and tests
-# import the feature modules in builds without it, so they are ungated.
+# _gui_common, _detach, and _base_app need PySide6 but not the C++ pilot,
+# and tests import the feature modules in builds without it, so they are
+# ungated.
 __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_base_app': ['ConfigTableModel', 'SolverConfig'],
     '_capture': ['Recording', 'ScreenCapture', 'to_logical_size'],
+    '_detach': ['DetachedWindow', 'SubWindowDetacher'],
     '_gui': ['controller', 'launch', 'register_app'],
     '_gui_common': ['PilotFeature', 'SubWindowCloseFilter',
                     'apply_label_mode', 'label_switch_and_mode',
                     'set_message_sink', 'write_message'],
-}, ungated=('_base_app', '_gui_common'))
+}, ungated=('_base_app', '_detach', '_gui_common'))
 
 # Importing _gui creates the controller singleton and imports the feature
 # neighborhoods, so a pilot is ready once this package loads.

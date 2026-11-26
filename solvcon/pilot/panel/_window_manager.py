@@ -40,12 +40,19 @@ class WindowManager(base.PilotFeature):
     VERTICAL_ID = "window.layout.vertical"
     #: objectName of the tabbed view mode toggle.
     TABBED_ID = "window.layout.tabbed"
+    #: objectName of the action that moves a window out and back.
+    DETACH_ID = "window.detach"
+    #: The text of :attr:`DETACH_ID` while the window is in the area.
+    DETACH_TEXT = "Detach to Own Window"
+    #: The text of :attr:`DETACH_ID` while the window is out.
+    ATTACH_TEXT = "Attach to Main Window"
 
     def __init__(self, *args, **kw):
         super(WindowManager, self).__init__(*args, **kw)
         self._menu = None
         self._items = []
         self._layout_actions = []
+        self._detach_action = None
 
     def populate_menu(self):
         """Build the static sections and anchor the dynamic list.
@@ -83,6 +90,11 @@ class WindowManager(base.PilotFeature):
             None, id=self.TABBED_ID, weight=30, checkable=True)
         act.toggled.connect(self._set_tabbed)
 
+        self._detach_action = self.add_action(
+            "Window", self.DETACH_TEXT,
+            "Move the active window out of the main window, or back",
+            self._toggle_detached, id=self.DETACH_ID, weight=35)
+
         self._mgr.menu_model.place_separator("Window", weight=40)
 
         self._menu.aboutToShow.connect(self._rebuild)
@@ -117,6 +129,28 @@ class WindowManager(base.PilotFeature):
         else:
             mdi.setViewMode(QtWidgets.QMdiArea.ViewMode.SubWindowView)
         self._update_layout_actions()
+
+    def _detacher(self):
+        """The :class:`~solvcon.pilot.base.SubWindowDetacher` of the active
+        window, a window of its own or the active sub-window, or None."""
+        active = QtWidgets.QApplication.activeWindow()
+        if isinstance(active, base.DetachedWindow):
+            return active.detacher
+        return base.SubWindowDetacher.of(
+            self._mgr.mdiArea.activeSubWindow())
+
+    def _toggle_detached(self):
+        detacher = self._detacher()
+        if detacher is not None:
+            detacher.toggle()
+
+    def _update_detach_action(self):
+        """Name the move the active window can make, if it can move."""
+        detacher = self._detacher()
+        self._detach_action.setEnabled(detacher is not None)
+        self._detach_action.setText(
+            self.ATTACH_TEXT if detacher is not None and detacher.detached
+            else self.DETACH_TEXT)
 
     def _tile_horizontal(self):
         self._arrange(horizontal=True)
@@ -170,7 +204,8 @@ class WindowManager(base.PilotFeature):
 
         Drop the entries from the previous show, then append one checkable
         action per visible sub-window in area order, checking the active
-        one. A disabled placeholder stands in when none are open.
+        one, and one per sub-window moved out to a window of its own. A
+        disabled placeholder stands in when none are open.
         """
         for act in self._items:
             self._menu.removeAction(act)
@@ -179,9 +214,11 @@ class WindowManager(base.PilotFeature):
 
         mdi = self._mgr.mdiArea
         active = mdi.activeSubWindow()
-        subwins = [s for s in mdi.subWindowList() if s.isVisible()]
+        subwins = [s for s in mdi.subWindowList()
+                   if s.isVisible() or self._is_out(s)]
 
         self._update_layout_actions()
+        self._update_detach_action()
 
         if not subwins:
             self._append_placeholder()
@@ -190,9 +227,17 @@ class WindowManager(base.PilotFeature):
         for index, subwin in enumerate(subwins):
             self._append_item(index, subwin, subwin is active)
 
+    @staticmethod
+    def _is_out(subwin):
+        detacher = base.SubWindowDetacher.of(subwin)
+        return detacher is not None and detacher.detached
+
     def _append_item(self, index, subwin, is_active):
         """Append one checkable action that activates ``subwin``."""
         title = subwin.windowTitle() or "window"
+        if self._is_out(subwin):
+            is_active = (QtWidgets.QApplication.activeWindow()
+                         is base.SubWindowDetacher.of(subwin).window)
         # Qt reads a bare "&" in an action text as a shortcut mark.
         act = QtGui.QAction(title.replace("&", "&&"), self._menu)
         act.setObjectName(self.ITEM_ID)
@@ -212,7 +257,11 @@ class WindowManager(base.PilotFeature):
         self._items.append(act)
 
     def _activate(self, subwin):
-        """Bring ``subwin`` to the foreground, restoring if minimized."""
+        """Bring ``subwin`` to the foreground, restoring if minimized, or
+        its window of its own when it is out."""
+        if self._is_out(subwin):
+            base.SubWindowDetacher.of(subwin).bring_forward()
+            return
         if subwin.isMinimized():
             subwin.showNormal()
         self._mgr.mdiArea.setActiveSubWindow(subwin)
