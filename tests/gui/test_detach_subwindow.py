@@ -5,8 +5,9 @@
 """Move a sub-window out of the main window into a window of its own and
 back.
 
-A window of its own is a real top-level window, so these checks live in
-the window lane.
+A window of its own is a real top-level window, and the reflection app
+draws its domain only on a live surface, so these checks live in the
+window lane.
 """
 
 import unittest
@@ -19,6 +20,7 @@ try:
     from solvcon.pilot import base
     from solvcon.pilot.base import _gui
     from solvcon.pilot.panel._window_manager import WindowManager
+    from solvcon import apps  # noqa: F401
 except ImportError:
     pilot = None
 
@@ -26,6 +28,21 @@ except ImportError:
 def _settle():
     for _ in range(10):
         QApplication.processEvents()
+
+
+def _colored(widget):
+    """Count the pixels of a grab of ``widget`` that carry a color rather
+    than a grey, skipping where the grab gives nothing."""
+    image = widget.grab().toImage()
+    if image.isNull() or 0 == image.width():
+        raise unittest.SkipTest("the window gave no frame")
+    count = 0
+    for iy in range(0, image.height(), 3):
+        for ix in range(0, image.width(), 3):
+            color = image.pixelColor(ix, iy)
+            channels = (color.red(), color.green(), color.blue())
+            count += max(channels) - min(channels) > 60
+    return count
 
 
 class _PilotFixture(object):
@@ -144,6 +161,67 @@ class SubWindowDetacherTC(_PilotFixture, unittest.TestCase):
                  if a.objectName() == WindowManager.ITEM_ID]
         self.assertIn("menu", [a.text() for a in items])
         plain.close()
+        _settle()
+
+
+@testing.requires_live_window
+class DetachedReflectionTC(_PilotFixture, unittest.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.app = _gui.controller.apps['obsrefl']
+        self.app.open()
+        _settle()
+
+    def tearDown(self):
+        self.app.close()
+        super().tearDown()
+
+    def test_the_app_window_has_a_size_grip(self):
+        grips = self.app.subwindow.findChildren(QSizeGrip)
+        self.assertEqual(1, len(grips))
+        self.assertIs(self.app.subwindow, grips[0].parent())
+
+    def test_the_domain_draws_in_a_window_of_its_own(self):
+        self.app.detacher.detach()
+        self.app.controller.step()
+        _settle()
+        self.assertIs(self.app.detacher.window, self.app.window.window())
+        self.assertGreater(_colored(self.app.window.figure.domain.widget),
+                           0)
+        # A second pick of the menu item finds the window where it is.
+        self.app.open()
+        self.assertTrue(self.app.detacher.detached)
+        # Out of the area, the window still shows its config in front.
+        self.app.detacher.activated.emit()
+        self.assertIs(self.app.column,
+                      _gui.controller.app_config._stack.currentWidget())
+
+    def test_closing_a_window_out_moves_it_back_and_keeps_the_run(self):
+        controller = self.app.controller
+        self.app.detacher.detach()
+        controller.run()
+        _settle()
+        self.app.detacher.window.close()
+        _settle()
+        self.assertFalse(self.app.detacher.detached)
+        self.assertTrue(self.app.subwindow.isMaximized())
+        self.assertTrue(controller._timer.isActive())
+        self.assertGreater(_colored(self.app.window.figure.domain.widget),
+                           0)
+
+    def test_closing_the_app_while_out_stops_the_run(self):
+        controller = self.app.controller
+        self.app.detacher.detach()
+        controller.run()
+        _settle()
+        self.assertTrue(controller._timer.isActive())
+        # The domain view goes with its window of its own; moving it back
+        # into the closing sub-window crashed.
+        self.app.close()
+        # The timer goes with the window, so it is read before that.
+        self.assertFalse(controller._timer.isActive())
+        self.assertIsNone(self.app.subwindow)
         _settle()
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

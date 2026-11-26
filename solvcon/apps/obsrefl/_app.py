@@ -43,6 +43,9 @@ class ObsreflApp(base.PilotFeature):
         self.controller = None
         #: The MDI sub-window holding :attr:`window`, or None.
         self.subwindow = None
+        #: The :class:`~solvcon.pilot.base.SubWindowDetacher` that moves
+        #: :attr:`window` out to a window of its own and back, or None.
+        self.detacher = None
         #: Owner-supplied callback fired after the figure shows a new mesh, so
         #: the inspector can read it.
         self.mesh_updated = None
@@ -58,8 +61,7 @@ class ObsreflApp(base.PilotFeature):
     def open(self):
         """Open the window maximized, or bring it back."""
         if self.subwindow is not None:
-            self._mgr.mdiArea.setActiveSubWindow(self.subwindow)
-            self.subwindow.showMaximized()
+            self.detacher.bring_forward()
             return
         figure = _figure.ReflectionFigure(mgr=self._mgr)
         figure.domain.viewer.mesh_updated = self._notify_mesh_updated
@@ -70,6 +72,8 @@ class ObsreflApp(base.PilotFeature):
         self.controller.title_changed = self._set_title
         self.column.key_pressed = self.window.press_key
         self.subwindow = self._mgr.addSubWindow(self.window)
+        self.detacher = base.setup_app_subwindow(self.subwindow, self._mgr,
+                                                 self.app_config)
         self._set_title(self.controller.setup.title())
         self._close_filter = base.SubWindowCloseFilter(self._on_closed,
                                                        self.subwindow)
@@ -112,6 +116,7 @@ class ObsreflApp(base.PilotFeature):
         self.window = None
         self.column = None
         self.subwindow = None
+        self.detacher = None
         self._close_filter = None
 
 

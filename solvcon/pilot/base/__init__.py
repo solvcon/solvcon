@@ -22,7 +22,8 @@ __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
     '_gui': ['controller', 'launch', 'register_app'],
     '_gui_common': ['PilotFeature', 'SubWindowCloseFilter',
                     'apply_label_mode', 'label_switch_and_mode',
-                    'set_message_sink', 'write_message'],
+                    'set_message_sink', 'setup_app_subwindow',
+                    'write_message'],
 }, ungated=('_base_app', '_detach', '_gui_common'))
 
 # Importing _gui creates the controller singleton and imports the feature
