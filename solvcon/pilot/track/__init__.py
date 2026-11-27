@@ -3,7 +3,7 @@
 
 
 """The MCAP viewer of the pilot: a dock that lists the open recording and
-a main window that tables one of its topics."""
+a main window that tables and plots one of its topics."""
 
 from .. import _pilot_core as _pcore
 

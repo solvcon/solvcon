@@ -4,7 +4,7 @@
 
 """
 The main window of the open recording: one topic at a time, every scalar
-leaf decoded once and paged through a table.
+leaf decoded once, paged through the Table tab and drawn on the Plot tab.
 """
 
 import os
@@ -15,13 +15,15 @@ from PySide6.QtCore import (Qt, Signal, QAbstractTableModel, QModelIndex,
 from PySide6.QtGui import QFontMetrics, QIntValidator
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QPushButton, QLineEdit, QTableView,
-                               QHeaderView, QStackedWidget, QAbstractItemView)
+                               QHeaderView, QStackedWidget, QAbstractItemView,
+                               QTabBar)
 
 from ...track import mcap
 from .._style import PaletteStyled
 from ._style import (Rules, font, header_colors, row_colors, ROW_PAD,
                      ROW_GAP, CAPTION_TEXT_PIXEL_SIZE, TOPIC_NAME_PIXEL_SIZE,
                      TOPIC_TYPE_PIXEL_SIZE)
+from ._mcap_plot import McapPlotPage
 
 __all__ = [
     "McapMainWindow",
@@ -215,10 +217,11 @@ class _FieldHeader(QHeaderView):
 
 
 class McapMainWindow(PaletteStyled):
-    """One topic of the open recording, decoded into a paged table.
+    """One topic of the open recording: a paged table and a plot.
 
-    The sub-window forwards its close here, so ``closed`` is the one
-    signal the owner needs to learn the window went away.
+    The Table and Plot tabs read the same extraction, so a topic decodes
+    once.  The sub-window forwards its close here, so ``closed`` is the
+    one signal the owner needs to learn the window went away.
     """
 
     closed = Signal()
@@ -238,7 +241,12 @@ class McapMainWindow(PaletteStyled):
         self._notice.setWordWrap(True)
         self._notice.setFont(font(CAPTION_TEXT_PIXEL_SIZE))
         self._pages.addWidget(self._notice)
-        self._pages.addWidget(self._build_table())
+        self._plot = McapPlotPage()
+        self._tabs = QStackedWidget()
+        self._tabs.addWidget(self._build_table())
+        self._tabs.addWidget(self._plot)
+        self._tab_bar.currentChanged.connect(self._tabs.setCurrentIndex)
+        self._pages.addWidget(self._tabs)
         layout.addWidget(self._pages, 1)
         self._apply_style()
 
@@ -251,6 +259,11 @@ class McapMainWindow(PaletteStyled):
     def model(self):
         """The table model, or ``None`` until ``table()`` decodes a topic."""
         return self._model
+
+    @property
+    def plot(self):
+        """The Plot tab, a :class:`McapPlotPage`."""
+        return self._plot
 
     @property
     def title(self):
@@ -269,6 +282,13 @@ class McapMainWindow(PaletteStyled):
         self._type.hide()
         self._summary = QLabel()
         self._summary.setFont(font(CAPTION_TEXT_PIXEL_SIZE))
+        self._tab_bar = QTabBar()
+        self._tab_bar.setDrawBase(False)
+        self._tab_bar.setExpanding(False)
+        self._tab_bar.setFont(font(CAPTION_TEXT_PIXEL_SIZE))
+        self._tab_bar.addTab("Table")
+        self._tab_bar.addTab("Plot")
+        bar.addWidget(self._tab_bar)
         bar.addWidget(self._name)
         bar.addWidget(self._type)
         bar.addStretch(1)
@@ -352,9 +372,12 @@ class McapMainWindow(PaletteStyled):
         except mcap.McapError as error:
             self._notice.setText("Cannot decode {}: {}".format(topic, error))
             self._pages.setCurrentWidget(self._notice)
+            self._tab_bar.setEnabled(False)
+            self._show_plot(topic, None, None)
             return None
 
         self._model = TopicTableModel(extraction, plan)
+        self._show_plot(topic, extraction, plan)
         self._table.setModel(self._model)
         self._table.resizeColumnsToContents()
         # The first page sizes the columns, so make room for the last index.
@@ -363,9 +386,22 @@ class McapMainWindow(PaletteStyled):
         self._table.setColumnWidth(0, max(widest, self._table.columnWidth(0)))
         self._summary.setText("{:,} messages \u00b7 {} columns".format(
             self._model.message_count, len(plan.fields)))
-        self._pages.setCurrentWidget(self._table_page)
+        self._pages.setCurrentWidget(self._tabs)
+        self._tab_bar.setEnabled(True)
         self.page(1)
         return self._model
+
+    def _show_plot(self, topic, extraction, plan):
+        """Hand the plot the topic and the span of the file.
+
+        A file without statistics has no recorded span, so the first and
+        last messages of the topic stand in.
+        """
+        span = self._reader.time_range()
+        if span is None:
+            times = () if extraction is None else extraction.time.ndarray
+            span = (int(times[0]), int(times[-1])) if len(times) else (0, 0)
+        self._plot.show_topic(topic, extraction, plan, span)
 
     def page(self, number):
         """Turn to page ``number``; out of range clamps to the ends.
@@ -401,7 +437,7 @@ class McapMainWindow(PaletteStyled):
 
     def _apply_style(self):
         self.setStyleSheet(Rules.sheet(self, "bar", "table", "button",
-                                       "field"))
+                                       "field", "tabs"))
         self._type.setStyleSheet(Rules.sheet(self, "badge"))
         self._notice.setStyleSheet(Rules.sheet(self, "faint"))
         sheet = Rules.sheet(self, "label")
