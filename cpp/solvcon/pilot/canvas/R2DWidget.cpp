@@ -61,10 +61,18 @@ constexpr double NODE_MARKER_HALF_PX = 3.5;
 constexpr double HANDLE_KNOB_RADIUS_PX = 3.0;
 constexpr double NODE_HIT_PX = 6.0;
 
-// Nodes are told apart by exact world position; QPointF's own == is fuzzy.
-bool same_point(QPointF const & a, QPointF const & b)
+QPointF screen_from_world(ViewTransform2dFp64 const & view, Point3dFp64 const & w)
 {
-    return a.x() == b.x() && a.y() == b.y();
+    double sx = 0.0, sy = 0.0;
+    view.screen_from_world(w.x(), w.y(), sx, sy);
+    return QPointF(sx, sy);
+}
+
+Point3dFp64 world_from_screen(ViewTransform2dFp64 const & view, QPointF const & s)
+{
+    double wx = 0.0, wy = 0.0;
+    view.world_from_screen(s.x(), s.y(), wx, wy);
+    return Point3dFp64(wx, wy);
 }
 
 double clamp_zoom(double zoom)
@@ -209,29 +217,27 @@ void R2DWidget::setEditingShape(int32_t shape_id)
     update();
 }
 
-std::vector<R2DWidget::coord2_type> R2DWidget::selectedNodes() const
+std::shared_ptr<PointPadFp64> R2DWidget::selectedNodes() const
 {
-    std::vector<coord2_type> out;
+    std::shared_ptr<PointPadFp64> out = PointPadFp64::construct(/* ndim */ 2);
     if (editingShape() < 0)
     {
         return out;
     }
     for (ShapePointRef const & ref : m_edit_nodes)
     {
-        QPointF const w = worldPointFromRef(ref);
-        out.push_back({w.x(), w.y()});
+        out->append(worldPointFromRef(ref));
     }
     return out;
 }
 
-std::optional<R2DWidget::coord2_type> R2DWidget::selectedHandle() const
+std::optional<Point3dFp64> R2DWidget::selectedHandle() const
 {
     if (editingShape() < 0 || !m_edit_handle)
     {
         return std::nullopt;
     }
-    QPointF const w = worldPointFromRef(*m_edit_handle);
-    return coord2_type{w.x(), w.y()};
+    return worldPointFromRef(*m_edit_handle);
 }
 
 bool R2DWidget::isEditable(int32_t shape_id) const
@@ -342,11 +348,11 @@ void R2DWidget::paintDrawPreview(QPainter & painter) const
         return;
     }
     // avoid painting when the canvas is just re-entered
-    if (m_draw_current_x == m_draw_start_x && m_draw_current_y == m_draw_start_y)
+    if (m_draw_current == m_draw_start)
     {
         return;
     }
-    std::array<DrawPoint, 2> const points{{{m_draw_start_x, m_draw_start_y}, {m_draw_current_x, m_draw_current_y}}};
+    std::array<DrawPoint, 2> const points{{{m_draw_start.x(), m_draw_start.y()}, {m_draw_current.x(), m_draw_current.y()}}};
     m_tool->paint_preview(painter, m_view, qcolor(m_palette.draw_preview), points);
 }
 
@@ -360,13 +366,9 @@ void R2DWidget::paintSelection(QPainter & painter) const
     // box and its top-left handle rotate together and never separate.
     OrientedBoundBox3dFp64 const obb = m_world->shape_obb(m_selected);
     QPolygonF box;
-
-    double sx = 0.0, sy = 0.0;
     for (size_t i = 0; i < OrientedBoundBox3dFp64::NCORNER; ++i)
     {
-        Point3dFp64 const corner = obb.corner(i);
-        m_view.screen_from_world(corner.x(), corner.y(), sx, sy);
-        box << QPointF(sx, sy);
+        box << screen_from_world(m_view, obb.corner(i));
     }
 
     // Draw the box and the rotate handle knob.
@@ -395,11 +397,9 @@ void R2DWidget::paintNodeEdit(QPainter & painter) const
     {
         return;
     }
-    auto to_screen = [this](auto const & p)
+    auto to_screen = [this](Point3dFp64 const & p)
     {
-        double sx = 0.0, sy = 0.0;
-        m_view.screen_from_world(p.x(), p.y(), sx, sy);
-        return QPointF(sx, sy);
+        return screen_from_world(m_view, p);
     };
 
     QColor const selection = qcolor(m_palette.selection);
@@ -442,12 +442,11 @@ void R2DWidget::paintNodeEdit(QPainter & painter) const
     QColor const background = qcolor(m_palette.background);
     for (EditNode const & node : editNodes())
     {
-        QPointF const w(node.p.x(), node.p.y());
-        bool const selected = isNodeSelected(w);
+        bool const selected = isNodeSelected(node.p);
         pen.setColor(selected ? node_selection : selection);
         painter.setPen(pen);
         painter.setBrush(selected ? node_selection : background);
-        QPointF const n = to_screen(w);
+        QPointF const n = to_screen(node.p);
         painter.drawRect(QRectF(n.x() - NODE_MARKER_HALF_PX, n.y() - NODE_MARKER_HALF_PX, 2.0 * NODE_MARKER_HALF_PX, 2.0 * NODE_MARKER_HALF_PX));
     }
 }
@@ -494,12 +493,8 @@ small_vector<R2DWidget::EditNode> R2DWidget::editNodes() const
     return nodes;
 }
 
-QPointF R2DWidget::worldPointFromRef(ShapePointRef const & ref) const
+Point3dFp64 R2DWidget::worldPointFromRef(ShapePointRef const & ref) const
 {
-    auto to_qpoint = [](auto const & p)
-    {
-        return QPointF(p.x(), p.y());
-    };
     auto segment = [this, &ref]()
     {
         return m_world->shape_segment(m_editing, ref.index);
@@ -510,12 +505,12 @@ QPointF R2DWidget::worldPointFromRef(ShapePointRef const & ref) const
     };
     switch (ref.type)
     {
-    case PointType::SEGMENT_P0: return to_qpoint(segment().p0());
-    case PointType::SEGMENT_P1: return to_qpoint(segment().p1());
-    case PointType::B3CURVE_P0: return to_qpoint(curve().p0());
-    case PointType::B3CURVE_P1: return to_qpoint(curve().p1());
-    case PointType::B3CURVE_P2: return to_qpoint(curve().p2());
-    case PointType::B3CURVE_P3: return to_qpoint(curve().p3());
+    case PointType::SEGMENT_P0: return segment().p0();
+    case PointType::SEGMENT_P1: return segment().p1();
+    case PointType::B3CURVE_P0: return curve().p0();
+    case PointType::B3CURVE_P1: return curve().p1();
+    case PointType::B3CURVE_P2: return curve().p2();
+    case PointType::B3CURVE_P3: return curve().p3();
     }
     return {};
 }
@@ -526,9 +521,8 @@ std::optional<ShapePointRef> R2DWidget::hitEditNode(QPointF const & screen_pos) 
     double best_d = NODE_HIT_PX;
     for (EditNode const & node : editNodes())
     {
-        double sx = 0.0, sy = 0.0;
-        m_view.screen_from_world(node.p.x(), node.p.y(), sx, sy);
-        double const d = std::hypot(sx - screen_pos.x(), sy - screen_pos.y());
+        QPointF const d_screen = screen_from_world(m_view, node.p) - screen_pos;
+        double const d = std::hypot(d_screen.x(), d_screen.y());
         if (d <= best_d)
         {
             best = node.ref;
@@ -547,11 +541,10 @@ std::optional<ShapePointRef> R2DWidget::hitEditHandle(QPointF const & screen_pos
         return best;
     }
     double best_d = NODE_HIT_PX;
-    auto consider = [&](auto const & p, ShapePointRef const & ref)
+    auto consider = [&](Point3dFp64 const & p, ShapePointRef const & ref)
     {
-        double sx = 0.0, sy = 0.0;
-        m_view.screen_from_world(p.x(), p.y(), sx, sy);
-        double const d = std::hypot(sx - screen_pos.x(), sy - screen_pos.y());
+        QPointF const d_screen = screen_from_world(m_view, p) - screen_pos;
+        double const d = std::hypot(d_screen.x(), d_screen.y());
         if (d <= best_d)
         {
             best = ref;
@@ -568,13 +561,13 @@ std::optional<ShapePointRef> R2DWidget::hitEditHandle(QPointF const & screen_pos
     return best;
 }
 
-bool R2DWidget::isNodeSelected(QPointF const & w) const
+bool R2DWidget::isNodeSelected(Point3dFp64 const & w) const
 {
     // Compare positions rather than references: any piece end at the node may
     // stand for it.
     for (ShapePointRef const & ref : m_edit_nodes)
     {
-        if (same_point(worldPointFromRef(ref), w))
+        if (worldPointFromRef(ref) == w)
         {
             return true;
         }
@@ -592,22 +585,18 @@ ShapePointRefPad R2DWidget::expandSelectedNodes() const
             refs.append(ref);
         }
     };
-    auto at_selected = [this](auto const & p)
-    {
-        return isNodeSelected(QPointF(p.x(), p.y()));
-    };
 
     // A curve end carries its handle: p1 rides with p0 and p2 with p3.
     size_t const ncurve = m_world->shape_curve_count(m_editing);
     for (uint32_t i = 0; i < ncurve; ++i)
     {
         auto const c = m_world->shape_curve(m_editing, i);
-        if (at_selected(c.p0()))
+        if (isNodeSelected(c.p0()))
         {
             add(ShapePointRef{.index = i, .type = PointType::B3CURVE_P0});
             add(ShapePointRef{.index = i, .type = PointType::B3CURVE_P1});
         }
-        if (at_selected(c.p3()))
+        if (isNodeSelected(c.p3()))
         {
             add(ShapePointRef{.index = i, .type = PointType::B3CURVE_P3});
             add(ShapePointRef{.index = i, .type = PointType::B3CURVE_P2});
@@ -617,11 +606,11 @@ ShapePointRefPad R2DWidget::expandSelectedNodes() const
     for (uint32_t i = 0; i < nsegment; ++i)
     {
         auto const s = m_world->shape_segment(m_editing, i);
-        if (at_selected(s.p0()))
+        if (isNodeSelected(s.p0()))
         {
             add(ShapePointRef{.index = i, .type = PointType::SEGMENT_P0});
         }
-        if (at_selected(s.p1()))
+        if (isNodeSelected(s.p1()))
         {
             add(ShapePointRef{.index = i, .type = PointType::SEGMENT_P1});
         }
@@ -633,7 +622,7 @@ bool R2DWidget::pressNodeEdit(QPointF const & screen_pos, Qt::KeyboardModifiers 
 {
     if (std::optional<ShapePointRef> const node = hitEditNode(screen_pos))
     {
-        QPointF const w = worldPointFromRef(*node);
+        Point3dFp64 const w = worldPointFromRef(*node);
         bool const selected = isNodeSelected(w);
         m_edit_handle.reset();
         if (modifiers & Qt::ShiftModifier)
@@ -644,7 +633,7 @@ bool R2DWidget::pressNodeEdit(QPointF const & screen_pos, Qt::KeyboardModifiers 
                 small_vector<ShapePointRef> kept;
                 for (ShapePointRef const & ref : m_edit_nodes)
                 {
-                    if (!same_point(worldPointFromRef(ref), w))
+                    if (worldPointFromRef(ref) != w)
                     {
                         kept.push_back(ref);
                     }
@@ -677,7 +666,7 @@ bool R2DWidget::pressNodeEdit(QPointF const & screen_pos, Qt::KeyboardModifiers 
         return false;
     }
 
-    m_view.world_from_screen(screen_pos.x(), screen_pos.y(), m_move_last_x, m_move_last_y);
+    m_move_last = world_from_screen(m_view, screen_pos);
     // Bracket the drag so its incremental steps undo as one.
     m_world->begin_operation();
     update();
@@ -697,45 +686,37 @@ int32_t R2DWidget::pickShapeAt(QPointF const & screen_pos) const
     {
         return -1;
     }
-    double wx = 0.0, wy = 0.0;
-    m_view.world_from_screen(screen_pos.x(), screen_pos.y(), wx, wy);
+    Point3dFp64 const w = world_from_screen(m_view, screen_pos);
     double const tol = PICK_TOLERANCE_PX / m_view.zoom();
-    return m_world->pick_shape(wx, wy, tol);
+    return m_world->pick_shape(w.x(), w.y(), tol);
 }
 
-R2DWidget::coord2_type R2DWidget::selectionCenterWorld() const
+Point3dFp64 R2DWidget::selectionCenterWorld() const
 {
-    Point3dFp64 const center = m_world->shape_obb(m_selected).center();
-    return {center.x(), center.y()};
+    return m_world->shape_obb(m_selected).center();
 }
 
 QPointF R2DWidget::rotateHandlePos() const
 {
     // The handle anchor is always at the box's top-left corner (obb corner 0).
     OrientedBoundBox3dFp64 const obb = m_world->shape_obb(m_selected);
-    Point3dFp64 const anchor = obb.corner(0);
-    Point3dFp64 const center = obb.center();
-    double hx = 0.0, hy = 0.0, cx = 0.0, cy = 0.0;
-    m_view.screen_from_world(anchor.x(), anchor.y(), hx, hy);
-    m_view.screen_from_world(center.x(), center.y(), cx, cy);
-    double const dx = hx - cx, dy = hy - cy;
-    double const len = std::hypot(dx, dy);
+    QPointF const anchor = screen_from_world(m_view, obb.corner(0));
+    QPointF const outward = anchor - screen_from_world(m_view, obb.center());
+    double const len = std::hypot(outward.x(), outward.y());
     if (len > 1.0e-9)
     {
-        hx += dx / len * ROTATE_HANDLE_GAP_PX;
-        hy += dy / len * ROTATE_HANDLE_GAP_PX;
+        return anchor + outward / len * ROTATE_HANDLE_GAP_PX;
     }
-    return QPointF(hx, hy);
+    return anchor;
 }
 
-R2DWidget::coord2_type R2DWidget::rotateHandleScreen() const
+QPointF R2DWidget::rotateHandleScreen() const
 {
     if (m_selected < 0 || !m_world || !m_world->shape_is_live(m_selected))
     {
-        return {-1.0, -1.0};
+        return QPointF(-1.0, -1.0);
     }
-    QPointF const h = rotateHandlePos();
-    return {h.x(), h.y()};
+    return rotateHandlePos();
 }
 
 bool R2DWidget::isOnRotateHandle(QPointF const & screen_pos) const
@@ -794,9 +775,8 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
         {
             // Anchor the drag in world space so it is robust to any pan or
             // zoom that happens mid-stroke.
-            m_view.world_from_screen(pos.x(), pos.y(), m_draw_start_x, m_draw_start_y);
-            m_draw_current_x = m_draw_start_x;
-            m_draw_current_y = m_draw_start_y;
+            m_draw_start = world_from_screen(m_view, pos);
+            m_draw_current = m_draw_start;
             m_drawing = true;
             event->accept();
             return;
@@ -825,12 +805,9 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
         // back to panning the view on empty space.
         if (isOnRotateHandle(pos))
         {
-            coord2_type const c = selectionCenterWorld();
-            m_rotate_cx = c[0];
-            m_rotate_cy = c[1];
-            double wx = 0.0, wy = 0.0;
-            m_view.world_from_screen(pos.x(), pos.y(), wx, wy);
-            m_rotate_last_angle = std::atan2(wy - m_rotate_cy, wx - m_rotate_cx);
+            m_rotate_center = selectionCenterWorld();
+            Point3dFp64 const arm = world_from_screen(m_view, pos) - m_rotate_center;
+            m_rotate_last_angle = std::atan2(arm.y(), arm.x());
             // Bracket the rotate gesture so its incremental steps undo as one.
             m_world->begin_operation();
             m_drag = EditDrag::Rotate;
@@ -841,7 +818,7 @@ void R2DWidget::mousePressEvent(QMouseEvent * event)
         if (hit >= 0)
         {
             m_selected = hit;
-            m_view.world_from_screen(pos.x(), pos.y(), m_move_last_x, m_move_last_y);
+            m_move_last = world_from_screen(m_view, pos);
             // Bracket the move gesture so its incremental steps undo as one.
             m_world->begin_operation();
             m_drag = EditDrag::Move;
@@ -867,47 +844,42 @@ void R2DWidget::mouseMoveEvent(QMouseEvent * event)
     QPointF const pos = event->position();
     if (m_drawing)
     {
-        m_view.world_from_screen(pos.x(), pos.y(), m_draw_current_x, m_draw_current_y);
+        m_draw_current = world_from_screen(m_view, pos);
         update();
         event->accept();
         return;
     }
     if (m_drag == EditDrag::Move)
     {
-        double wx = 0.0, wy = 0.0;
-        m_view.world_from_screen(pos.x(), pos.y(), wx, wy);
+        Point3dFp64 const w = world_from_screen(m_view, pos);
         if (m_world && m_world->shape_is_live(m_selected))
         {
-            m_world->translate_shape(m_selected, wx - m_move_last_x, wy - m_move_last_y);
+            m_world->translate_shape(m_selected, w.x() - m_move_last.x(), w.y() - m_move_last.y());
         }
-        m_move_last_x = wx;
-        m_move_last_y = wy;
+        m_move_last = w;
         update();
         event->accept();
         return;
     }
     if (m_drag == EditDrag::Node || m_drag == EditDrag::Handle)
     {
-        double wx = 0.0, wy = 0.0;
-        m_view.world_from_screen(pos.x(), pos.y(), wx, wy);
+        Point3dFp64 const w = world_from_screen(m_view, pos);
         if (editingShape() >= 0)
         {
-            m_world->move_shape_points(m_editing, m_edit_dragging_points, wx - m_move_last_x, wy - m_move_last_y);
+            m_world->move_shape_points(m_editing, m_edit_dragging_points, w.x() - m_move_last.x(), w.y() - m_move_last.y());
         }
-        m_move_last_x = wx;
-        m_move_last_y = wy;
+        m_move_last = w;
         update();
         event->accept();
         return;
     }
     if (m_drag == EditDrag::Rotate)
     {
-        double wx = 0.0, wy = 0.0;
-        m_view.world_from_screen(pos.x(), pos.y(), wx, wy);
-        double const angle = std::atan2(wy - m_rotate_cy, wx - m_rotate_cx);
+        Point3dFp64 const arm = world_from_screen(m_view, pos) - m_rotate_center;
+        double const angle = std::atan2(arm.y(), arm.x());
         if (m_world && m_world->shape_is_live(m_selected))
         {
-            m_world->rotate_shape(m_selected, angle - m_rotate_last_angle, m_rotate_cx, m_rotate_cy);
+            m_world->rotate_shape(m_selected, angle - m_rotate_last_angle, m_rotate_center.x(), m_rotate_center.y());
         }
         m_rotate_last_angle = angle;
         update();
@@ -933,14 +905,13 @@ void R2DWidget::mouseReleaseEvent(QMouseEvent * event)
     {
         m_drawing = false;
 
-        double const diff = std::hypot(m_draw_current_x - m_draw_start_x, m_draw_current_y - m_draw_start_y);
-        double const drag_px = m_view.zoom() * diff;
+        double const drag_px = m_view.zoom() * (m_draw_current - m_draw_start).calc_length();
 
         if (m_world && drag_px >= MIN_DRAW_DRAG_PX)
         {
             std::array<DrawPoint, 2> const points{
-                {{m_draw_start_x, m_draw_start_y},
-                 {m_draw_current_x, m_draw_current_y}}};
+                {{m_draw_start.x(), m_draw_start.y()},
+                 {m_draw_current.x(), m_draw_current.y()}}};
             m_tool->commit(*m_world, points);
         }
 
