@@ -464,8 +464,6 @@ public:
     using obb_type = OrientedBoundBox3d<T>;
     using rtree_type = RTree<ShapeEntry<T>, bbox_type>;
 
-    using bbox_array_type = small_vector<value_type, 4>; ///< As [min_x, min_y, max_x, max_y].
-
     template <typename... Args>
     static std::shared_ptr<World<T>> construct(Args &&... args)
     {
@@ -730,15 +728,8 @@ public:
                m_shape_registry[shape_id].type != ShapeType::DEAD;
     }
 
-    /**
-     * Axis-aligned bounding box of a live shape, as
-     * [min_x, min_y, max_x, max_y].
-     */
-    bbox_array_type shape_bbox(int32_t shape_id) const
-    {
-        bbox_type const bb = compute_shape_bbox(find_shape_or_throw(shape_id));
-        return {bb.min_x(), bb.min_y(), bb.max_x(), bb.max_y()};
-    }
+    /// Axis-aligned bounding box of a live shape, with a zero z extent.
+    bbox_type shape_bbox(int32_t shape_id) const { return compute_shape_bbox(find_shape_or_throw(shape_id)); }
 
     /**
      * World position of a live shape's rotate-handle anchor (the oriented

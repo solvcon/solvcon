@@ -394,9 +394,9 @@ QStringList advanced_shape_label(WorldFp64 const & world, int32_t id)
     case ShapeType::CIRCLE:
     {
         auto const bb = world.shape_bbox(id);
-        double const cx = 0.5 * (bb[0] + bb[2]);
-        double const cy = 0.5 * (bb[1] + bb[3]);
-        double const r = 0.5 * (bb[2] - bb[0]);
+        double const cx = 0.5 * (bb.min_x() + bb.max_x());
+        double const cy = 0.5 * (bb.min_y() + bb.max_y());
+        double const r = 0.5 * (bb.max_x() - bb.min_x());
         lines << QStringLiteral("c=%1").arg(format_point(cx, cy));
         lines << QStringLiteral("r=%1").arg(format_measure(r));
         break;
@@ -697,7 +697,7 @@ void RWorldRenderer2d::paint_shape_annotations(
     for (int32_t const id : ids)
     {
         auto const bb = m_world->shape_bbox(id);
-        QRectF box(map(bb[0], bb[3]), map(bb[2], bb[1]));
+        QRectF box(map(bb.min_x(), bb.max_y()), map(bb.max_x(), bb.min_y()));
         box = box.normalized().adjusted(-PAD, -PAD, PAD, PAD);
         boxes.push_back(box);
         if (place_labels)
