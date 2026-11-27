@@ -1,0 +1,60 @@
+name: skip_ci_label
+
+# Carries the "skip-ci" label to the runs a pull request already has: adding
+# the label cancels what is still running, and removing it re-runs what the
+# label stopped.  See issue solvcon/modmesh#814.
+#
+# devbuild, devbuild_windows, and lint keep their own activity types, so no
+# label event writes a check of its own.  Letting them listen to "labeled"
+# instead hides a failed check: GitHub carries every label on that activity
+# type, and a run whose jobs the label gates off writes a skipped check under
+# the name of the real one.
+#
+# pull_request_target runs the copy of this file on the default branch, with a
+# token that may cancel and re-run.  Its checkout takes the base branch, never
+# the head, so no code from the pull request runs here.
+
+on:
+  pull_request_target:
+    types: [labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  # Two labels toggled in a row must not act on the same runs at once.
+  group: skip_ci_label-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+
+  apply:
+
+    name: skip_ci_label
+
+    runs-on: ubuntu-24.04
+
+    timeout-minutes: 5
+
+    permissions:
+      # contents for the checkout below, which a public repository would also
+      # grant an anonymous clone, and actions to cancel and re-run.
+      contents: read
+      actions: write
+
+    steps:
+
+      # A full tree costs more than the work itself, so take the one script
+      # and nothing else. Cone mode matches directories, not files, hence off.
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: contrib/ci/apply-skip-ci-label.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Cancel or re-run the gated workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          LABEL_ACTION: ${{ github.event.action }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: contrib/ci/apply-skip-ci-label.sh
