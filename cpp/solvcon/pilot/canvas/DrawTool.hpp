@@ -29,17 +29,6 @@ namespace solvcon
 {
 
 /**
- * A point in world coordinates, the unit a drawing gesture is built from.
- *
- * @ingroup group_domain
- */
-struct DrawPoint
-{
-    double x;
-    double y;
-}; /* end struct DrawPoint */
-
-/**
  * Abstract base class for a 2D canvas drawing tool.
  *
  * @ingroup group_domain
@@ -58,16 +47,16 @@ public:
     virtual bool can_draw_shape() const = 0;
 
     /**
-     * Paint the rubber-band preview of the gesture `points` in `color`. Sets
-     * the shared preview pen, then defers to `paint_outline`.
+     * Paint the rubber-band preview of the gesture world `points` in
+     * `color`. Sets the shared preview pen, then defers to `paint_outline`.
      */
     void paint_preview(QPainter & painter,
                        ViewTransform2dFp64 const & view,
                        QColor const & color,
-                       std::span<DrawPoint const> points) const;
+                       std::span<Point3dFp64 const> points) const;
 
-    /// Commit the shape described by the gesture `points` into `world`.
-    virtual void commit(WorldFp64 & world, std::span<DrawPoint const> points) const = 0;
+    /// Commit the shape described by the gesture world `points` into `world`.
+    virtual void commit(WorldFp64 & world, std::span<Point3dFp64 const> points) const = 0;
 
 protected:
 
@@ -75,7 +64,7 @@ protected:
     /// set on `painter` by `paint_preview`.
     virtual void paint_outline(QPainter & painter,
                                ViewTransform2dFp64 const & view,
-                               std::span<DrawPoint const> points) const = 0;
+                               std::span<Point3dFp64 const> points) const = 0;
 
 }; /* end class DrawToolBase */
 

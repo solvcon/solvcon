@@ -5,6 +5,8 @@
 
 #include <solvcon/pilot/canvas/DrawTool.hpp>
 
+#include <solvcon/pilot/canvas/canvas_coord.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -23,7 +25,7 @@ void DrawToolBase::paint_preview(
     QPainter & painter,
     ViewTransform2dFp64 const & view,
     QColor const & color,
-    std::span<DrawPoint const> points) const
+    std::span<Point3dFp64 const> points) const
 {
     QPen pen(color);
     pen.setCosmetic(true);
@@ -37,15 +39,6 @@ void DrawToolBase::paint_preview(
 namespace
 {
 
-/// Map a world-space gesture point to widget screen coordinates.
-QPointF to_screen_qpoint(ViewTransform2dFp64 const & view, DrawPoint const & p)
-{
-    double sx = 0.0;
-    double sy = 0.0;
-    view.screen_from_world(p.x, p.y, sx, sy);
-    return QPointF(sx, sy);
-}
-
 /// The default tool: a drag selects and edits a shape, or pans and zooms the view on empty space.
 class SelectTool : public DrawToolBase
 {
@@ -58,11 +51,11 @@ public:
 
     bool can_draw_shape() const override { return false; }
 
-    void commit(WorldFp64 &, std::span<DrawPoint const>) const override {}
+    void commit(WorldFp64 &, std::span<Point3dFp64 const>) const override {}
 
 protected:
 
-    void paint_outline(QPainter &, ViewTransform2dFp64 const &, std::span<DrawPoint const>) const override {}
+    void paint_outline(QPainter &, ViewTransform2dFp64 const &, std::span<Point3dFp64 const>) const override {}
 
 }; /* end class SelectTool */
 
@@ -78,36 +71,36 @@ public:
 
     bool can_draw_shape() const override { return true; }
 
-    void commit(WorldFp64 & world, std::span<DrawPoint const> points) const override
+    void commit(WorldFp64 & world, std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("CircleTool::commit: need at least two points");
         }
-        DrawPoint const & center = points.front();
-        DrawPoint const & rim = points.back();
-        world.add_circle(center.x, center.y, std::hypot(rim.x - center.x, rim.y - center.y));
+        Point3dFp64 const & center = points.front();
+        Point3dFp64 const & rim = points.back();
+        world.add_circle(center.x(), center.y(), (rim - center).calc_length());
     }
 
 protected:
 
     void paint_outline(QPainter & painter,
                        ViewTransform2dFp64 const & view,
-                       std::span<DrawPoint const> points) const override
+                       std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("CircleTool::paint_outline: need at least two points");
         }
-        DrawPoint const & center = points.front();
-        DrawPoint const & rim = points.back();
-        double const radius = std::hypot(rim.x - center.x, rim.y - center.y);
+        Point3dFp64 const & center = points.front();
+        Point3dFp64 const & rim = points.back();
+        double const radius = (rim - center).calc_length();
         if (radius <= 0.0)
         {
             throw std::invalid_argument("CircleTool::paint_outline: radius must be positive");
         }
         double const radius_px = view.zoom() * radius;
-        painter.drawEllipse(to_screen_qpoint(view, center), radius_px, radius_px);
+        painter.drawEllipse(screen_from_world(view, center), radius_px, radius_px);
     }
 
 }; /* end class CircleTool */
@@ -124,30 +117,30 @@ public:
 
     bool can_draw_shape() const override { return true; }
 
-    void commit(WorldFp64 & world, std::span<DrawPoint const> points) const override
+    void commit(WorldFp64 & world, std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("LineTool::commit: need at least two points");
         }
 
-        DrawPoint const & p0 = points.front();
-        DrawPoint const & p1 = points.back();
-        world.add_line(p0.x, p0.y, p1.x, p1.y);
+        Point3dFp64 const & p0 = points.front();
+        Point3dFp64 const & p1 = points.back();
+        world.add_line(p0.x(), p0.y(), p1.x(), p1.y());
     }
 
 protected:
 
     void paint_outline(QPainter & painter,
                        ViewTransform2dFp64 const & view,
-                       std::span<DrawPoint const> points) const override
+                       std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("LineTool::paint_outline: need at least two points");
         }
 
-        painter.drawLine(to_screen_qpoint(view, points.front()), to_screen_qpoint(view, points.back()));
+        painter.drawLine(screen_from_world(view, points.front()), screen_from_world(view, points.back()));
     }
 
 }; /* end class LineTool */
@@ -167,36 +160,36 @@ public:
 
     bool can_draw_shape() const override { return true; }
 
-    void commit(WorldFp64 & world, std::span<DrawPoint const> points) const override
+    void commit(WorldFp64 & world, std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("TriangleTool::commit: need at least two points");
         }
 
-        DrawPoint const & anchor = points.front();
-        DrawPoint const & corner = points.back();
-        double const apex_x = (anchor.x + corner.x) * 0.5;
-        world.add_triangle(anchor.x, anchor.y, corner.x, anchor.y, apex_x, corner.y);
+        Point3dFp64 const & anchor = points.front();
+        Point3dFp64 const & corner = points.back();
+        double const apex_x = (anchor.x() + corner.x()) * 0.5;
+        world.add_triangle(anchor.x(), anchor.y(), corner.x(), anchor.y(), apex_x, corner.y());
     }
 
 protected:
 
     void paint_outline(QPainter & painter,
                        ViewTransform2dFp64 const & view,
-                       std::span<DrawPoint const> points) const override
+                       std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("TriangleTool::paint_outline: need at least two points");
         }
 
-        DrawPoint const & anchor = points.front();
-        DrawPoint const & corner = points.back();
-        double const apex_x = (anchor.x + corner.x) * 0.5;
-        QPolygonF const corners{to_screen_qpoint(view, anchor),
-                                to_screen_qpoint(view, {corner.x, anchor.y}),
-                                to_screen_qpoint(view, {apex_x, corner.y})};
+        Point3dFp64 const & anchor = points.front();
+        Point3dFp64 const & corner = points.back();
+        double const apex_x = (anchor.x() + corner.x()) * 0.5;
+        QPolygonF const corners{screen_from_world(view, anchor),
+                                screen_from_world(view, Point3dFp64(corner.x(), anchor.y())),
+                                screen_from_world(view, Point3dFp64(apex_x, corner.y()))};
         painter.drawPolygon(corners);
     }
 
@@ -214,19 +207,19 @@ public:
 
     bool can_draw_shape() const override { return true; }
 
-    void commit(WorldFp64 & world, std::span<DrawPoint const> points) const override
+    void commit(WorldFp64 & world, std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("RectangleTool::commit: need at least two points");
         }
 
-        DrawPoint const & corner0 = points.front();
-        DrawPoint const & corner1 = points.back();
-        double const min_x = std::min(corner0.x, corner1.x);
-        double const max_x = std::max(corner0.x, corner1.x);
-        double const min_y = std::min(corner0.y, corner1.y);
-        double const max_y = std::max(corner0.y, corner1.y);
+        Point3dFp64 const & corner0 = points.front();
+        Point3dFp64 const & corner1 = points.back();
+        double const min_x = std::min(corner0.x(), corner1.x());
+        double const max_x = std::max(corner0.x(), corner1.x());
+        double const min_y = std::min(corner0.y(), corner1.y());
+        double const max_y = std::max(corner0.y(), corner1.y());
         world.add_rectangle(min_x, min_y, max_x, max_y);
     }
 
@@ -234,14 +227,14 @@ protected:
 
     void paint_outline(QPainter & painter,
                        ViewTransform2dFp64 const & view,
-                       std::span<DrawPoint const> points) const override
+                       std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("RectangleTool::paint_outline: need at least two points");
         }
 
-        painter.drawRect(QRectF(to_screen_qpoint(view, points.front()), to_screen_qpoint(view, points.back())).normalized());
+        painter.drawRect(QRectF(screen_from_world(view, points.front()), screen_from_world(view, points.back())).normalized());
     }
 
 }; /* end class RectangleTool */
@@ -260,34 +253,34 @@ public:
 
     bool can_draw_shape() const override { return true; }
 
-    void commit(WorldFp64 & world, std::span<DrawPoint const> points) const override
+    void commit(WorldFp64 & world, std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("EllipseTool::commit: need at least two points");
         }
 
-        DrawPoint const & center = points.front();
-        DrawPoint const & corner = points.back();
-        world.add_ellipse(center.x, center.y, std::fabs(corner.x - center.x), std::fabs(corner.y - center.y));
+        Point3dFp64 const & center = points.front();
+        Point3dFp64 const & corner = points.back();
+        world.add_ellipse(center.x(), center.y(), std::fabs(corner.x() - center.x()), std::fabs(corner.y() - center.y()));
     }
 
 protected:
 
     void paint_outline(QPainter & painter,
                        ViewTransform2dFp64 const & view,
-                       std::span<DrawPoint const> points) const override
+                       std::span<Point3dFp64 const> points) const override
     {
         if (points.size() < 2)
         {
             throw std::invalid_argument("EllipseTool::paint_outline: need at least two points");
         }
 
-        DrawPoint const & center = points.front();
-        DrawPoint const & corner = points.back();
-        double const rx_px = view.zoom() * std::fabs(corner.x - center.x);
-        double const ry_px = view.zoom() * std::fabs(corner.y - center.y);
-        painter.drawEllipse(to_screen_qpoint(view, center), rx_px, ry_px);
+        Point3dFp64 const & center = points.front();
+        Point3dFp64 const & corner = points.back();
+        double const rx_px = view.zoom() * std::fabs(corner.x() - center.x());
+        double const ry_px = view.zoom() * std::fabs(corner.y() - center.y());
+        painter.drawEllipse(screen_from_world(view, center), rx_px, ry_px);
     }
 
 }; /* end class EllipseTool */

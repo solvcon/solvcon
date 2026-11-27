@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 
+#include <solvcon/pilot/canvas/canvas_coord.hpp>
 #include <solvcon/pilot/common/cursor.hpp>
 #include <solvcon/pilot/theme/RThemeManager.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
@@ -60,20 +61,6 @@ constexpr double ROTATE_HANDLE_HIT_PX = 9.0;
 constexpr double NODE_MARKER_HALF_PX = 3.5;
 constexpr double HANDLE_KNOB_RADIUS_PX = 3.0;
 constexpr double NODE_HIT_PX = 6.0;
-
-QPointF screen_from_world(ViewTransform2dFp64 const & view, Point3dFp64 const & w)
-{
-    double sx = 0.0, sy = 0.0;
-    view.screen_from_world(w.x(), w.y(), sx, sy);
-    return QPointF(sx, sy);
-}
-
-Point3dFp64 world_from_screen(ViewTransform2dFp64 const & view, QPointF const & s)
-{
-    double wx = 0.0, wy = 0.0;
-    view.world_from_screen(s.x(), s.y(), wx, wy);
-    return Point3dFp64(wx, wy);
-}
 
 double clamp_zoom(double zoom)
 {
@@ -352,7 +339,7 @@ void R2DWidget::paintDrawPreview(QPainter & painter) const
     {
         return;
     }
-    std::array<DrawPoint, 2> const points{{{m_draw_start.x(), m_draw_start.y()}, {m_draw_current.x(), m_draw_current.y()}}};
+    std::array<Point3dFp64, 2> const points{m_draw_start, m_draw_current};
     m_tool->paint_preview(painter, m_view, qcolor(m_palette.draw_preview), points);
 }
 
@@ -464,11 +451,11 @@ small_vector<R2DWidget::EditNode> R2DWidget::editNodes() const
     // are the piece endpoints, with the ends that two pieces share listed once.
     // Nodes are compared exactly in world coordinates, so distinct endpoints
     // that land close on screen still count as their own nodes.
-    auto add_node = [&nodes](auto const & p, ShapePointRef const & ref)
+    auto add_node = [&nodes](Point3dFp64 const & p, ShapePointRef const & ref)
     {
         for (EditNode const & n : nodes)
         {
-            if (n.p.x() == p.x() && n.p.y() == p.y())
+            if (n.p == p)
             {
                 return;
             }
@@ -909,9 +896,7 @@ void R2DWidget::mouseReleaseEvent(QMouseEvent * event)
 
         if (m_world && drag_px >= MIN_DRAW_DRAG_PX)
         {
-            std::array<DrawPoint, 2> const points{
-                {{m_draw_start.x(), m_draw_start.y()},
-                 {m_draw_current.x(), m_draw_current.y()}}};
+            std::array<Point3dFp64, 2> const points{m_draw_start, m_draw_current};
             m_tool->commit(*m_world, points);
         }
 
