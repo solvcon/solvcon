@@ -16,6 +16,7 @@ import numpy as np
 
 from ...pilot import panel
 
+from . import _probe
 from . import _viewmodel
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     'field_frame',
     'freestream_summary',
     'numerics_summary',
+    'probe_frame',
     'profile_frame',
     'results',
     'strip_state',
@@ -237,6 +239,40 @@ def profile_frame(session, display):
         key=name)
 
 
+#: What the readings of the probe line are, for its tooltip.
+PROBE_TIP = ("point: the cell value, which holds at its solution point "
+             "and colors the cell\n"
+             "element: the solution element of the cell at the cursor\n"
+             "mesh: the node values of the cell interpolated to the cursor, "
+             "as the profile reads them\n"
+             "exact: the analytic value at the cursor")
+
+
+def probe_frame(session, display, target, pinned=False):
+    """Return the :class:`~._viewmodel.ProbeFrame` of the shown field at
+    the probed point, or None for no point to probe.
+
+    :param session: The :class:`~._session.ReflectionSession` to read.
+    :param display: The :class:`~._viewmodel.Display` naming the field.
+    :param target: ``(cell, (x, y))`` under the cursor, or None.
+    :param pinned: Whether a click fixed the point, which the line leads
+        with.
+    """
+    if target is None or not display.probe:
+        return None
+    cell, point = target
+    reading = _probe.Probe(session.analysis).read(cell, point,
+                                                  display.field)
+    parts = [f"{'pinned ' if pinned else ''}cell {reading.cell} at "
+             f"({reading.point[0]:.3f}, {reading.point[1]:.3f})"]
+    parts += [f"{word} {panel.format_number(value)}" for word, value in (
+        ("point", reading.at_solution_point),
+        ("element", reading.by_element),
+        ("mesh", reading.by_mesh),
+        ("exact", reading.exact)) if value is not None]
+    return _viewmodel.ProbeFrame(text="   ".join(parts), tip=PROBE_TIP)
+
+
 def strip_state(session, state, failure='', dirty=False, can_reset=True):
     """Return the :class:`~solvcon.pilot.panel.StripState` of ``session`` in
     ``state``.
@@ -300,8 +336,12 @@ def display_summary(display):
     """
     parts = [_viewmodel.FIELD_LABELS[display.field]]
     parts += [word for word, on in (("color bar", display.bar),
+                                    ("profile", display.profile),
                                     ("cells", display.mark_cells),
-                                    ("line", display.mark_line)) if on]
+                                    ("line", display.mark_line),
+                                    ("probe", display.probe),
+                                    ("pin", display.probe and display.pin))
+              if on]
     parts.append(f"cut {display.cut:.2f}")
     return ", ".join(parts)
 
@@ -333,9 +373,30 @@ class ReflectionPresenter(object):
             figure = self.window.figure
             figure.set_bar_visible(display.bar)
             figure.show_field(field_frame(session, display))
-            figure.show_profile(profile_frame(session, display))
+            figure.set_profile_visible(display.profile)
+            if display.profile:
+                figure.show_profile(profile_frame(session, display))
+        self.show_probe(session, display)
         if self.column is not None:
             self.column.card.show_results(results(session, display.field))
+
+    def show_probe(self, session, display):
+        """Read the field at the point the figure probes into its readout.
+
+        The figure calls for this when the cursor moves, and :meth:`show`
+        on every frame, so a running march reads out under a still cursor.
+
+        :param session: The :class:`~._session.ReflectionSession` to read,
+            or None for no run.
+        :param display: The :class:`~._viewmodel.Display` to read it as.
+        """
+        if self.window is None:
+            return
+        figure = self.window.figure
+        figure.set_probe_enabled(display.probe)
+        figure.set_pinning(display.pin)
+        figure.show_probe(None if session is None else probe_frame(
+            session, display, figure.probe_target, figure.probe_pinned))
 
     def blank(self):
         """Clear the figure and the card, for no run to show."""
@@ -343,6 +404,7 @@ class ReflectionPresenter(object):
             figure = self.window.figure
             figure.show_field(None)
             figure.show_profile(None)
+            figure.show_probe(None)
         if self.column is not None:
             self.column.card.show_results(None)
 

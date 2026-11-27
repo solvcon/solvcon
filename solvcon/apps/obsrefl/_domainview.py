@@ -7,7 +7,7 @@ widget."""
 
 import shiboken6
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 
 from ... import pilot
@@ -50,6 +50,42 @@ def build_view():
     return view, found[0]
 
 
+class _HoverFilter(QObject):
+    """Hand the moves of the cursor over the view to its host while no
+    button is down, and the clicks of the left button; a drag still
+    navigates the view and is neither a hover nor a click.
+
+    :param host: The :class:`DomainView` whose signals fire.
+    """
+
+    #: How far in pixels a press may travel and still release as a click.
+    SLOP = 4
+
+    def __init__(self, host):
+        super().__init__(host)
+        self._host = host
+        self._pressed = None
+
+    def eventFilter(self, watched, event):
+        kind = event.type()
+        if QEvent.MouseMove == kind and Qt.NoButton == event.buttons():
+            pos = event.position().toPoint()
+            self._host.hovered.emit(pos.x(), pos.y())
+        elif (QEvent.MouseButtonPress == kind
+              and Qt.LeftButton == event.button()):
+            self._pressed = event.position().toPoint()
+        elif (QEvent.MouseButtonRelease == kind
+              and Qt.LeftButton == event.button()
+              and self._pressed is not None):
+            pos = event.position().toPoint()
+            if (pos - self._pressed).manhattanLength() <= self.SLOP:
+                self._host.clicked.emit(pos.x(), pos.y())
+            self._pressed = None
+        elif QEvent.Leave == kind:
+            self._host.left.emit()
+        return False
+
+
 class DomainView(QWidget):
     """A plain host of one 3D domain view, or of a muted note where the
     pilot cannot build one.
@@ -77,6 +113,15 @@ class DomainView(QWidget):
     #: What the host reads where the pilot builds no view.
     UNAVAILABLE = "no 3D view"
 
+    #: Fired with the pixel ``(x, y)`` of the view the cursor moved to
+    #: while no button is down.
+    hovered = Signal(int, int)
+    #: Fired when the cursor leaves the view.
+    left = Signal()
+    #: Fired with the pixel ``(x, y)`` of a click of the left button that
+    #: did not drag.
+    clicked = Signal(int, int)
+
     def __init__(self, parent=None, mgr=None):
         super().__init__(parent)
         if mgr is None:
@@ -98,6 +143,11 @@ class DomainView(QWidget):
             layout.addWidget(note)
             return
         layout.addWidget(self.widget)
+        # The view moves the camera only while a button is down, so taking
+        # the other moves leaves its navigation alone.
+        self.widget.setMouseTracking(True)
+        self._hover = _HoverFilter(self)
+        self.widget.installEventFilter(self._hover)
         self.view.showAxis(True)
         self._bind_reset(mgr)
 

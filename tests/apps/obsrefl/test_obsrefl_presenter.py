@@ -18,7 +18,7 @@ import unittest
 
 import numpy as np
 
-from solvcon.apps.obsrefl import ReflectionSession
+from solvcon.apps.obsrefl import Probe, ReflectionSession
 from solvcon.apps.obsrefl import _presenter
 from solvcon.apps.obsrefl import _setup
 from solvcon.apps.obsrefl import _viewmodel
@@ -176,6 +176,41 @@ class ProfileFrameTC(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(cfl.exact)))
 
 
+class ProbeFrameTC(unittest.TestCase):
+
+    def setUp(self):
+        self.sess = _session(chunks=2)
+        self.target = (5, tuple(self.sess.field.centroid[5]))
+
+    def test_the_line_names_the_cell_and_each_reading(self):
+        frame = _presenter.probe_frame(self.sess, _viewmodel.Display(
+            field='pressure'), self.target)
+        reading = Probe(self.sess.analysis).read(5, self.target[1],
+                                                 'pressure')
+        x, y = self.target[1]
+        self.assertTrue(frame.text.startswith(
+            f"cell 5 at ({x:.3f}, {y:.3f})"))
+        for word, value in (("point", reading.at_solution_point),
+                            ("element", reading.by_element),
+                            ("mesh", reading.by_mesh),
+                            ("exact", reading.exact)):
+            self.assertIn(f"{word} {panel.format_number(value)}",
+                          frame.text)
+        self.assertEqual(_presenter.PROBE_TIP, frame.tip)
+
+    def test_a_field_without_an_exact_value_leaves_it_out(self):
+        frame = _presenter.probe_frame(
+            self.sess, _viewmodel.Display(field='cfl'), self.target)
+        self.assertIn("mesh", frame.text)
+        self.assertNotIn("exact", frame.text)
+
+    def test_nothing_reads_out_without_a_point_or_with_the_probe_off(self):
+        self.assertIsNone(_presenter.probe_frame(
+            self.sess, _viewmodel.Display(), None))
+        self.assertIsNone(_presenter.probe_frame(
+            self.sess, _viewmodel.Display(probe=False), self.target))
+
+
 class StripStateTC(unittest.TestCase):
 
     def test_the_clock_runs_on_the_time_increment(self):
@@ -201,6 +236,8 @@ class ReflectionPresenterTC(unittest.TestCase):
     def setUp(self):
         self.calls = []
         recorder = _Recorder(self.calls)
+        recorder.probe_target = None
+        recorder.probe_pinned = False
         self.window = types.SimpleNamespace(figure=recorder)
         self.column = types.SimpleNamespace(card=recorder)
 
@@ -209,27 +246,79 @@ class ReflectionPresenterTC(unittest.TestCase):
         display = _viewmodel.Display(field='pressure', bar=False, cut=0.25)
         presenter = _presenter.ReflectionPresenter(self.window, self.column)
         presenter.show(sess, display)
-        self.assertEqual(['set_bar_visible', 'show_field', 'show_profile',
+        self.assertEqual(['set_bar_visible', 'show_field',
+                          'set_profile_visible', 'show_profile',
+                          'set_probe_enabled', 'set_pinning', 'show_probe',
                           'show_results'], [call[0] for call in self.calls])
-        bar, field, profile, res = (call[1] for call in self.calls)
+        (bar, field, profiling, profile, probing, pinning, probe,
+         res) = (call[1] for call in self.calls)
         self.assertFalse(bar)
+        self.assertTrue(profiling)
+        self.assertTrue(pinning)
         self.assertEqual(_presenter.field_frame(sess, display).caption,
                          field.caption)
         self.assertEqual(_presenter.profile_frame(sess, display).key,
                          profile.key)
         self.assertEqual(_presenter.results(sess, 'pressure'), res)
+        # Nothing is under the cursor, so the probe reads nothing out.
+        self.assertTrue(probing)
+        self.assertIsNone(probe)
+
+    def test_a_frame_reads_the_probe_out_under_a_still_cursor(self):
+        sess = _session(chunks=1)
+        presenter = _presenter.ReflectionPresenter(self.window, None)
+        target = (3, tuple(sess.field.centroid[3]))
+        self.window.figure.probe_target = target
+        display = _viewmodel.Display()
+        texts = []
+        for _ in range(2):
+            del self.calls[:]
+            presenter.show(sess, display)
+            frame = dict(self.calls)['show_probe']
+            self.assertEqual(_presenter.probe_frame(sess, display, target),
+                             frame)
+            texts.append(frame.text)
+            sess.advance()
+        # The point stays, and the reading follows the march.
+        self.assertNotEqual(texts[0], texts[1])
+        # The switch stops the probe, whatever the cursor is over.
+        del self.calls[:]
+        presenter.show_probe(sess, _viewmodel.Display(probe=False))
+        self.assertEqual([('set_probe_enabled', False),
+                          ('set_pinning', True), ('show_probe', None)],
+                         self.calls)
+
+    def test_a_pinned_probe_says_so(self):
+        sess = _session(chunks=1)
+        target = (3, tuple(sess.field.centroid[3]))
+        self.window.figure.probe_target = target
+        self.window.figure.probe_pinned = True
+        presenter = _presenter.ReflectionPresenter(self.window, None)
+        presenter.show_probe(sess, _viewmodel.Display())
+        frame = dict(self.calls)['show_probe']
+        self.assertTrue(frame.text.startswith("pinned cell 3 at"))
+
+    def test_a_hidden_profile_is_not_read_out(self):
+        # The cut is read only for the plot, so a hidden plot costs nothing.
+        sess = _session(chunks=1)
+        presenter = _presenter.ReflectionPresenter(self.window, None)
+        presenter.show(sess, _viewmodel.Display(profile=False))
+        names = [call[0] for call in self.calls]
+        self.assertIn(('set_profile_visible', False), self.calls)
+        self.assertNotIn('show_profile', names)
 
     def test_blank_clears_each_widget(self):
         presenter = _presenter.ReflectionPresenter(self.window, self.column)
         presenter.blank()
         self.assertEqual([('show_field', None), ('show_profile', None),
-                          ('show_results', None)], self.calls)
+                          ('show_probe', None), ('show_results', None)],
+                         self.calls)
         del self.calls[:]
         _presenter.ReflectionPresenter(None, self.column).blank()
         self.assertEqual([('show_results', None)], self.calls)
         del self.calls[:]
         _presenter.ReflectionPresenter(self.window, None).blank()
-        self.assertEqual(['show_field', 'show_profile'],
+        self.assertEqual(['show_field', 'show_profile', 'show_probe'],
                          [call[0] for call in self.calls])
 
 
@@ -247,8 +336,17 @@ class SummaryTC(unittest.TestCase):
 
     def test_the_display_head_names_what_shows(self):
         self.assertEqual(
-            "pressure, color bar, line, cut 0.25",
+            "pressure, color bar, profile, line, probe, pin, cut 0.25",
             _presenter.display_summary(_viewmodel.Display(
                 field='pressure', mark_line=True, cut=0.25)))
+        # A pin needs the probe, so it names only with it.
+        self.assertEqual(
+            "density, probe, pin, cut 0.50",
+            _presenter.display_summary(_viewmodel.Display(
+                bar=False, profile=False)))
+        self.assertEqual(
+            "density, cut 0.50",
+            _presenter.display_summary(_viewmodel.Display(
+                bar=False, profile=False, probe=False)))
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4 tw=79:

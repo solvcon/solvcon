@@ -35,6 +35,7 @@ class ReflectionController(panel.RunController):
         self.presenter = _presenter.ReflectionPresenter(window, column)
         super().__init__(window, column, _setup.ReflectionSetup()
                          if setup is None else setup)
+        window.figure.probe_moved.connect(self._on_probe_moved)
 
     def setup_groups(self):
         column = self.column
@@ -44,6 +45,9 @@ class ReflectionController(panel.RunController):
     def take_session(self, session):
         shock = session.shock
         self.window.figure.set_mesh(shock.mesh, shock.shock_path())
+
+    def _on_probe_moved(self):
+        self.presenter.show_probe(self.session, self.display)
 
     def check_march(self, session):
         # Nothing drawn after a density gone non-finite would mean anything.

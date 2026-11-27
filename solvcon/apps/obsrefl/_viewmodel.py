@@ -16,6 +16,7 @@ __all__ = [
     'Display',
     'FIELD_LABELS',
     'FieldFrame',
+    'ProbeFrame',
     'ProfileFrame',
     'Results',
 ]
@@ -68,6 +69,12 @@ class Display(typing.NamedTuple):
     mark_line: bool = False
     #: The height of the profile, a fraction of the domain height.
     cut: float = 0.5
+    #: Whether hovering over the domain probes the field.
+    probe: bool = True
+    #: Whether a click on a cell fixes the probe there.
+    pin: bool = True
+    #: Whether the profile plot shows under the domain.
+    profile: bool = True
 
 
 class FieldFrame(typing.NamedTuple):
@@ -91,6 +98,15 @@ class FieldFrame(typing.NamedTuple):
     gauge_cells: object = None
     #: The height of the profile line, or None.
     gauge_height: float = None
+
+
+class ProbeFrame(typing.NamedTuple):
+    """The readout of the probe under the cursor."""
+
+    #: The line under the caption: the cell, the point, and the readings.
+    text: str
+    #: The tooltip: what each reading is.
+    tip: str
 
 
 class ProfileFrame(typing.NamedTuple):

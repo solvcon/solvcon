@@ -145,6 +145,24 @@ class DisplayGroupTC(unittest.TestCase):
         group.show_display(_viewmodel.Display())
         self.assertEqual(5, len(changed))
 
+    def test_the_probe_pin_and_profile_switches(self):
+        group = _forms.DisplayGroup()
+        self.addCleanup(testing.dispose_widget, group)
+        changed = []
+        group.display_changed = changed.append
+        # Pinning is on by default.
+        self.assertTrue(group._pin.isChecked())
+        group._pin.setChecked(False)
+        group._profile.setChecked(False)
+        self.assertEqual(_viewmodel.Display(pin=False, profile=False),
+                         changed[-1])
+        # A pin holds only what the probe reads, so it waits on the probe.
+        group._probe.setChecked(False)
+        self.assertFalse(group._pin.isEnabled())
+        group.show_display(_viewmodel.Display(pin=True))
+        self.assertTrue(group._pin.isEnabled())
+        self.assertEqual(_viewmodel.Display(pin=True), group.display())
+
     def test_the_wheel_scrolls_past_a_field_not_focused(self):
         # The column scrolls under the wheel; a value it passes over must
         # not change, least of all the step cap of the standing run.
