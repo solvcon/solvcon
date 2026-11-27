@@ -71,6 +71,10 @@ class Display(typing.NamedTuple):
     cut: float = 0.5
     #: Whether hovering over the domain probes the field.
     probe: bool = True
+    #: Whether a click on a cell fixes the probe there.
+    pin: bool = True
+    #: Whether the profile plot shows under the domain.
+    profile: bool = True
 
 
 class FieldFrame(typing.NamedTuple):

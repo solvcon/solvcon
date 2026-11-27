@@ -57,6 +57,10 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
         self._colorizer = None
         self._gauge = None
         self._probing = True
+        self._pinning = True
+        #: Whether a click fixed :attr:`probe_target`, which hovering then
+        #: leaves alone.
+        self.probe_pinned = False
         #: ``(cell, (x, y))`` of the body cell and the point under the
         #: cursor, or None.
         self.probe_target = None
@@ -103,6 +107,7 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
         self.splitter.setSizes([100 * stretch for stretch in self.STRETCH])
         self.domain.hovered.connect(self._on_hovered)
         self.domain.left.connect(self._on_left)
+        self.domain.clicked.connect(self._on_clicked)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)
         layout.addWidget(self.splitter)
@@ -127,7 +132,7 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
         """
         self._colorizer = visual.FieldColorizer(mesh)
         self._gauge = (None, None)
-        self._set_target(None)
+        self._release_probe()
         self.domain.viewer.update_mesh(mesh)
         if path is not None:
             self.domain.viewer.draw_path(path)
@@ -172,8 +177,8 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
     def set_probe_enabled(self, on):
         """Let hovering probe the field, or stop it and hide the line.
 
-        It does not emit :attr:`probe_moved`: the caller reads the probe
-        out after setting the switch.
+        Like :meth:`set_pinning`, it does not emit :attr:`probe_moved`: the
+        caller reads the probe out after setting the switches.
 
         :param on: Whether hovering probes.
         """
@@ -183,7 +188,28 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
             return
         self._probing = on
         if not on:
-            self._set_target(None, notify=False)
+            self._release_probe(notify=False)
+
+    def set_pinning(self, on):
+        """Let a click fix the probe on the cell under it, or release a
+        fixed probe and go back to hovering.
+
+        :param on: Whether a click pins.
+        """
+        on = bool(on)
+        if on == self._pinning:
+            return
+        self._pinning = on
+        if not on and self.probe_pinned:
+            self._release_probe(notify=False)
+
+    def set_profile_visible(self, on):
+        """Show or hide the profile plot under the domain pane, which takes
+        the room the plot leaves.
+
+        :param on: Whether the profile shows.
+        """
+        self.profile.setVisible(bool(on))
 
     def show_probe(self, frame):
         """Read out a probe.
@@ -198,19 +224,71 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
         self.readout.set_full_text(frame.text)
         self.readout.setToolTip(frame.tip)
 
-    def _on_hovered(self, x, y):
-        if not self._probing or self._colorizer is None:
-            return
+    def _pick(self, x, y):
+        """Return ``(cell, (x, y))`` under the pixel, or None."""
         view = self.domain.view
         hit = view.pickCell(x, y)
-        # The pick selects the cell in the view's own highlight, which the
-        # colored field hides; the readout is what marks the probe.
+        # The pick selects the cell in the view's own highlight; the
+        # colorizer draws the highlight instead.
         view.clearSelection()
-        self._set_target(None if hit is None
-                         else (hit["id"], hit["point"][:2]))
+        return None if hit is None else (hit["id"], hit["point"][:2])
+
+    def _on_hovered(self, x, y):
+        if (not self._probing or self.probe_pinned
+                or self._colorizer is None):
+            return
+        self._set_target(self._pick(x, y))
 
     def _on_left(self):
-        self._set_target(None)
+        if not self.probe_pinned:
+            self._set_target(None)
+
+    def _on_clicked(self, x, y):
+        if not (self._probing and self._pinning) or self._colorizer is None:
+            return
+        target = self._pick(x, y)
+        # A click while pinned lets the pin go wherever it lands, and the
+        # probe reads where the cursor stands; the next click pins.
+        pinned = not self.probe_pinned and target is not None
+        if pinned == self.probe_pinned and target == self.probe_target:
+            return
+        # The flag goes first, so whoever the move reaches reads it.
+        self.probe_pinned = pinned
+        if target == self.probe_target:
+            self._show_highlight()
+            self.probe_moved.emit()
+        else:
+            self._set_target(target)
+
+    def _show_highlight(self):
+        """Ring the probed cell, which keeps its field color: a thin cased
+        line while hovering, a thick one with its nodes dotted while
+        pinned."""
+        if self._colorizer is None:
+            return
+        target = self.probe_target
+        # The point moves on every pixel; the cell and the pin seldom do.
+        if not self._colorizer.set_highlight(
+                None if target is None else target[0], self.probe_pinned):
+            return
+        colors = self._colorizer.recolor()
+        if colors is not None:
+            self.domain.viewer.draw_field(self._colorizer.verts, colors,
+                                          self._colorizer.indices)
+
+    def _release_probe(self, notify=True):
+        """Release a pinned probe, or drop a hovered one.
+
+        :param notify: Whether to emit :attr:`probe_moved` on a change.
+        """
+        was = self.probe_pinned
+        self.probe_pinned = False
+        if self.probe_target is not None:
+            self._set_target(None, notify)
+        elif was:
+            self._show_highlight()
+            if notify:
+                self.probe_moved.emit()
 
     def _set_target(self, target, notify=True):
         """Take a new probed point and tell the owner when it moved.
@@ -221,8 +299,7 @@ class ReflectionFigure(pilot.PaletteStyle, QWidget):
         if target == self.probe_target:
             return
         self.probe_target = target
-        if target is None and self.domain.view is not None:
-            self.domain.view.clearSelection()
+        self._show_highlight()
         if notify:
             self.probe_moved.emit()
 

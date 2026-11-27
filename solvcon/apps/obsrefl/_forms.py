@@ -91,8 +91,9 @@ class NumericsGroup(panel.SetupGroup):
 
 class DisplayGroup(panel.ColumnGroup):
     """What the figure shows of the run: the field, the color bar, the
-    marks of the profile cut, its height, and the probe.  None of it marches
-    the run, so an edit applies at once.
+    profile plot, the marks of its cut and the height, and the probe and
+    whether a click pins it.  None of it marches the run, so an edit applies
+    at once.
     """
 
     def __init__(self, parent=None):
@@ -107,6 +108,9 @@ class DisplayGroup(panel.ColumnGroup):
         self._field.setToolTip("The field the cells are colored by")
         self._bar = panel.CheckBox("color bar")
         self._bar.setToolTip("The scale of the colors, right of the domain")
+        self._profile = panel.CheckBox("profile")
+        self._profile.setToolTip("The plot of the field along the cut, under "
+                                 "the domain")
         self._cells = panel.CheckBox("mark cells")
         self._cells.setToolTip("Outline the cells the profile samples")
         self._line = panel.CheckBox("mark line")
@@ -114,6 +118,9 @@ class DisplayGroup(panel.ColumnGroup):
         self._probe = panel.CheckBox("probe")
         self._probe.setToolTip("Read the field under the cursor out under "
                                "the caption")
+        self._pin = panel.CheckBox("pin on click")
+        self._pin.setToolTip("A click on a cell fixes the probe there; the "
+                             "next click lets it go")
         self._cut = QDoubleSpinBox()
         self._cut.setRange(0.0, 1.0)
         self._cut.setSingleStep(0.05)
@@ -124,20 +131,23 @@ class DisplayGroup(panel.ColumnGroup):
         grid.addWidget(panel.form_label("field", self._field.toolTip()),
                        0, 0)
         grid.addWidget(self._field, 0, 1, 1, 2)
-        grid.addWidget(self._bar, 1, 0, 1, 2)
+        grid.addWidget(self._bar, 1, 0)
+        grid.addWidget(self._profile, 1, 1, 1, 2)
         grid.addWidget(self._cells, 2, 0)
         grid.addWidget(self._line, 2, 1, 1, 2)
         grid.addWidget(panel.form_label("cut height", self._cut.toolTip()),
                        3, 0)
         grid.addWidget(self._cut, 3, 1, 1, 2)
-        grid.addWidget(self._probe, 4, 0, 1, 2)
+        grid.addWidget(self._probe, 4, 0)
+        grid.addWidget(self._pin, 4, 1, 1, 2)
         grid.setColumnStretch(1, 1)
         self._controls = (self._field, self._bar, self._cells, self._line,
-                          self._cut, self._probe)
+                          self._cut, self._probe, self._pin, self._profile)
         panel.guard_wheel(self._field, self._cut)
         self.show_display(_viewmodel.Display())
         self._field.currentIndexChanged.connect(self._on_change)
-        for box in (self._bar, self._cells, self._line, self._probe):
+        for box in (self._bar, self._profile, self._cells, self._line,
+                    self._probe, self._pin):
             box.toggled.connect(self._on_change)
         self._cut.valueChanged.connect(self._on_change)
 
@@ -147,7 +157,8 @@ class DisplayGroup(panel.ColumnGroup):
             field=self._field.currentData(), bar=self._bar.isChecked(),
             mark_cells=self._cells.isChecked(),
             mark_line=self._line.isChecked(), cut=self._cut.value(),
-            probe=self._probe.isChecked())
+            probe=self._probe.isChecked(), pin=self._pin.isChecked(),
+            profile=self._profile.isChecked())
 
     def show_display(self, display):
         """Set the controls from a display without firing the callback.
@@ -161,10 +172,15 @@ class DisplayGroup(panel.ColumnGroup):
         self._line.setChecked(display.mark_line)
         self._cut.setValue(display.cut)
         self._probe.setChecked(display.probe)
+        self._pin.setChecked(display.pin)
+        self._pin.setEnabled(display.probe)
+        self._profile.setChecked(display.profile)
         for blocker in blockers:
             blocker.unblock()
 
     def _on_change(self, *_args):
+        # A pin holds only what the probe reads.
+        self._pin.setEnabled(self._probe.isChecked())
         if self.display_changed is not None:
             self.display_changed(self.display())
 

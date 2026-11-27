@@ -52,20 +52,35 @@ def build_view():
 
 class _HoverFilter(QObject):
     """Hand the moves of the cursor over the view to its host while no
-    button is down; a drag still navigates the view and is not a hover.
+    button is down, and the clicks of the left button; a drag still
+    navigates the view and is neither a hover nor a click.
 
     :param host: The :class:`DomainView` whose signals fire.
     """
 
+    #: How far in pixels a press may travel and still release as a click.
+    SLOP = 4
+
     def __init__(self, host):
         super().__init__(host)
         self._host = host
+        self._pressed = None
 
     def eventFilter(self, watched, event):
         kind = event.type()
         if QEvent.MouseMove == kind and Qt.NoButton == event.buttons():
             pos = event.position().toPoint()
             self._host.hovered.emit(pos.x(), pos.y())
+        elif (QEvent.MouseButtonPress == kind
+              and Qt.LeftButton == event.button()):
+            self._pressed = event.position().toPoint()
+        elif (QEvent.MouseButtonRelease == kind
+              and Qt.LeftButton == event.button()
+              and self._pressed is not None):
+            pos = event.position().toPoint()
+            if (pos - self._pressed).manhattanLength() <= self.SLOP:
+                self._host.clicked.emit(pos.x(), pos.y())
+            self._pressed = None
         elif QEvent.Leave == kind:
             self._host.left.emit()
         return False
@@ -103,6 +118,9 @@ class DomainView(QWidget):
     hovered = Signal(int, int)
     #: Fired when the cursor leaves the view.
     left = Signal()
+    #: Fired with the pixel ``(x, y)`` of a click of the left button that
+    #: did not drag.
+    clicked = Signal(int, int)
 
     def __init__(self, parent=None, mgr=None):
         super().__init__(parent)
