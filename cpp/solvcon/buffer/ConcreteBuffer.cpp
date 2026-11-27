@@ -25,7 +25,9 @@ std::shared_ptr<ConcreteBuffer> ConcreteBuffer::construct(size_t nbytes, size_t 
 #ifdef SOLVCON_METAL
     {
         detail::DeviceBufferStorage device_storage = device::MetalManager::instance().allocate_buffer(nbytes, alignment);
-        return construct(nbytes, device_storage.m_data, std::move(device_storage.m_remover), alignment);
+        auto buffer = construct(nbytes, device_storage.m_data, std::move(device_storage.m_remover), alignment);
+        buffer->m_access_state = std::make_unique<access_state_type>();
+        return buffer;
     }
 #else
         throw std::runtime_error("ConcreteBuffer::construct: Metal storage is unavailable");
