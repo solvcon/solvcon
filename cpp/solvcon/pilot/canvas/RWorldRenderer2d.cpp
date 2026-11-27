@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <solvcon/pilot/canvas/canvas_coord.hpp>
 #include <solvcon/pilot/theme/theme_qt.hpp>
 
 #include <QColor>
@@ -606,10 +607,7 @@ QPointF place_label_block(
 
 QPointF RWorldRenderer2d::map(double world_x, double world_y) const
 {
-    double screen_x = 0.0;
-    double screen_y = 0.0;
-    m_view.screen_from_world(world_x, world_y, screen_x, screen_y);
-    return QPointF(screen_x, screen_y);
+    return screen_from_world(m_view, Point3dFp64(world_x, world_y));
 }
 
 void RWorldRenderer2d::paint(QPainter & painter) const

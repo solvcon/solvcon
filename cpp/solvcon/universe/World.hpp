@@ -15,6 +15,7 @@
 
 #include <solvcon/base.hpp>
 #include <solvcon/buffer/SimpleCollector.hpp>
+#include <solvcon/buffer/small_vector.hpp>
 #include <solvcon/serialization/SerializableItem.hpp>
 #include <solvcon/universe/WorldDiagnostics.hpp>
 #include <solvcon/universe/bernstein.hpp>
@@ -1957,7 +1958,7 @@ void World<T>::append_intersections(WorldDiagnostics & diag, small_vector<int32_
                 m_segments->x0(i), m_segments->y0(i), m_segments->x1(i), m_segments->y1(i), m_segments->x0(j), m_segments->y0(j), m_segments->x1(j), m_segments->y1(j));
             if (hit)
             {
-                diag.add_intersection(seg_owner[i], seg_owner[j], (*hit)[0], (*hit)[1]);
+                diag.add_intersection(seg_owner[i], seg_owner[j], hit->x(), hit->y());
             }
         }
     }
