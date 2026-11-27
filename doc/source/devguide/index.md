@@ -5,6 +5,7 @@
 
 contributing
 testing
+release
 cmake
 binding
 style
