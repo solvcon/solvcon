@@ -122,6 +122,69 @@ class DerivedFieldTC(_EulerFieldTB, unittest.TestCase):
             self.field.field('nonesuch')
 
 
+class SolutionElementTC(_EulerFieldTB, unittest.TestCase):
+    """The solution element of a cell read at a point inside it.
+
+    Each cell is seeded with the same linear state, ``rho = 1 + 0.1 x`` with
+    the momenta and the energy of rho = 1, u = (2, 0), p = 1, so the
+    expansion of any cell must give back the state at the point read.
+    """
+
+    SLOPE = 0.1
+
+    def setUp(self):
+        super().setUp()
+        sp = self.field.solution_point
+        self.field.conserved[:] = (1.0, 2.0, 0.0, 1.0 / 0.4 + 2.0)
+        self.field.conserved[:, 0] += self.SLOPE * sp[:, 0]
+        self.field.gradient[:] = 0.0
+        self.field.gradient[:, 0, 0] = self.SLOPE
+
+    def test_the_solution_point_is_the_element_centroid(self):
+        # On a triangle the solution point is the centroid of the
+        # conservation element, which is not the cell centroid.
+        sp = self.field.solution_point
+        self.assertEqual(sp.shape, (self.svr.ncell, self.svr.ndim))
+        cecnd = self.svr.cecnd.ndarray[self.svr.cecnd.nghost:]
+        np.testing.assert_array_equal(sp, cecnd[:, :2])
+        self.assertGreater(np.abs(sp - self.field.centroid).max(), 1.e-3)
+
+    def test_at_the_solution_point_the_element_is_the_cell_value(self):
+        cells = np.arange(self.svr.ncell, dtype='int64')
+        assert_almost_equal(
+            self.field.expand(cells, self.field.solution_point),
+            self.field.conserved)
+        assert_almost_equal(self.field.field_at('density', cells),
+                            self.field.density)
+
+    def test_a_linear_state_comes_back_at_any_point(self):
+        cells = (0, 1, 2)
+        points = self.field.centroid + (0.05, -0.02)
+        assert_almost_equal(self.field.field_at('density', cells, points),
+                            1.0 + self.SLOPE * points[:, 0])
+
+    def test_a_derived_field_comes_from_the_expanded_variables(self):
+        # The pressure p = (gamma-1) (E - |m|^2 / (2 rho)) of the expanded
+        # row, not the cell pressure moved by any slope of its own.
+        cells, points = (1,), ((0.3, 0.2),)
+        rho = 1.0 + self.SLOPE * 0.3
+        energy = 1.0 / 0.4 + 2.0
+        assert_almost_equal(self.field.field_at('pressure', cells, points),
+                            (0.4 * (energy - 4.0 / (2.0 * rho)),))
+        assert_almost_equal(self.field.field_at('velx', cells, points),
+                            (2.0 / rho,))
+
+    def test_the_cfl_reads_the_cell_value(self):
+        self.field.cfl[:] = (0.1, 0.2, 0.3)
+        assert_almost_equal(
+            self.field.field_at('cfl', (2, 0), ((0.1, 0.1), (0.0, -0.5))),
+            (0.3, 0.1))
+
+    def test_unknown_field_raises(self):
+        with self.assertRaises(ValueError):
+            self.field.field_at('nonesuch', (0,))
+
+
 class CflReadoutTC(_EulerFieldTB, unittest.TestCase):
     """The CFL number the solver writes as it marches."""
 

@@ -25,12 +25,13 @@ __all__, __getattr__, __dir__ = pilot.lazy_exports(__name__, {
     '_driver': ['ObliqueShock', 'ObliqueShockRelation'],
     '_figure': ['ReflectionFigure'],
     '_presenter': ['ReflectionPresenter'],
+    '_probe': ['Probe', 'ProbeReading'],
     '_session': ['ReflectionSession'],
     '_setup': ['ReflectionSetup', 'max_deflection'],
     '_viewmodel': ['Display', 'FIELD_LABELS'],
     '_window': ['ReflectionWindow'],
-}, ungated=('_analytic', '_driver', '_presenter', '_session', '_setup',
-            '_viewmodel'))
+}, ungated=('_analytic', '_driver', '_presenter', '_probe', '_session',
+            '_setup', '_viewmodel'))
 
 if pilot.enable:
     from . import _app
