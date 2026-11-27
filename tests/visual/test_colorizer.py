@@ -123,6 +123,12 @@ class ThickSegmentsTC(unittest.TestCase):
         assert_allclose([-0.1, -0.1], quad.min(axis=0))
         assert_allclose([1.1, 0.1], quad.max(axis=0))
 
+    def test_a_quad_not_extended_stops_at_its_ends(self):
+        quad = _colorizer.thick_segments([(0.0, 0.0)], [(1.0, 0.0)], 0.1,
+                                         extend=False)
+        assert_allclose([0.0, -0.1], quad.min(axis=0))
+        assert_allclose([1.0, 0.1], quad.max(axis=0))
+
     def test_the_quad_follows_the_segment_direction(self):
         quad = _colorizer.thick_segments([(0.0, 0.0)], [(0.0, 2.0)], 0.25)
         assert_allclose([-0.25, -0.25], quad.min(axis=0))
@@ -134,6 +140,18 @@ class ThickSegmentsTC(unittest.TestCase):
         self.assertEqual((6, 2), quads.shape)
         empty = _colorizer.thick_segments([(1.0, 1.0)], [(1.0, 1.0)], 0.1)
         self.assertEqual((0, 2), empty.shape)
+
+
+@testing.requires_pilot
+class DiscsTC(unittest.TestCase):
+
+    def test_each_point_becomes_a_fan_around_it(self):
+        flat = _colorizer.discs([(1.0, 2.0), (-3.0, 0.5)], 0.25, sides=8)
+        self.assertEqual((2 * 8 * 3, 2), flat.shape)
+        first = flat[:8 * 3]
+        assert_allclose((1.0, 2.0), first[0::3].mean(axis=0))
+        rim = np.hypot(*(first[1::3] - (1.0, 2.0)).T)
+        assert_allclose(0.25, rim)
 
 
 @testing.requires_pilot
@@ -230,6 +248,96 @@ class FieldColorizerTC(unittest.TestCase):
         assert_allclose(self.colorizer.BAR_LIFT, verts[bar, 2])
         self.assertGreater(self.colorizer.BAR_LIFT,
                            self.colorizer.OUTLINE_LIFT)
+
+    def _layers(self):
+        """Count the highlight's vertices in its halo and its core."""
+        verts = self.colorizer.verts.ndarray
+        colors = self.colorizer.colors(self.field, 0.0, 1.0).ndarray
+        counts = []
+        for color, lift in ((self.colorizer.HALO_COLOR,
+                             self.colorizer.HALO_LIFT),
+                            (self.colorizer.CORE_COLOR,
+                             self.colorizer.CORE_LIFT)):
+            on = (colors == np.array(color, dtype='float32')).all(axis=1)
+            assert_allclose(lift, verts[on, 2])
+            counts.append(int(on.sum()))
+        return counts
+
+    def _core(self):
+        """The vertices of the highlight's core."""
+        verts = self.colorizer.verts.ndarray
+        colors = self.colorizer.colors(self.field, 0.0, 1.0).ndarray
+        core = np.array(self.colorizer.CORE_COLOR, dtype='float32')
+        return verts[(colors == core).all(axis=1), :2]
+
+    def _farthest_off_the_edges(self, cell):
+        """How far a vertex of the casing strays from the cell's edges.
+
+        :param cell: The index of the highlighted body cell.
+        :return: The largest distance of a casing vertex from the nearest
+            edge of ``cell``.
+        """
+        starts, ends = _colorizer.cell_rings(self.mesh, [cell])
+        verts = self.colorizer.verts.ndarray
+        lit = verts[verts[:, 2] > self.colorizer.BAR_LIFT][6:, :2]
+        delta = ends - starts
+        t = ((lit[:, None, :] - starts[None]) * delta[None]).sum(axis=-1)
+        t = np.clip(t / (delta ** 2).sum(axis=-1)[None], 0.0, 1.0)
+        near = starts[None] + t[..., None] * delta[None]
+        return np.hypot(*(lit[:, None, :] - near).transpose(2, 0, 1)).min(
+            axis=1).max()
+
+    def test_a_hovered_cell_is_ringed_and_a_pinned_one_also_dotted(self):
+        self.colorizer.set_gauge(np.ones(self.mesh.ncell, dtype='bool'), 0.5)
+        box = self._box()
+        nnode = int(self.mesh.clnds[4, 0])
+        # A quad per edge and a round join per node, in the halo and in the
+        # core over it.
+        per = nnode * 6 + nnode * self.colorizer.ROUND_SIDES * 3
+        self.colorizer.set_highlight(4)
+        self.assertEqual([per] * 2, self._layers())
+        hovered = np.ptp(self._core(), axis=0)
+        # A pin widens the ring and swells the joins into dots.
+        self.colorizer.set_highlight(4, pinned=True)
+        self.assertEqual([per] * 2, self._layers())
+        self.assertTrue((np.ptp(self._core(), axis=0) > hovered).all())
+        self.assertGreater(self.colorizer.CORE_LIFT,
+                           self.colorizer.HALO_LIFT)
+        self.assertGreater(self.colorizer.HALO_LIFT,
+                           self.colorizer.BAR_LIFT)
+        self.assertEqual(box, self._box())
+        self.colorizer.set_highlight(None)
+        self.assertEqual([0, 0], self._layers())
+        # Only the anchors stay above the bar.
+        lifted = self.colorizer.verts.ndarray[:, 2] > self.colorizer.BAR_LIFT
+        self.assertEqual(6, int(lifted.sum()))
+
+    def test_the_hovered_ring_keeps_its_width_round_the_corners(self):
+        # Square ends run past a corner stuck out of the halo as bulges,
+        # half again as far off the edges as its width.
+        self.colorizer.set_highlight(4)
+        span = self.colorizer._span(self.colorizer.HOVER_HALF
+                                    + self.colorizer.HALO)
+        self.assertLessEqual(self._farthest_off_the_edges(4),
+                             span * (1.0 + 1e-5))
+
+    def test_a_gauge_change_recolors_the_last_frame(self):
+        self.assertIsNone(self.colorizer.recolor())
+        first = self.colorizer.colors(self.field, 0.0, 1.0).ndarray.copy()
+        self.assertTrue(self.colorizer.set_highlight(2, pinned=True))
+        # The same highlight again leaves the colors as they are.
+        self.assertFalse(self.colorizer.set_highlight(2, pinned=True))
+        again = self.colorizer.recolor().ndarray
+        self.assertEqual(len(self.colorizer.verts.ndarray), len(again))
+        assert_allclose(first[:len(first) - 6], again[:len(first) - 6])
+
+        def count(rows, color):
+            return int(np.isclose(rows, color).all(axis=1).sum())
+        # The ring arrives in its own colors, the halo and the core alike.
+        halo, core = self._layers()
+        self.assertEqual(0, count(first, self.colorizer.HALO_COLOR))
+        self.assertEqual(halo, count(again, self.colorizer.HALO_COLOR))
+        self.assertEqual(core, count(again, self.colorizer.CORE_COLOR))
 
     def test_the_gauge_holds_the_framing_box_still(self):
         # Installing a field refits the camera when its box changes.

@@ -141,6 +141,7 @@ static pybind11::object pick_to_py(RDomainWidget::PickResult const & r)
     d["type"] = r.type;
     d["measure"] = r.measure;
     d["centroid"] = py::make_tuple(r.centroid.x(), r.centroid.y(), r.centroid.z());
+    d["point"] = py::make_tuple(r.point.x(), r.point.y(), r.point.z());
     return d;
 }
 
@@ -342,7 +343,7 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapRDomainWidget
                 py::arg("x"),
                 py::arg("y"),
                 "Pick the cell under the pixel; a dict with id, type, measure, "
-                "and centroid, or None on a miss.")
+                "centroid, and the point the ray hit, or None on a miss.")
             .def(
                 "pickNode",
                 [](wrapped_type & self, int x, int y)

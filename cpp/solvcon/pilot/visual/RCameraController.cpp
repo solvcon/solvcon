@@ -93,6 +93,8 @@ void RCameraController::fitToBoundingBox(
     }
     m_radius = radius;
     m_ortho_scale = 1.0f;
+    m_fit_half = (3 == ndim) ? QVector2D(0.0f, 0.0f)
+                             : QVector2D((hi.x() - lo.x()) * 0.5f, (hi.y() - lo.y()) * 0.5f);
     m_up = QVector3D(0.0f, 1.0f, 0.0f);
     m_target = center;
 

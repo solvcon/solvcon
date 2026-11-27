@@ -1360,6 +1360,45 @@ class RDomainWidgetPickTC(unittest.TestCase):
         self.assertAlmostEqual(cy, 0.5, places=3)
         self.assertTrue(widget.hasSelection)
 
+    def test_pick_cell_returns_the_point_it_hit(self):
+        """The pick reports where under the pixel it landed, not only which
+        cell: the center pixel lands on the centroid of the framed quad,
+        and a pixel to its right lands right of it on the z = 0 plane."""
+        widget = pilot.RDomainWidget()
+        widget.resize(200, 200)
+        widget.updateMesh(_make_single_quad_2d())
+        widget.fitCameraToScene()
+        px, py, pz = widget.pickCell(100, 100)["point"]
+        self.assertAlmostEqual(px, 0.5, places=3)
+        self.assertAlmostEqual(py, 0.5, places=3)
+        self.assertEqual(pz, 0.0)
+        r = widget.pickCell(120, 100)
+        self.assertEqual(r["id"], 0)
+        qx, qy, qz = r["point"]
+        self.assertGreater(qx, px + 0.01)
+        self.assertLess(qx, 1.0)
+        self.assertAlmostEqual(qy, py, places=3)
+        self.assertEqual(qz, 0.0)
+
+    def test_a_long_2d_domain_fills_the_view(self):
+        """A 4 x 1 strip fitted into a 4:1 view reaches near every edge,
+        rather than shrinking to the circle around it, and keeps filling
+        the view when it is resized to another shape."""
+        mh = _make_single_quad_2d()
+        mh.ndcrd.ndarray[:, 0] *= 4.0
+        widget = pilot.RDomainWidget()
+        widget.resize(800, 200)
+        widget.updateMesh(mh)
+        widget.fitCameraToScene()
+        for x, y in ((400, 8), (400, 192), (24, 100), (776, 100)):
+            self.assertIsNotNone(widget.pickCell(x, y), (x, y))
+        self.assertIsNone(widget.pickCell(400, 1))
+        # Taller now, so the width binds and the height has room to spare.
+        widget.resize(400, 400)
+        for x, y in ((12, 200), (388, 200)):
+            self.assertIsNotNone(widget.pickCell(x, y), (x, y))
+        self.assertIsNone(widget.pickCell(200, 60))
+
     def test_pick_outside_returns_none(self):
         """A click on the background (a corner, outside the framed quad) picks
         nothing."""
