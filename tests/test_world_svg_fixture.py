@@ -2,10 +2,12 @@
 # BSD 3-Clause License, see COPYING
 
 """
-Test for drawing SOLVCON logo using World API.
+Test for drawing pictures using World API and comparing them with the SVG
+fixtures in tests/data/svg/.
 """
 
 import os
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -40,9 +42,11 @@ def _points_close(p, q, tol=1e-9):
 
 def _svg_path_ds_and_bbox(world):
     # Consecutive beziers whose p0 continues the previous p3 are the same
-    # logo outline, so they are grouped into one SVG <path> "d" string.
-    ds = []
+    # outline, so they are grouped into one SVG <path> "d" string. An outline
+    # that returns to its start is closed and gets filled.
+    paths = []
     segs = None
+    start = None
     prev_p3 = None
     xs = []
     ys = []
@@ -54,38 +58,72 @@ def _svg_path_ds_and_bbox(world):
             ys.append(p.y)
         if segs is None or not _points_close(p0, prev_p3):
             if segs is not None:
-                ds.append(''.join(segs))
+                paths.append((''.join(segs), _points_close(start, prev_p3)))
             segs = ['M%g,%g' % (p0.x, p0.y)]
+            start = p0
         segs.append(' C%g,%g %g,%g %g,%g' % (
             p1.x, p1.y, p2.x, p2.y, p3.x, p3.y))
         prev_p3 = p3
     if segs is not None:
-        ds.append(''.join(segs))
+        paths.append((''.join(segs), _points_close(start, prev_p3)))
+    for i in range(world.nsegment):
+        s = world.segment(i)
+        xs.extend((s.x0, s.x1))
+        ys.extend((s.y0, s.y1))
     bbox = (min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
-    return ds, bbox
+    return paths, bbox
 
 
-def _write_svg(world, file_path):
-    ds, (x0, y0, w, h) = _svg_path_ds_and_bbox(world)
+def _write_svg(world, file_path, color):
+    paths, (x0, y0, w, h) = _svg_path_ds_and_bbox(world)
+    fill_style = ("fill:%s;fill-opacity:1;"
+                  "fill-rule:nonzero;stroke:none" % color)
+    stroke_style = "fill:none;stroke:%s;stroke-width:4" % color
     root = ET.Element('svg', {
         'xmlns': 'http://www.w3.org/2000/svg',
         'viewBox': '%g %g %g %g' % (x0, y0, w, h),
     })
-    for d in ds:
+    for d, closed in paths:
         ET.SubElement(root, 'path', {
             'd': d,
-            'style': ("fill:#c01348;fill-opacity:1;"
-                      "fill-rule:nonzero;stroke:none"),
+            'style': fill_style if closed else stroke_style,
+        })
+    for i in range(world.nsegment):
+        s = world.segment(i)
+        ET.SubElement(root, 'line', {
+            'x1': '%g' % s.x0, 'y1': '%g' % s.y0,
+            'x2': '%g' % s.x1, 'y2': '%g' % s.y1,
+            'style': stroke_style,
         })
     ET.ElementTree(root).write(
         file_path, encoding='utf-8', xml_declaration=True)
 
 
-class WorldSolvconLogoTC(unittest.TestCase):
+class WorldSvgFixtureBase(unittest.TestCase):
     def setUp(self):
         self.w = solvcon.WorldFp64()
-        self.Bezier = solvcon.Bezier3dFp64
 
+    def assert_svg_fixture(self, name, color):
+        """
+        Write the World to SVG and compare it with the fixture file. Return
+        the segment and curve pads parsed back from the written SVG.
+        """
+        fixture_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'data', 'svg', name)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            svg_path = os.path.join(tmpdir, name)
+            _write_svg(self.w, svg_path, color)
+            with open(svg_path) as fobj:
+                written = fobj.read()
+            parser = svg.SvgParser(file_path=svg_path)
+            parser.parse()
+        with open(fixture_path) as fobj:
+            self.assertEqual(written, fobj.read())
+        return parser.get_pads()
+
+
+class WorldSolvconLogoTC(WorldSvgFixtureBase):
     def test_add_solvcon_logo(self):
         cps_logo = []
 
@@ -204,16 +242,96 @@ class WorldSolvconLogoTC(unittest.TestCase):
 
         self.assertEqual(self.w.nbezier, 9 + 14 + 4)
 
-        svg_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'data', 'svg', 'solvcon_logo.svg')
-        _write_svg(self.w, svg_path)
-
-        parser = svg.SvgParser(file_path=svg_path)
-        parser.parse()
-        _, cpads = parser.get_pads()
+        _, cpads = self.assert_svg_fixture('solvcon_logo.svg', '#c01348')
 
         self.assertEqual([len(cpad) for cpad in cpads], [9, 14, 4])
+
+
+class WorldSunglassesTC(WorldSvgFixtureBase):
+    LENS_POINTS = np.array([
+        [-50.0, -30.0], [-15.0, -36.0],
+        [15.0, -36.0], [50.0, -30.0],  # 1, brow
+        [50.0, -30.0], [55.0, -15.0],
+        [52.0, 10.0], [40.0, 25.0],  # 2, inner side
+        [40.0, 25.0], [25.0, 42.0],
+        [-25.0, 42.0], [-40.0, 25.0],  # 3, bottom
+        [-40.0, 25.0], [-52.0, 10.0],
+        [-55.0, -15.0], [-50.0, -30.0],  # 4, outer side
+    ], dtype='float64')
+
+    CENTER = (200.0, 100.0)
+    LENS_OFFSET = 65.0
+
+    def test_add_sunglasses(self):
+        cx, cy = self.CENTER
+        Point = solvcon.Point3dFp64
+
+        left = self.LENS_POINTS + (cx - self.LENS_OFFSET, cy)
+        right = self.LENS_POINTS * (-1.0, 1.0) + (cx + self.LENS_OFFSET, cy)
+        self.w.add_beziers(_curvepad_from_points(left))
+        self.w.add_beziers(_curvepad_from_points(right))
+
+        self.w.add_bezier_shape(
+            p0=Point(cx - 15.0, cy - 30.0, 0),
+            p1=Point(cx - 7.0, cy - 42.0, 0),
+            p2=Point(cx + 7.0, cy - 42.0, 0),
+            p3=Point(cx + 15.0, cy - 30.0, 0))
+
+        edge = self.LENS_OFFSET + 50.0
+        self.w.add_line(cx - edge, cy - 30.0, cx - edge - 20.0, cy - 34.0)
+        self.w.add_line(cx + edge, cy - 30.0, cx + edge + 20.0, cy - 34.0)
+
+        self.assertEqual(self.w.nbezier, 4 + 4 + 1)
+        self.assertEqual(self.w.nsegment, 2)
+
+        spads, cpads = self.assert_svg_fixture('sunglasses.svg', '#1a1a1a')
+
+        self.assertEqual([len(cpad) for cpad in cpads], [4, 4, 1])
+        self.assertEqual([len(spad) for spad in spads], [1, 1])
+
+
+class WorldSunglassesLinesTC(WorldSvgFixtureBase):
+    LENS_VERTICES = np.array([
+        [-50, -30], [-25, -33], [0, -34], [25, -33],  # brow
+        [50, -30], [52, -17], [51, -2], [47, 12],  # inner side
+        [40, 25], [23, 35], [0, 38], [-23, 35],  # bottom
+        [-40, 25], [-47, 12], [-51, -2], [-52, -17],  # outer side
+    ], dtype='float64')
+
+    BRIDGE_VERTICES = np.array([
+        [-15, -30], [-8, -37], [0, -39], [8, -37], [15, -30],
+    ], dtype='float64')
+
+    CENTER = (200.0, 100.0)
+    LENS_OFFSET = 65.0
+
+    def add_lines(self, vertices, closed=False):
+        if closed:
+            vertices = np.vstack([vertices, vertices[:1]])
+        for (x0, y0), (x1, y1) in zip(vertices[:-1], vertices[1:]):
+            self.w.add_line(x0, y0, x1, y1)
+
+    def test_add_sunglasses_lines(self):
+        cx, cy = self.CENTER
+        left = self.LENS_VERTICES + (cx - self.LENS_OFFSET, cy)
+        right = (self.LENS_VERTICES * (-1.0, 1.0)
+                 + (cx + self.LENS_OFFSET, cy))
+        self.add_lines(left, closed=True)
+        self.add_lines(right, closed=True)
+        self.add_lines(self.BRIDGE_VERTICES + (cx, cy))
+
+        edge = self.LENS_OFFSET + 50.0
+        self.w.add_line(cx - edge, cy - 30.0, cx - edge - 20.0, cy - 34.0)
+        self.w.add_line(cx + edge, cy - 30.0, cx + edge + 20.0, cy - 34.0)
+
+        self.assertEqual(self.w.nbezier, 0)
+        self.assertEqual(self.w.nsegment, 16 + 16 + 4 + 2)
+
+        spads, cpads = self.assert_svg_fixture(
+            'sunglasses_lines.svg', '#1a1a1a')
+
+        self.assertEqual(cpads, [])
+        self.assertEqual(len(spads), 16 + 16 + 4 + 2)
 
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
