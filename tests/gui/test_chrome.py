@@ -14,7 +14,7 @@ try:
     from PySide6.QtGui import QMouseEvent, QPalette
     from PySide6.QtWidgets import QApplication
     from solvcon import pilot
-    from solvcon.pilot import _style
+    from solvcon.pilot import _pilot_core, _style
     from solvcon.pilot.base import _gui
     from solvcon import apps  # noqa: F401
 except ImportError:
@@ -82,6 +82,22 @@ class ChromeLiveTC(unittest.TestCase):
                 _distance(shades.raised(metrics[key]), bar)
                 for key in ('ground_active_mix', 'ground_inactive_mix')),
                 2, theme)
+
+    def test_a_click_on_the_detach_button_moves_the_window_out(self):
+        self.sub.showNormal()
+        _settle()
+        x, y, width, height = _pilot_core.chrome_detach_rect(
+            self.sub.width())
+        point = QPointF(x + width / 2, y + height / 2)
+        for kind in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
+            QApplication.postEvent(self.sub, QMouseEvent(
+                kind, point, self.sub.mapToGlobal(point), Qt.LeftButton,
+                Qt.LeftButton if QEvent.MouseButtonPress == kind
+                else Qt.NoButton, Qt.NoModifier))
+        _settle()
+        self.assertTrue(self.app.detacher.detached)
+        self.app.detacher.attach()
+        _settle()
 
     def test_one_click_on_maximize_maximizes(self):
         # The pointer arrives over the button before the press, as a real

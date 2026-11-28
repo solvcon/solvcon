@@ -152,6 +152,18 @@ class RunStrip(QFrame):
         """Return the whole name of the problem."""
         return self._problem.full_text
 
+    def show_problem(self, shown):
+        """Show the name of the problem, or leave it to a title bar that
+        already says it.
+
+        :param shown: Whether the strip shows the name.
+        """
+        self._problem.setVisible(shown)
+
+    def problem_shown(self):
+        """Return whether the strip shows the name of the problem."""
+        return not self._problem.isHidden()
+
     def show_state(self, strip):
         """Read a strip state out into the strip.
 

@@ -8,7 +8,7 @@ Move the widget of an MDI sub-window into a window of its own and back.
 
 import functools
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 __all__ = [
     'DetachedWindow',
@@ -75,9 +75,13 @@ class SubWindowDetacher(QtCore.QObject):
 
     #: The window of its own became the active window.
     activated = QtCore.Signal()
+    #: The widget moved out (True) or back (False).
+    moved = QtCore.Signal(bool)
 
     def __init__(self, subwindow, mgr):
         super().__init__(subwindow)
+        # The chrome of the sub-window finds the detacher by this name.
+        self.setObjectName("subWindowDetacher")
         #: The ``QMdiSubWindow`` whose widget moves.
         self.subwindow = subwindow
         #: The :class:`DetachedWindow` while the widget is out, or None.
@@ -88,8 +92,13 @@ class SubWindowDetacher(QtCore.QObject):
         self._was_maximized = False
         menu = subwindow.systemMenu()
         if menu is not None:
-            menu.addSeparator()
-            menu.addAction("Detach to Own Window", self.detach)
+            # On top: it is the one entry of the menu the bar does not
+            # also offer as a gesture.
+            first = menu.actions()[0] if menu.actions() else None
+            action = QtGui.QAction("Detach to Own Window", menu)
+            action.triggered.connect(self.detach)
+            menu.insertAction(first, action)
+            menu.insertSeparator(first)
         subwindow.windowTitleChanged.connect(self._on_title)
         subwindow.installEventFilter(self)
         _keep(self)
@@ -129,6 +138,7 @@ class SubWindowDetacher(QtCore.QObject):
         self.window.raise_()
         self.window.activateWindow()
         widget.setFocus()
+        self.moved.emit(True)
 
     def attach(self):
         """Move the widget back into the sub-window, maximized if it was."""
@@ -141,7 +151,9 @@ class SubWindowDetacher(QtCore.QObject):
             self.subwindow.show()
         self._mgr.mdiArea.setActiveSubWindow(self.subwindow)
         self.subwindow.widget().setFocus()
+        self.moved.emit(False)
 
+    @QtCore.Slot()
     def toggle(self):
         """Detach the widget, or attach it when it is out."""
         if self.detached:

@@ -3,7 +3,7 @@
 
 
 """The chrome of the sub-windows: one bar drawn from the palette, its
-metrics, and its height on every platform."""
+metrics, its height on every platform, and its detach button."""
 
 import unittest
 
@@ -63,5 +63,32 @@ class ChromeTC(unittest.TestCase):
         sub = self.mgr.addSubWindow(QWidget())
         sub.resize(320, 240)
         self.assertTrue(sub.mask().isEmpty())
+
+    def test_the_detach_button_sits_left_of_maximize_and_close(self):
+        x, y, width, height = _pilot_core.chrome_detach_rect(400)
+        metrics = _style.chrome_metrics()
+        self.assertEqual(metrics['button_side'], width)
+        self.assertEqual(metrics['button_side'], height)
+        room = 400 - (x + width)
+        self.assertEqual(metrics['bar_margin'] + 2 * (
+            metrics['button_side'] + metrics['button_gap']), room)
+        self.assertEqual((metrics['bar_height'] - height) // 2, y)
+
+    def test_the_strip_leaves_the_problem_to_the_bar(self):
+        self.assertFalse(self.sub.widget().strip.problem_shown())
+        self.assertIn("Shock tube", self.sub.windowTitle())
+
+    def test_a_window_of_its_own_shows_the_problem_in_its_strip(self):
+        strip = self.sub.widget().strip
+        self.app.detacher.detach()
+        _settle()
+        self.assertTrue(strip.problem_shown())
+        self.app.detacher.attach()
+        _settle()
+        self.assertFalse(strip.problem_shown())
+
+    def test_detach_heads_the_system_menu(self):
+        first = self.sub.systemMenu().actions()[0]
+        self.assertEqual("Detach to Own Window", first.text())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

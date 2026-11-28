@@ -7,6 +7,8 @@
 
 #include <solvcon/pilot/app/RChromeStyle.hpp>
 
+#include <QRect>
+
 namespace solvcon::python
 {
 
@@ -41,6 +43,16 @@ void wrap_chrome(pybind11::module & mod)
         },
         "The geometry and the color mixes of the chrome, the one source the "
         "bar of a sub-window and the bar of a dock panel are drawn from.");
+    mod.def(
+        "chrome_detach_rect",
+        [](int width)
+        {
+            QRect const rect = RChromeStyle::detachRect(width);
+            return py::make_tuple(rect.x(), rect.y(), rect.width(), rect.height());
+        },
+        py::arg("width"),
+        "The (x, y, width, height) of the detach button in the bar of a "
+        "sub-window ``width`` pixels wide.");
 }
 
 } /* end namespace solvcon::python */

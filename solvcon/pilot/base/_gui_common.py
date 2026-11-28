@@ -202,6 +202,13 @@ def setup_app_subwindow(subwindow, mgr, app_config):
     mgr.addSubWindowGrip(subwindow)
     detacher = SubWindowDetacher(subwindow, mgr)
     keep_filling(subwindow, mgr.mdiArea)
+    strip = getattr(subwindow.widget(), 'strip', None)
+    if _pcore.chrome_enabled() and strip is not None:
+        # The bar of the sub-window carries the problem in full. A window
+        # of its own has a native title a grab leaves out, so the strip
+        # says the problem there.
+        strip.show_problem(False)
+        detacher.moved.connect(strip.show_problem)
     # The detacher goes with the sub-window, and so does this connection.
     detacher.activated.connect(lambda: app_config.show_for(subwindow))
     return detacher
