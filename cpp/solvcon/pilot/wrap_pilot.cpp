@@ -24,6 +24,7 @@
 #include <QImage>
 #include <QMenu>
 #include <QPixmap>
+#include <QPointF>
 #include <QPointer>
 #include <QString>
 
@@ -730,38 +731,23 @@ class SOLVCON_PYTHON_WRAPPER_VISIBILITY WrapR2DWidget
                 &wrapped_type::setEditingShape)
             .def_property_readonly(
                 "selectedNodes",
-                [](wrapped_type & self)
-                {
-                    std::vector<std::vector<double>> out;
-                    for (auto const & n : self.selectedNodes())
-                    {
-                        out.emplace_back(n.begin(), n.end());
-                    }
-                    return out;
-                },
-                "World positions [x, y] of the nodes selected in node-edit "
-                "mode.")
+                &wrapped_type::selectedNodes,
+                "World positions of the nodes selected in node-edit mode, as "
+                "a 2D PointPadFp64.")
             .def_property_readonly(
                 "selectedHandle",
-                [](wrapped_type & self) -> std::optional<std::vector<double>>
-                {
-                    auto const h = self.selectedHandle();
-                    if (!h)
-                    {
-                        return std::nullopt;
-                    }
-                    return std::vector<double>(h->begin(), h->end());
-                },
-                "World position [x, y] of the handle selected in node-edit "
-                "mode, or None.")
+                &wrapped_type::selectedHandle,
+                "World position of the handle selected in node-edit mode, as "
+                "a Point3dFp64, or None.")
             .def_property_readonly(
                 "rotateHandleScreen",
                 [](wrapped_type & self)
                 {
-                    // TODO: add pybind for small_vector to avoid this copy.
-                    auto const h = self.rotateHandleScreen();
-                    return std::vector<double>(h.begin(), h.end());
-                })
+                    QPointF const h = self.rotateHandleScreen();
+                    return py::make_tuple(h.x(), h.y());
+                },
+                "Screen position (x, y) of the selection's rotate handle, or "
+                "(-1, -1) when nothing is selected.")
             //
             ;
 

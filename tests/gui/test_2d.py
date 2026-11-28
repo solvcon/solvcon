@@ -321,30 +321,41 @@ class R2DWidgetNodeMoveTC(NodeEditTB, unittest.TestCase):
         return ([(s.x0, s.y0, s.x1, s.y1) for s in segs],
                 [(b[i][0], b[i][1]) for i in range(4)])
 
+    def _nodes(self):
+        nodes = self.widget.selectedNodes
+        self.assertIsInstance(nodes, solvcon.PointPadFp64)
+        self.assertEqual(nodes.ndim, 2)
+        return nodes.pack_array().ndarray.tolist()
+
+    def _handle(self):
+        h = self.widget.selectedHandle
+        self.assertIsInstance(h, solvcon.Point3dFp64)
+        return (h.x, h.y)
+
     def test_click_selects_a_node_and_shift_click_toggles(self):
         self._click(*self.NODE_21)
-        self.assertEqual(self.widget.selectedNodes, [[2, 1]])
+        self.assertEqual(self._nodes(), [[2, 1]])
         self._click(*self.NODE_20)
-        self.assertEqual(self.widget.selectedNodes, [[2, 0]])
+        self.assertEqual(self._nodes(), [[2, 0]])
 
         self._shift_click(*self.NODE_21)
-        self.assertEqual(sorted(self.widget.selectedNodes), [[2, 0], [2, 1]])
+        self.assertEqual(sorted(self._nodes()), [[2, 0], [2, 1]])
         self._shift_click(*self.NODE_20)
-        self.assertEqual(self.widget.selectedNodes, [[2, 1]])
+        self.assertEqual(self._nodes(), [[2, 1]])
         self.assertIsNone(self.widget.selectedHandle)
 
     def test_double_click_on_a_node_keeps_the_selection(self):
         self._click(*self.NODE_21)
         self._shift_click(*self.NODE_00)
         self._double_click(*self.NODE_21)
-        self.assertEqual(sorted(self.widget.selectedNodes), [[0, 0], [2, 1]])
+        self.assertEqual(sorted(self._nodes()), [[0, 0], [2, 1]])
         self.assertEqual(self.widget.editingShape, self.path)
 
     def test_click_selects_a_handle_alone(self):
         self._click(*self.NODE_21)
         self._click(*self.HANDLE)
-        self.assertEqual(self.widget.selectedHandle, [2, 3])
-        self.assertEqual(self.widget.selectedNodes, [])
+        self.assertEqual(self._handle(), (2, 3))
+        self.assertEqual(self._nodes(), [])
 
         self._click(*self.NODE_21)
         self.assertIsNone(self.widget.selectedHandle)
@@ -363,7 +374,7 @@ class R2DWidgetNodeMoveTC(NodeEditTB, unittest.TestCase):
     def test_click_on_the_path_drops_the_selection(self):
         self._click(*self.NODE_21)
         self._click(*self.ON_PATH)
-        self.assertEqual(self.widget.selectedNodes, [])
+        self.assertEqual(self._nodes(), [])
         self.assertEqual(self.widget.editingShape, self.path)
 
     def test_dragging_a_shared_node_moves_its_pieces_and_handle(self):
@@ -371,7 +382,7 @@ class R2DWidgetNodeMoveTC(NodeEditTB, unittest.TestCase):
         segs, curve = self._geometry()
         self.assertEqual(segs, [(0, 0, 2, 0), (2, 0, 3, 1)])
         self.assertEqual(curve, [(3, 1), (3, 3), (0, 3), (0, 0)])
-        self.assertEqual(self.widget.selectedNodes, [[3, 1]])
+        self.assertEqual(self._nodes(), [[3, 1]])
         self.assertEqual(self.widget.editingShape, self.path)
 
     def test_dragging_a_handle_moves_only_it(self):
@@ -379,7 +390,7 @@ class R2DWidgetNodeMoveTC(NodeEditTB, unittest.TestCase):
         segs, curve = self._geometry()
         self.assertEqual(segs, [(0, 0, 2, 0), (2, 0, 2, 1)])
         self.assertEqual(curve, [(2, 1), (2, 4), (0, 3), (0, 0)])
-        self.assertEqual(self.widget.selectedHandle, [2, 4])
+        self.assertEqual(self._handle(), (2, 4))
 
     def test_dragging_moves_every_selected_node(self):
         self._click(*self.NODE_21)

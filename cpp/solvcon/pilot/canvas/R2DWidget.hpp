@@ -25,7 +25,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <vector>
 
 #include <QPointF>
 #include <QWidget>
@@ -53,8 +52,6 @@ class R2DWidget
     : public QWidget
 {
     Q_OBJECT
-
-    using coord2_type = small_vector<double, 2>;
 
 public:
 
@@ -89,20 +86,20 @@ public:
     void setEditingShape(int32_t shape_id);
 
     /**
-     * World positions [x, y] of the nodes selected in node-edit mode. A click
-     * on a node selects it alone and Shift+click toggles it; dragging any
-     * selected node moves them all, with their handles.
+     * World positions of the nodes selected in node-edit mode, as a 2D pad.
+     * A click on a node selects it alone and Shift+click toggles it; dragging
+     * any selected node moves them all, with their handles.
      */
-    std::vector<coord2_type> selectedNodes() const;
+    std::shared_ptr<PointPadFp64> selectedNodes() const;
 
-    /// World position [x, y] of the handle selected in node-edit mode, if any.
-    std::optional<coord2_type> selectedHandle() const;
+    /// World position of the handle selected in node-edit mode, if any.
+    std::optional<Point3dFp64> selectedHandle() const;
 
     /**
-     * Screen position [x, y] of the selection's rotate handle, or [-1, -1]
-     * when nothing is selected. Exposed for tests and tooling.
+     * Screen position of the selection's rotate handle, or (-1, -1) when
+     * nothing is selected. Exposed for tests and tooling.
      */
-    coord2_type rotateHandleScreen() const;
+    QPointF rotateHandleScreen() const;
 
     /**
      * Replace the view state. Non-finite inputs are ignored and zoom is
@@ -221,7 +218,7 @@ private:
     small_vector<EditNode> editNodes() const;
 
     /// World position of one control point of the node-edit path.
-    QPointF worldPointFromRef(ShapePointRef const & ref) const;
+    Point3dFp64 worldPointFromRef(ShapePointRef const & ref) const;
 
     /// The node within hit distance of `screen_pos` nearest to it, if any.
     std::optional<ShapePointRef> hitEditNode(QPointF const & screen_pos) const;
@@ -230,7 +227,7 @@ private:
     std::optional<ShapePointRef> hitEditHandle(QPointF const & screen_pos) const;
 
     /// True when a selected node sits at world point `w`.
-    bool isNodeSelected(QPointF const & w) const;
+    bool isNodeSelected(Point3dFp64 const & w) const;
 
     /**
      * Every control point a node drag moves: each piece endpoint at a selected
@@ -263,7 +260,7 @@ private:
      * World center of the selection's oriented bounding box, the pivot a
      * rotate drag turns about. Only meaningful while a shape is selected.
      */
-    coord2_type selectionCenterWorld() const;
+    Point3dFp64 selectionCenterWorld() const;
 
     /// True when `screen_pos` lands on the selection's rotate handle.
     bool isOnRotateHandle(QPointF const & screen_pos) const;
@@ -308,10 +305,8 @@ private:
 
     std::unique_ptr<DrawToolBase> m_tool; ///< Active tool, shared by every 2D canvas.
     bool m_drawing = false; ///< Whether a shape drag is in progress.
-    double m_draw_start_x = 0.0; ///< Press anchor, world coordinates.
-    double m_draw_start_y = 0.0;
-    double m_draw_current_x = 0.0; ///< Live pointer, world coordinates.
-    double m_draw_current_y = 0.0;
+    Point3dFp64 m_draw_start{0.0, 0.0}; ///< Press anchor, world coordinates.
+    Point3dFp64 m_draw_current{0.0, 0.0}; ///< Live pointer, world coordinates.
 
     int32_t m_selected = -1; ///< Select-tool selected shape id, or -1.
     int32_t m_editing = -1; ///< Path shown in node-edit mode, or -1.
@@ -319,10 +314,8 @@ private:
     std::optional<ShapePointRef> m_edit_handle; ///< Selected curve handle, if any.
     ShapePointRefPad m_edit_dragging_points; ///< Control points the Node or Handle drag moves.
     EditDrag m_drag = EditDrag::None; ///< Active select-tool left-drag gesture.
-    double m_move_last_x = 0.0; ///< Previous pointer, world coordinates (Move, Node, Handle).
-    double m_move_last_y = 0.0;
-    double m_rotate_cx = 0.0; ///< Rotation pivot, world coordinates (Rotate).
-    double m_rotate_cy = 0.0;
+    Point3dFp64 m_move_last{0.0, 0.0}; ///< Previous pointer, world coordinates (Move, Node, Handle).
+    Point3dFp64 m_rotate_center{0.0, 0.0}; ///< Rotation pivot, world coordinates (Rotate).
     double m_rotate_last_angle = 0.0; ///< Previous pointer angle about pivot.
 
 }; /* end class R2DWidget */

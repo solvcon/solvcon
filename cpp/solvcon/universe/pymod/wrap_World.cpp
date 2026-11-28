@@ -193,14 +193,7 @@ WrapWorld<T> & WrapWorld<T>::wrap_management()
             "shape_is_live",
             &wrapped_type::shape_is_live,
             py::arg("shape_id"))
-        .def(
-            "shape_bbox",
-            [](wrapped_type const & self, int32_t shape_id)
-            {
-                auto const bb = self.shape_bbox(shape_id);
-                return std::vector<value_type>(bb.begin(), bb.end());
-            },
-            py::arg("shape_id"))
+        .def("shape_bbox", &wrapped_type::shape_bbox, py::arg("shape_id"))
         .def("shape_handle", &wrapped_type::shape_handle, py::arg("shape_id"))
         .def("shape_obb", &wrapped_type::shape_obb, py::arg("shape_id"))
         .def(

@@ -17,8 +17,8 @@
  * @ingroup group_geometry
  */
 
-#include <solvcon/buffer/small_vector.hpp>
 #include <solvcon/serialization/SerializableItem.hpp>
+#include <solvcon/universe/coord.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -186,7 +186,7 @@ inline double diag_scale(std::initializer_list<double> values)
  * The single point strictly interior to both segments where they cross, or
  * nullopt when they are parallel, collinear, or only touch at an endpoint.
  */
-inline std::optional<small_vector<double, 2>> segment_proper_intersection(
+inline std::optional<Point3dFp64> segment_proper_intersection(
     double ax0, double ay0, double ax1, double ay1, double bx0, double by0, double bx1, double by1)
 {
     double const dax = ax1 - ax0;
@@ -209,7 +209,7 @@ inline std::optional<small_vector<double, 2>> segment_proper_intersection(
     {
         return std::nullopt;
     }
-    return small_vector<double, 2>{diag_norm_zero(ax0 + t * dax), diag_norm_zero(ay0 + t * day)};
+    return Point3dFp64(diag_norm_zero(ax0 + t * dax), diag_norm_zero(ay0 + t * day));
 }
 
 /// A segment whose endpoints coincide (it renders as a point, not a line).

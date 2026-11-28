@@ -145,9 +145,10 @@ class PainterLayersPageTC(unittest.TestCase):
         turned = other.add_rectangle(-1, -2, 1, 2)
         other.rotate_shape(turned, 0.5 * math.pi, 0.0, 0.0)
         other.add_circle(10, 10, 3)
-        for mine, theirs in zip(self.world.shape_bbox(self.rid),
-                                other.shape_bbox(turned)):
-            self.assertAlmostEqual(mine, theirs)
+        mine = self.world.shape_bbox(self.rid)
+        theirs = other.shape_bbox(turned)
+        for name in ("min_x", "min_y", "max_x", "max_y"):
+            self.assertAlmostEqual(getattr(mine, name), getattr(theirs, name))
 
         self.canvas = _StubCanvas(other)
         self.page.refresh()

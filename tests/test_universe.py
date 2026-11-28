@@ -12,6 +12,11 @@ import solvcon
 from solvcon import testing
 
 
+def _bbox(world, shape_id):
+    bb = world.shape_bbox(shape_id)
+    return [bb.min_x, bb.min_y, bb.max_x, bb.max_y]
+
+
 class WorldTB(testing.TestBase):
 
     def test_bezier(self):
@@ -349,7 +354,7 @@ class WorldPrimitivesTC(unittest.TestCase):
         # A closed chain of n vertices owns n segments; the last returns home.
         self.assertEqual(self.w.shape_type_of(sid), "polygon")
         self.assertEqual(self.w.nsegment, 3)
-        self.assertEqual(self.w.shape_bbox(sid), [0, 0, 2, 2])
+        self.assertEqual(_bbox(self.w, sid), [0, 0, 2, 2])
 
     def test_polyline_needs_two_vertices(self):
         with self.assertRaises(ValueError):
@@ -764,7 +769,8 @@ class WorldShapeAccessorTC(unittest.TestCase):
 
     def test_accessors_run(self):
         self.assertTrue(self.w.shape_is_live(self.sid))
-        self.assertEqual(len(self.w.shape_bbox(self.sid)), 4)
+        self.assertIsInstance(self.w.shape_bbox(self.sid),
+                              solvcon.BoundBox3dFp64)
         self.assertIsInstance(self.w.shape_handle(self.sid),
                               solvcon.Point3dFp64)
         self.assertIsInstance(self.w.shape_obb(self.sid),
@@ -1177,7 +1183,7 @@ class WorldPathTC(unittest.TestCase):
 
     def test_bbox_spans_segments_and_curve_controls(self):
         sid = self._add_a_path()
-        self.assertEqual(self.w.shape_bbox(sid), [0, 0, 2, 3])
+        self.assertEqual(_bbox(self.w, sid), [0, 0, 2, 3])
 
     def test_translate_moves_segments_and_curves(self):
         sid = self._add_a_path()
@@ -1324,7 +1330,7 @@ class WorldMovePointsTC(unittest.TestCase):
     def test_bbox_and_index_follow_the_points(self):
         self.w.move_shape_points(
             self.sid, _refs((0, PT.B3CURVE_P1), (0, PT.B3CURVE_P2)), 0, 5)
-        self.assertEqual(self.w.shape_bbox(self.sid), [0, 0, 2, 8])
+        self.assertEqual(_bbox(self.w, self.sid), [0, 0, 2, 8])
         self.assertIn(self.sid, self.w.query_visible(0.5, 7.5, 1.5, 8.5))
 
     def test_oriented_box_keeps_its_rotation(self):

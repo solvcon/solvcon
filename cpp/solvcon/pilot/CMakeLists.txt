@@ -36,6 +36,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     # canvas/
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/R2DWidget.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/DrawTool.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/canvas/canvas_coord.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/canvas/RWorldRenderer2d.hpp
     # plot/
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/plot_style.hpp
