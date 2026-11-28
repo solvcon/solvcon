@@ -200,7 +200,11 @@ int RChromeStyle::styleHint(StyleHint hint, QStyleOption const * option, QWidget
 QRect RChromeStyle::subControlRect(ComplexControl control, QStyleOptionComplex const * option, SubControl sub, QWidget const * widget) const
 {
     auto const * bar = qstyleoption_cast<QStyleOptionTitleBar const *>(option);
-    if (CC_TitleBar != control || bar == nullptr || qobject_cast<QMdiSubWindow const *>(widget) == nullptr)
+    // QMdiSubWindow asks for the buttons without a widget when it carves them out of the region that moves the
+    // window. Only sub-windows wear this style, so a title bar without a widget is still ours; answering with the
+    // base style's buttons would leave ours inside the move region, and a press on them would start a drag.
+    bool const ours = widget == nullptr || qobject_cast<QMdiSubWindow const *>(widget) != nullptr;
+    if (CC_TitleBar != control || bar == nullptr || !ours)
     {
         return QProxyStyle::subControlRect(control, option, sub, widget);
     }

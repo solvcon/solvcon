@@ -3,14 +3,15 @@
 
 
 """The bar of a sub-window as drawn on a live window: its colors in
-either theme."""
+either theme and clicks on its buttons."""
 
 import unittest
 
 from solvcon import testing
 
 try:
-    from PySide6.QtGui import QPalette
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent, QPalette
     from PySide6.QtWidgets import QApplication
     from solvcon import pilot
     from solvcon.pilot import _style
@@ -81,5 +82,27 @@ class ChromeLiveTC(unittest.TestCase):
                 _distance(shades.raised(metrics[key]), bar)
                 for key in ('ground_active_mix', 'ground_inactive_mix')),
                 2, theme)
+
+    def test_one_click_on_maximize_maximizes(self):
+        # The pointer arrives over the button before the press, as a real
+        # mouse does; a move region that still covers the button would
+        # turn the press into the start of a drag.
+        self.sub.showNormal()
+        _settle()
+        metrics = _style.chrome_metrics()
+        side = metrics['button_side']
+        # The maximize button is the second from the right end.
+        right = (self.sub.width() - metrics['bar_margin']
+                 - side - metrics['button_gap'])
+        point = QPointF(right - side / 2, metrics['bar_height'] / 2)
+        for kind, button, buttons in (
+                (QEvent.MouseMove, Qt.NoButton, Qt.NoButton),
+                (QEvent.MouseButtonPress, Qt.LeftButton, Qt.LeftButton),
+                (QEvent.MouseButtonRelease, Qt.LeftButton, Qt.NoButton)):
+            QApplication.postEvent(self.sub, QMouseEvent(
+                kind, point, self.sub.mapToGlobal(point), button, buttons,
+                Qt.NoModifier))
+            _settle()
+        self.assertTrue(self.sub.isMaximized())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:
