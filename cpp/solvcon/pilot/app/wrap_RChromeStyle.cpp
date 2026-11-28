@@ -41,8 +41,7 @@ void wrap_chrome(pybind11::module & mod)
             out["graphic_contrast"] = ChromeMetrics::GRAPHIC_CONTRAST;
             return out;
         },
-        "The geometry and the color mixes of the chrome, the one source the "
-        "bar of a sub-window and the bar of a dock panel are drawn from.");
+        "The geometry and the color mixes the chrome is drawn from.");
     mod.def(
         "chrome_detach_rect",
         [](int width)

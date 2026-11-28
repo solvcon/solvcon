@@ -20,6 +20,7 @@ from . import _pilot_core
 __all__ = [
     'AppInk',
     'AppRules',
+    'ChromeRules',
     'DATA',
     'FILL_MIX',
     'GRAPHIC_CONTRAST',
@@ -590,11 +591,63 @@ def chrome_metrics():
     """Return the geometry and the color mixes of the chrome, as a dict.
 
     They are the C++ ``ChromeMetrics`` the bar of a sub-window is painted
-    from, read once, so chrome drawn in Python cannot drift from it. The
-    lengths are in device-independent pixels.
+    from, read once, so the Python bar of a dock panel cannot drift from
+    it. The lengths are in device-independent pixels.
     """
     _pilot_core.require("the chrome")
     return dict(_pilot_core.chrome_metrics())
+
+
+class ChromeRules(RuleCatalog):
+    """The roles of the chrome around the panels: the title bar of a dock
+    panel, its title, the note after the title, and its buttons.
+
+    The sizes and the mixes come from :func:`chrome_metrics`, which the C++
+    ``RChromeStyle`` paints the bar of a sub-window from, so a dock and a
+    window wear one bar. A dock never holds the focus of the window, so its
+    bar takes the ground of an inactive sub-window.
+    """
+
+    @staticmethod
+    def dock_title(shades):
+        """Style the title bar of a docked panel.
+
+        :param shades: The :class:`Shades` of the bar.
+        """
+        metrics = chrome_metrics()
+        ground = shades.raised(metrics['ground_inactive_mix'])
+        rule = shades.raised(metrics['rule_mix'])
+        note = legible(shades, shades.muted, ground)
+        hover = shades.blend(ground, shades.text, metrics['hover_mix'])
+        press = shades.blend(ground, shades.text, metrics['press_mix'])
+        size = metrics['title_px']
+        return f"""
+            QWidget#dockTitle {{
+                background: {ground.name()};
+                border: none;
+                border-bottom: 1px solid {rule.name()};
+            }}
+            QLabel#dockTitleText {{
+                color: {shades.text.name()};
+                font-size: {size}px;
+                font-weight: 600;
+            }}
+            QLabel#dockTitleNote {{
+                color: {note.name()};
+                font-size: {size}px;
+            }}
+            QToolButton#dockButton {{
+                border: none;
+                border-radius: 4px;
+                padding: 0px;
+                background: transparent;
+            }}
+            QToolButton#dockButton:hover {{ background: {hover.name()}; }}
+            QToolButton#dockButton:pressed {{ background: {press.name()}; }}
+            QToolButton#dockButton:focus {{
+                border: 1px solid {shades.accent.name()};
+            }}
+            """
 
 
 class PaletteStyle:
