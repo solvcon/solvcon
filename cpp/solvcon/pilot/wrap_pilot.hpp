@@ -17,6 +17,7 @@ void initialize_pilot(pybind11::module & mod);
 void wrap_pilot(pybind11::module & mod);
 void wrap_plot(pybind11::module & mod);
 void wrap_thread_manager(pybind11::module & mod);
+void wrap_chrome(pybind11::module & mod);
 
 } /* end namespace python */
 

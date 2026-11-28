@@ -1264,6 +1264,7 @@ void wrap_pilot(pybind11::module & mod)
         "path with menu(path, weight); a smaller weight sits earlier and a "
         "negative weight appends. clear() empties the bar.");
     wrap_thread_manager(mod);
+    wrap_chrome(mod);
     WrapRManager::commit(mod, "RManager", "RManager");
     WrapRManagerProxy::commit(mod, "RManagerProxy", "RManagerProxy");
 

@@ -118,6 +118,12 @@ list_of_rthreadmanager = [
     'RThreadManager',
 ]
 
+# RChromeStyle.hpp/.cpp
+list_of_rchromestyle = [
+    'chrome_enabled',
+    'chrome_metrics',
+]
+
 # DrawTool.hpp/.cpp
 list_of_drawtool = [
     'draw_tool_names',
@@ -162,6 +168,7 @@ _from_impl = (  # noqa: F822
     list_of_r2dwidget +
     list_of_rmanager +
     list_of_rthreadmanager +
+    list_of_rchromestyle +
     list_of_drawtool +
     list_of_plotlimits +
     list_of_plot_style +

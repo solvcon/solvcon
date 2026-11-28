@@ -45,6 +45,7 @@ set(SOLVCON_PILOT_PYMODHEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotModel.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotTicker.hpp
     # app/
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RChromeStyle.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/keymap.hpp
@@ -97,6 +98,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/RPlotTicker.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plot/wrap_plot.cpp
     # app/
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/RChromeStyle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RMenuModel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/keymap.cpp
@@ -104,6 +106,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RAction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RThreadManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/wrap_RThreadManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/wrap_RChromeStyle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.cpp
     CACHE FILEPATH "" FORCE
 )

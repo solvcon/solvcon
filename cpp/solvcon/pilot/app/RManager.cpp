@@ -24,6 +24,7 @@
 #include <Qt>
 
 #include <solvcon/pilot/app/RAction.hpp>
+#include <solvcon/pilot/app/RChromeStyle.hpp>
 #include <solvcon/pilot/app/RMenuModel.hpp>
 #include <solvcon/pilot/app/RShortcutManager.hpp>
 #include <solvcon/pilot/app/RThreadManager.hpp>
@@ -449,6 +450,7 @@ void RManager::setUpCentral()
     m_mdiArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_mdiArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_mainWindow->setCentralWidget(m_mdiArea);
+    install_chrome(m_mdiArea);
     // Keep the focused 2D canvas in step with the active draw tool, so the
     // single Painter toolbox always drives whichever canvas has focus.
     QObject::connect(m_mdiArea, &QMdiArea::subWindowActivated, m_mdiArea, [this](QMdiSubWindow *)
