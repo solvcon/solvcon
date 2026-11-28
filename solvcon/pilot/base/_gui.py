@@ -229,6 +229,7 @@ class _Controller(metaclass=_Singleton):
             mgr=self._rmgr, capture=self.capture)
         self.app_config = panel.AppConfig(mgr=self._rmgr)
         self.ui_state = _ui_state.UiState(mgr=self._rmgr)
+        self.dock_chrome = panel.DockChrome(mgr=self._rmgr)
         self.populate_menu()
         self._start_apps()
         self._seed_console_namespace()

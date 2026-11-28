@@ -265,6 +265,7 @@ def head_font(font):
     head.setPixelSize(_style.SMALL_PX)
     head.setWeight(QFont.DemiBold)
     head.setLetterSpacing(QFont.PercentageSpacing, 110)
+    head.setCapitalization(QFont.AllUppercase)
     return head
 
 

@@ -18,6 +18,7 @@ __all__, __getattr__, __dir__ = _pcore.lazy_exports(__name__, {
                      'GLYPHS', 'Styled', 'form_label', 'guard_wheel',
                      'head_font', 'icon', 'message', 'reserve_width', 'say'],
     '_capture_panel': ['CaptureWidget'],
+    '_chrome': ['DockChrome', 'DockTitleBar', 'set_dock_note'],
     '_console': ['ConsolePanel'],
     '_control_column': ['ControlColumn'],
     '_fold': ['FoldGroup'],

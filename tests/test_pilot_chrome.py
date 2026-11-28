@@ -2,15 +2,15 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The chrome of the sub-windows: one bar drawn from the palette, its
-metrics, its height on every platform, and its detach button."""
+"""The chrome of the sub-windows and of the dock panels: one bar drawn
+from the palette, its buttons, and the note of a panel."""
 
 import unittest
 
 try:
-    from PySide6.QtWidgets import QApplication, QWidget
+    from PySide6.QtWidgets import QApplication, QDockWidget, QWidget
     from solvcon import pilot
-    from solvcon.pilot import _pilot_core, _style
+    from solvcon.pilot import _pilot_core, _style, panel
     from solvcon.pilot.base import _gui
     from solvcon import apps  # noqa: F401
 except ImportError:
@@ -90,5 +90,45 @@ class ChromeTC(unittest.TestCase):
     def test_detach_heads_the_system_menu(self):
         first = self.sub.systemMenu().actions()[0]
         self.assertEqual("Detach to Own Window", first.text())
+
+    def test_a_docked_panel_wears_the_bar_and_a_floating_one_does_not(self):
+        main = self.mgr.mainWindow
+        dock = next(d for d in main.findChildren(QDockWidget)
+                    if "Console" == d.windowTitle())
+        bar = dock.titleBarWidget()
+        self.assertIsInstance(bar, panel.DockTitleBar)
+        self.assertEqual("Console", dock.accessibleName())
+        self.assertEqual("Close Console",
+                         bar.buttons['close'].accessibleName())
+        self.assertEqual(_style.chrome_metrics()['bar_height'],
+                         bar.height())
+        dock.setFloating(True)
+        _settle()
+        self.assertIsNone(dock.titleBarWidget())
+        dock.setFloating(False)
+        _settle()
+        self.assertIs(bar, dock.titleBarWidget())
+
+    def test_app_config_names_the_window_it_follows(self):
+        config = _gui.controller.app_config
+        self.assertEqual("Shock tube",
+                         config.dock.titleBarWidget().note.full_text)
+
+    def test_app_config_names_the_window_left_when_one_closes(self):
+        # The window activated after the close holds no config, so the
+        # panel keeps showing the one it falls back to.
+        config = _gui.controller.app_config
+        plain = self.mgr.addSubWindow(QWidget())
+        plain.show()
+        other = _gui.controller.apps["obsrefl"]
+        other.open()
+        _settle()
+        note = config.dock.titleBarWidget().note
+        self.assertNotEqual("Shock tube", note.full_text)
+        self.area.setActiveSubWindow(plain)
+        other.close()
+        _settle()
+        self.assertIs(self.app.column, config._stack.currentWidget())
+        self.assertEqual("Shock tube", note.full_text)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

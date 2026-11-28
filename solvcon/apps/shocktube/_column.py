@@ -21,7 +21,7 @@ class ResultsCard(panel.ResultsCard):
     run, such as the mass drift and the CFL number.
     """
 
-    SECTIONS = (('states', "STAR STATE"), ('fronts', "FRONTS"))
+    SECTIONS = (('states', "Star state"), ('fronts', "Fronts"))
 
     def empty_text(self, section, results):
         if 'states' == section:

@@ -239,7 +239,7 @@ class RunProfiling(base.PilotFeature):
     def init_ui(self, options):
         config_window = ProfileConfigWidget(self)
         config_window.init_ui(options)
-        config_widget = QDockWidget("config")
+        config_widget = QDockWidget("Profiling")
         config_widget.setWidget(config_window)
         self._mgr.mainWindow.addDockWidget(
             Qt.LeftDockWidgetArea, config_widget)
