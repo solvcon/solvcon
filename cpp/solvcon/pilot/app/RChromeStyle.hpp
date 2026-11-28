@@ -61,7 +61,9 @@ bool chrome_enabled();
  * sub-window is maximized, on every platform.
  *
  * The bar holds the title on the left and the buttons on the right:
- * maximize or restore, and close.
+ * detach (when the sub-window has a child named "subWindowDetacher"),
+ * maximize or restore, and close. The detach button is drawn here and its
+ * click is delivered by RChromeFilter.
  */
 class RChromeStyle
     : public QProxyStyle
@@ -78,10 +80,20 @@ public:
     void drawComplexControl(ComplexControl control, QStyleOptionComplex const * option, QPainter * painter, QWidget const * widget) const override;
     void drawPrimitive(PrimitiveElement element, QStyleOption const * option, QPainter * painter, QWidget const * widget) const override;
 
+    /// The rectangle of the detach button in the bar of @p subwin, or an empty one when it has no detacher.
+    static QRect detachRect(QMdiSubWindow const * subwin);
+    /// The rectangle of the detach button in the bar of a sub-window @p width pixels wide.
+    static QRect detachRect(int width);
+
+    /// Whether @p subwin has a detacher to show a button for.
+    static bool hasDetacher(QWidget const * subwin);
+
 }; /* end class RChromeStyle */
 
 /**
- * Dress every sub-window of an area in RChromeStyle as it is polished.
+ * Dress every sub-window of an area in RChromeStyle as it is polished, and
+ * deliver a click on the detach button of a sub-window to its detacher, by
+ * invoking the slot "toggle" of the child named "subWindowDetacher".
  */
 class RChromeFilter
     : public QObject
@@ -98,6 +110,7 @@ protected:
 private:
 
     void dress(QMdiSubWindow * subwin);
+    bool onSubWindow(QMdiSubWindow * subwin, QEvent * event);
 
     RChromeStyle * m_style;
 

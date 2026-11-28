@@ -15,8 +15,11 @@
 #include <QEvent>
 #include <QFont>
 #include <QFontMetrics>
+#include <QHoverEvent>
 #include <QMdiArea>
 #include <QMdiSubWindow>
+#include <QMetaObject>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPalette>
@@ -32,6 +35,8 @@ namespace solvcon
 namespace
 {
 
+char const * const DETACHER_NAME = "subWindowDetacher";
+char const * const HOVER_PROPERTY = "solvconChromeDetachHover";
 char const * const DRESSED_PROPERTY = "solvconChrome";
 
 /// The slots of the buttons, counted from the right end of the bar.
@@ -39,7 +44,8 @@ enum ButtonSlot : int
 {
     SLOT_CLOSE = 0,
     SLOT_MAXIMIZE = 1,
-    SLOT_COUNT = 2
+    SLOT_DETACH = 2,
+    SLOT_COUNT = 3
 }; /* end enum ButtonSlot */
 
 QRect slot_rect(QRect const & bar, int slot)
@@ -128,7 +134,7 @@ void draw_glyph(QPainter * painter, QRect const & box, int slot, bool restore, Q
     {
         painter->drawRoundedRect(QRectF(c.x() - half, c.y() - half, 2 * half, 2 * half), 1.0, 1.0);
     }
-    else
+    else if (SLOT_MAXIMIZE == slot)
     {
         painter->drawRoundedRect(QRectF(c.x() - half, c.y() - half + 2, 2 * half - 2, 2 * half - 2), 1.0, 1.0);
         QPainterPath back;
@@ -138,6 +144,20 @@ void draw_glyph(QPainter * painter, QRect const & box, int slot, bool restore, Q
         back.lineTo(c.x() + half, c.y() + half - 2);
         back.lineTo(c.x() + half - 2, c.y() + half - 2);
         painter->drawPath(back);
+    }
+    else
+    {
+        // A box with an arrow leaving it by the upper right corner.
+        QPainterPath box_path;
+        box_path.moveTo(c.x() - 0.5, c.y() - half);
+        box_path.lineTo(c.x() - half, c.y() - half);
+        box_path.lineTo(c.x() - half, c.y() + half);
+        box_path.lineTo(c.x() + half, c.y() + half);
+        box_path.lineTo(c.x() + half, c.y() + 0.5);
+        painter->drawPath(box_path);
+        painter->drawLine(QPointF(c.x() - 0.5, c.y() + 0.5), QPointF(c.x() + half, c.y() - half));
+        painter->drawLine(QPointF(c.x() + 1.0, c.y() - half), QPointF(c.x() + half, c.y() - half));
+        painter->drawLine(QPointF(c.x() + half, c.y() - half), QPointF(c.x() + half, c.y() - 1.0));
     }
 }
 
@@ -218,7 +238,8 @@ QRect RChromeStyle::subControlRect(ComplexControl control, QStyleOptionComplex c
         return (bar->titleBarFlags & Qt::WindowMaximizeButtonHint) ? slot_rect(rect, SLOT_MAXIMIZE) : QRect();
     case SC_TitleBarLabel:
     {
-        QRect const leftmost = slot_rect(rect, SLOT_COUNT - 1);
+        int const used = hasDetacher(widget) ? SLOT_COUNT : SLOT_DETACH;
+        QRect const leftmost = slot_rect(rect, used - 1);
         return QRect(rect.left() + ChromeMetrics::BAR_MARGIN + 2, rect.top(), std::max(0, leftmost.left() - rect.left() - 2 * ChromeMetrics::BAR_MARGIN), rect.height());
     }
     default:
@@ -235,6 +256,10 @@ QStyle::SubControl RChromeStyle::hitTestComplexControl(ComplexControl control, Q
         return QProxyStyle::hitTestComplexControl(control, option, pos, widget);
     }
     if (!bar->rect.contains(pos))
+    {
+        return SC_None;
+    }
+    if (hasDetacher(widget) && slot_rect(bar->rect, SLOT_DETACH).contains(pos))
     {
         return SC_None;
     }
@@ -307,6 +332,10 @@ void RChromeStyle::drawComplexControl(ComplexControl control, QStyleOptionComple
         bool const hit = bar->activeSubControls & sub;
         draw_button(subControlRect(control, option, sub, widget), slot, hit && over, hit && sunken);
     }
+    if (hasDetacher(widget))
+    {
+        draw_button(slot_rect(rect, SLOT_DETACH), SLOT_DETACH, widget->property(HOVER_PROPERTY).toBool(), false);
+    }
     painter->restore();
 }
 
@@ -325,6 +354,25 @@ void RChromeStyle::drawPrimitive(PrimitiveElement element, QStyleOption const * 
     QProxyStyle::drawPrimitive(element, option, painter, widget);
 }
 
+bool RChromeStyle::hasDetacher(QWidget const * subwin)
+{
+    return subwin != nullptr && subwin->findChild<QObject *>(DETACHER_NAME, Qt::FindDirectChildrenOnly) != nullptr;
+}
+
+QRect RChromeStyle::detachRect(QMdiSubWindow const * subwin)
+{
+    if (!hasDetacher(subwin))
+    {
+        return QRect();
+    }
+    return detachRect(subwin->width());
+}
+
+QRect RChromeStyle::detachRect(int width)
+{
+    return slot_rect(QRect(0, 0, width, ChromeMetrics::BAR_HEIGHT), SLOT_DETACH);
+}
+
 RChromeFilter::RChromeFilter(QMdiArea * area, RChromeStyle * style)
     : QObject(area)
     , m_style(style)
@@ -341,6 +389,42 @@ void RChromeFilter::dress(QMdiSubWindow * subwin)
     subwin->setProperty(DRESSED_PROPERTY, true);
     subwin->setStyle(m_style);
     subwin->setAttribute(Qt::WA_Hover, true);
+    subwin->installEventFilter(this);
+}
+
+bool RChromeFilter::onSubWindow(QMdiSubWindow * subwin, QEvent * event)
+{
+    QEvent::Type const type = event->type();
+    if (QEvent::HoverMove == type || QEvent::HoverLeave == type)
+    {
+        bool hovered = false;
+        if (QEvent::HoverMove == type)
+        {
+            hovered = RChromeStyle::detachRect(subwin).contains(static_cast<QHoverEvent *>(event)->position().toPoint());
+        }
+        if (hovered != subwin->property(HOVER_PROPERTY).toBool())
+        {
+            subwin->setProperty(HOVER_PROPERTY, hovered);
+            subwin->update(0, 0, subwin->width(), ChromeMetrics::BAR_HEIGHT);
+        }
+        return false;
+    }
+    if (QEvent::MouseButtonPress != type && QEvent::MouseButtonRelease != type && QEvent::MouseButtonDblClick != type)
+    {
+        return false;
+    }
+    auto * mouse = static_cast<QMouseEvent *>(event);
+    if (Qt::LeftButton != mouse->button() || !RChromeStyle::detachRect(subwin).contains(mouse->position().toPoint()))
+    {
+        return false;
+    }
+    if (QEvent::MouseButtonRelease == type)
+    {
+        QObject * detacher = subwin->findChild<QObject *>(DETACHER_NAME, Qt::FindDirectChildrenOnly);
+        // Queued: the detach takes the widget out of the sub-window this event is still in.
+        QMetaObject::invokeMethod(detacher, "toggle", Qt::QueuedConnection);
+    }
+    return true;
 }
 
 bool RChromeFilter::eventFilter(QObject * watched, QEvent * event)
@@ -353,6 +437,10 @@ bool RChromeFilter::eventFilter(QObject * watched, QEvent * event)
             dress(subwin);
         }
         return false;
+    }
+    if (auto * subwin = qobject_cast<QMdiSubWindow *>(watched))
+    {
+        return onSubWindow(subwin, event);
     }
     return QObject::eventFilter(watched, event);
 }

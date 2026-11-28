@@ -122,6 +122,7 @@ list_of_rthreadmanager = [
 list_of_rchromestyle = [
     'chrome_enabled',
     'chrome_metrics',
+    'chrome_detach_rect',
 ]
 
 # DrawTool.hpp/.cpp
