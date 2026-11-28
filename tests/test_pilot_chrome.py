@@ -109,4 +109,26 @@ class ChromeTC(unittest.TestCase):
         _settle()
         self.assertIs(bar, dock.titleBarWidget())
 
+    def test_app_config_names_the_window_it_follows(self):
+        config = _gui.controller.app_config
+        self.assertEqual("Shock tube",
+                         config.dock.titleBarWidget().note.full_text)
+
+    def test_app_config_names_the_window_left_when_one_closes(self):
+        # The window activated after the close holds no config, so the
+        # panel keeps showing the one it falls back to.
+        config = _gui.controller.app_config
+        plain = self.mgr.addSubWindow(QWidget())
+        plain.show()
+        other = _gui.controller.apps["obsrefl"]
+        other.open()
+        _settle()
+        note = config.dock.titleBarWidget().note
+        self.assertNotEqual("Shock tube", note.full_text)
+        self.area.setActiveSubWindow(plain)
+        other.close()
+        _settle()
+        self.assertIs(self.app.column, config._stack.currentWidget())
+        self.assertEqual("Shock tube", note.full_text)
+
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

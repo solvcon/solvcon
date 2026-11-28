@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget, QStackedWidget
 
 from .. import base
+from . import _chrome
 
 __all__ = [
     'AppConfig',
@@ -60,6 +61,9 @@ class AppConfig(base.PilotFeature):
         self._entries.append((subwindow, widget))
         self._stack.addWidget(widget)
         self._stack.setCurrentWidget(widget)
+        self._note(subwindow)
+        subwindow.windowTitleChanged.connect(
+            lambda _title, held=subwindow: self._note(held))
         self.dock.show()
         self._sync_action()
 
@@ -71,6 +75,8 @@ class AppConfig(base.PilotFeature):
         for widget in widgets:
             self._stack.removeWidget(widget)
             widget.deleteLater()
+        for held, _ in self._entries:
+            self._note(held)
         if self.dock is not None and not self._entries:
             self._mgr.mainWindow.removeDockWidget(self.dock)
             self.dock.deleteLater()
@@ -84,6 +90,16 @@ class AppConfig(base.PilotFeature):
         for held, widget in self._entries:
             if held is subwindow:
                 self._stack.setCurrentWidget(widget)
+                self._note(subwindow)
+
+    def _note(self, subwindow):
+        # The panel names the window it follows, which is not always the
+        # one in front. An app window is titled "<app>: <run>".
+        shown = (self._stack.currentWidget() if self._stack is not None
+                 else None)
+        if any(s is subwindow and w is shown for s, w in self._entries):
+            app, _, _ = subwindow.windowTitle().partition(":")
+            _chrome.set_dock_note(self.dock, app)
 
     def _on_toggled(self, checked):
         if self.dock is not None:

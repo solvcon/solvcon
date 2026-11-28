@@ -876,7 +876,7 @@ class TreePanel(base.PilotFeature):
         self._stack = QStackedWidget()
         self._stack.addWidget(self._mesh_tree)
         self._stack.addWidget(self._entity_tree)
-        self._dock = QDockWidget("inspector")
+        self._dock = QDockWidget("Inspector")
         self._dock.setWidget(self._stack)
         self._mgr.mainWindow.addDockWidget(Qt.LeftDockWidgetArea,
                                            self._dock)
