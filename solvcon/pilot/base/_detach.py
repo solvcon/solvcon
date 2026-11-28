@@ -75,6 +75,8 @@ class SubWindowDetacher(QtCore.QObject):
 
     #: The window of its own became the active window.
     activated = QtCore.Signal()
+    #: The widget moved out (True) or back (False).
+    moved = QtCore.Signal(bool)
 
     def __init__(self, subwindow, mgr):
         super().__init__(subwindow)
@@ -136,6 +138,7 @@ class SubWindowDetacher(QtCore.QObject):
         self.window.raise_()
         self.window.activateWindow()
         widget.setFocus()
+        self.moved.emit(True)
 
     def attach(self):
         """Move the widget back into the sub-window, maximized if it was."""
@@ -148,6 +151,7 @@ class SubWindowDetacher(QtCore.QObject):
             self.subwindow.show()
         self._mgr.mdiArea.setActiveSubWindow(self.subwindow)
         self.subwindow.widget().setFocus()
+        self.moved.emit(False)
 
     @QtCore.Slot()
     def toggle(self):

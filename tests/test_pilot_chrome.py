@@ -74,6 +74,19 @@ class ChromeTC(unittest.TestCase):
             metrics['button_side'] + metrics['button_gap']), room)
         self.assertEqual((metrics['bar_height'] - height) // 2, y)
 
+    def test_the_strip_leaves_the_problem_to_the_bar(self):
+        self.assertFalse(self.sub.widget().strip.problem_shown())
+        self.assertIn("Shock tube", self.sub.windowTitle())
+
+    def test_a_window_of_its_own_shows_the_problem_in_its_strip(self):
+        strip = self.sub.widget().strip
+        self.app.detacher.detach()
+        _settle()
+        self.assertTrue(strip.problem_shown())
+        self.app.detacher.attach()
+        _settle()
+        self.assertFalse(strip.problem_shown())
+
     def test_detach_heads_the_system_menu(self):
         first = self.sub.systemMenu().actions()[0]
         self.assertEqual("Detach to Own Window", first.text())
