@@ -13,6 +13,7 @@ try:
     from PySide6.QtGui import QPalette
     from PySide6.QtWidgets import QApplication
     from solvcon import pilot
+    from solvcon.pilot import _style
     from solvcon.pilot.base import _gui
     from solvcon import apps  # noqa: F401
 except ImportError:
@@ -29,6 +30,12 @@ def _bar_color(widget):
     if image.isNull() or 0 == image.width():
         raise unittest.SkipTest("the window gave no frame")
     return image.pixelColor(image.width() // 2, 4)
+
+
+def _distance(one, other):
+    return max(abs(one.red() - other.red()),
+               abs(one.green() - other.green()),
+               abs(one.blue() - other.blue()))
 
 
 @unittest.skipIf(pilot is None or not pilot.enable, "pilot is disabled")
@@ -58,5 +65,21 @@ class ChromeLiveTC(unittest.TestCase):
             bar = _bar_color(self.sub)
             self.assertLess(abs(bar.lightness() - window.lightness()), 40,
                             theme)
+
+    def test_the_bar_is_mixed_as_the_python_side_reads_the_mixes(self):
+        # One source for both halves: the ground the C++ style paints is a
+        # mix Python computes from the same metrics. Whether the window
+        # counts as active depends on the window system, so either ground
+        # will do.
+        metrics = _style.chrome_metrics()
+        for theme in ('light', 'dark'):
+            self.mgr.set_theme(theme)
+            _settle()
+            shades = _style.Shades(self.sub)
+            bar = _bar_color(self.sub)
+            self.assertLessEqual(min(
+                _distance(shades.raised(metrics[key]), bar)
+                for key in ('ground_active_mix', 'ground_inactive_mix')),
+                2, theme)
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

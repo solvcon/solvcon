@@ -15,6 +15,8 @@ import functools
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from . import _pilot_core
+
 __all__ = [
     'AppInk',
     'AppRules',
@@ -29,6 +31,7 @@ __all__ = [
     'Shades',
     'SMALL_PX',
     'TINT_MIX',
+    'chrome_metrics',
     'legible',
     'number_font',
     'set_style_property',
@@ -580,6 +583,18 @@ class AppRules(RuleCatalog):
                 border-color: {wrong.name()};
             }}
             """
+
+
+@functools.cache
+def chrome_metrics():
+    """Return the geometry and the color mixes of the chrome, as a dict.
+
+    They are the C++ ``ChromeMetrics`` the bar of a sub-window is painted
+    from, read once, so chrome drawn in Python cannot drift from it. The
+    lengths are in device-independent pixels.
+    """
+    _pilot_core.require("the chrome")
+    return dict(_pilot_core.chrome_metrics())
 
 
 class PaletteStyle:

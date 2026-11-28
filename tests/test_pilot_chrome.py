@@ -2,14 +2,15 @@
 # BSD 3-Clause License, see COPYING
 
 
-"""The chrome of the sub-windows: one bar drawn from the palette and its
-height on every platform."""
+"""The chrome of the sub-windows: one bar drawn from the palette, its
+metrics, and its height on every platform."""
 
 import unittest
 
 try:
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QWidget
     from solvcon import pilot
+    from solvcon.pilot import _pilot_core, _style
     from solvcon.pilot.base import _gui
     from solvcon import apps  # noqa: F401
 except ImportError:
@@ -39,12 +40,28 @@ class ChromeTC(unittest.TestCase):
         self.area.closeAllSubWindows()
         _settle()
 
+    def test_python_reads_the_metrics_the_style_paints_from(self):
+        metrics = _style.chrome_metrics()
+        self.assertEqual(24, metrics['bar_height'])
+        self.assertEqual(_style.TEXT_CONTRAST, metrics['text_contrast'])
+        self.assertEqual(_style.GRAPHIC_CONTRAST,
+                         metrics['graphic_contrast'])
+        self.assertTrue(_pilot_core.chrome_enabled())
+
     def test_the_bar_takes_its_height_on_every_platform(self):
+        height = _style.chrome_metrics()['bar_height']
         self.sub.showNormal()
         _settle()
-        self.assertEqual(24, self.sub.widget().geometry().top())
+        self.assertEqual(height, self.sub.widget().geometry().top())
         self.sub.showMaximized()
         _settle()
-        self.assertEqual(24, self.sub.widget().geometry().top())
+        self.assertEqual(height, self.sub.widget().geometry().top())
+
+    def test_the_square_bar_takes_no_frame_mask(self):
+        # A frame mask rounds the corners on Fusion, and a sub-window resized
+        # while hidden keeps the mask of its old size.
+        sub = self.mgr.addSubWindow(QWidget())
+        sub.resize(320, 240)
+        self.assertTrue(sub.mask().isEmpty())
 
 # vim: set ff=unix fenc=utf8 et sw=4 ts=4 sts=4:

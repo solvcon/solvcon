@@ -106,6 +106,7 @@ set(SOLVCON_PILOT_PYMODSOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RAction.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/RThreadManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/app/wrap_RThreadManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/wrap_RChromeStyle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/wrap_pilot.cpp
     CACHE FILEPATH "" FORCE
 )

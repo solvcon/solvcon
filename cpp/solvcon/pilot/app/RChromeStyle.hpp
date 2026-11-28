@@ -16,8 +16,9 @@ namespace solvcon
 {
 
 /**
- * The geometry and the color mixes of the chrome, in one place:
- * RChromeStyle paints the bar of a sub-window from them.
+ * The geometry and the color mixes of the chrome, in one place for both
+ * languages: RChromeStyle paints the bar of a sub-window from them, and
+ * Python reads them through the binding chrome_metrics().
  *
  * Lengths are in device-independent pixels. A ground or rule mix is the step
  * from the palette's Window color toward its WindowText; a hover or press mix
