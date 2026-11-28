@@ -21,11 +21,11 @@ class ResultsCard(panel.ResultsCard):
     drift and the CFL range.
     """
 
-    SECTIONS = (('zones', "ZONES"), ('fits', "SHOCK FIT"))
+    SECTIONS = (('zones', "Zones"), ('fits', "Shock fit"))
 
     def head_text(self, section, title, results):
         if 'zones' == section:
-            return f"{title}  {results.field.upper()}"
+            return f"{title}  {results.field}"
         return title
 
     def empty_text(self, section, results):

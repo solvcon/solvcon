@@ -49,12 +49,14 @@ class Section(QtWidgets.QWidget):
         self.body.addWidget(self._build_title(title, arrow))
 
     def _build_title(self, title, arrow):
-        label = QtWidgets.QLabel(
-            f"{arrow}  {title.upper()}" if arrow else title.upper(), self)
+        label = QtWidgets.QLabel(f"{arrow}  {title}" if arrow else title, self)
         label.setObjectName("section")
+        label.setAccessibleName(title)
         font = label.font()
         font.setPixelSize(_FONT_PX)
         font.setLetterSpacing(QtGui.QFont.PercentageSpacing, _LETTER_SPACING)
+        # Uppercase by the font, so the label reads its title as written.
+        font.setCapitalization(QtGui.QFont.AllUppercase)
         label.setFont(font)
         return label
 

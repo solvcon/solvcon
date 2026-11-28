@@ -57,7 +57,10 @@ class FoldGroup(QWidget):
         self._head.setCursor(Qt.PointingHandCursor)
         font = QFont(self.font())
         font.setWeight(QFont.DemiBold)
+        # Uppercase by the font, so the head reads its title as written.
+        font.setCapitalization(QFont.AllUppercase)
         self._head.setFont(font)
+        self._head.setAccessibleName(title)
         self._head.clicked.connect(self._on_head)
         self._summary = QLabel("")
         self._summary.setObjectName("foldSummary")
@@ -78,7 +81,7 @@ class FoldGroup(QWidget):
 
     def _sync(self):
         arrow = ARROW_OPEN if self.is_open else ARROW_FOLDED
-        self._head.setText(f"{arrow}  {self.title.upper()}")
+        self._head.setText(f"{arrow}  {self.title}")
         self.body.setVisible(self.is_open)
 
     def set_open(self, open_):
